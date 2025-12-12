@@ -37,9 +37,9 @@ with st.sidebar:
         "뉴스 카테고리",
         options=list(CATEGORY_IDS.keys()),
         format_func=lambda x: {
-            "politics": "🏛️ 정치",
-            "economy": "💰 경제",
-            "it_science": "🔬 IT/과학"
+            "politics": "정치 (Politics)",
+            "economy": "경제 (Economy)",
+            "it_science": "IT/과학 (IT & Science)"
         }.get(x, x)
     )
     
@@ -122,7 +122,15 @@ with col1:
     if 'scraped_data' in st.session_state and st.session_state.scraped_data:
         data = st.session_state.scraped_data
         
-        st.subheader(f"📁 {data.category} - {len(data.topics)}개 주제")
+        # 카테고리 한국어 변환
+        category_names = {
+            "politics": "정치 (Politics)",
+            "economy": "경제 (Economy)",
+            "it_science": "IT/과학 (IT & Science)"
+        }
+        category_display = category_names.get(data.category, data.category)
+        
+        st.subheader(f"📁 {category_display} - {len(data.topics)}개 주제")
         
         for i, topic in enumerate(data.topics, 1):
             with st.expander(f"🔹 {i}. {topic.topic_title} ({topic.related_articles_count}개 관련기사)", 
@@ -207,7 +215,14 @@ if SCRAPED_NEWS_DIR.exists():
             col_file1, col_file2, col_file3, col_file4 = st.columns(4)
             
             with col_file1:
-                st.metric("카테고리", file_data.get('category', 'N/A'))
+                # 카테고리 한국어 변환
+                cat_names = {
+                    "politics": "정치 (Politics)",
+                    "economy": "경제 (Economy)",
+                    "it_science": "IT/과학 (IT & Science)"
+                }
+                cat_value = file_data.get('category', 'N/A')
+                st.metric("카테고리", cat_names.get(cat_value, cat_value))
             
             with col_file2:
                 st.metric("주제 수", len(file_data.get('topics', [])))

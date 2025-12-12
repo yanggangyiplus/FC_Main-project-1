@@ -37,8 +37,8 @@ SELECTORS = {
     # 헤드라인 리스트 아이템 (안정적인 선택자)
     "HEADLINE_ITEMS": '//*[@id="newsct"]//li[contains(@class,"sa_item")]',
     
-    # 기사묶음 수 (관련기사 수)
-    "RELATED_COUNT": './/div[contains(@class,"sa_text_cluster")]//span[1]',
+    # 기사묶음 수 (관련기사 수) - sa_text_cluster_num 클래스 사용
+    "RELATED_COUNT": './/span[contains(@class,"sa_text_cluster_num")]',
     
     # 주제 제목
     "TOPIC_TITLE": './/a[contains(@class,"sa_text_title")]/strong',

@@ -285,9 +285,9 @@ with tab_workflow:
             "카테고리",
             options=list(NEWS_CATEGORIES.keys()),
             format_func=lambda x: {
-                "politics": "정치",
-                "economy": "경제",
-                "it_science": "IT/과학"
+                "politics": "정치 (Politics)",
+                "economy": "경제 (Economy)",
+                "it_science": "IT/과학 (IT & Science)"
             }.get(x, x)
         )
  
