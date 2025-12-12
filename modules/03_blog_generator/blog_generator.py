@@ -3,7 +3,7 @@
 """
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from typing import Optional, Dict, Any
 from datetime import datetime
 from pathlib import Path

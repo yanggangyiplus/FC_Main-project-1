@@ -9,7 +9,10 @@ from datetime import datetime
  
 sys.path.append(str(Path(__file__).parent.parent))
  
-from modules.08_notifier.notifier import SlackNotifier
+import importlib
+# 숫자로 시작하는 모듈 이름은 동적 import 사용
+notifier_module = importlib.import_module("modules.08_notifier.notifier")
+SlackNotifier = notifier_module.SlackNotifier
 from config.settings import SLACK_CHANNEL_ID
  
 st.set_page_config(

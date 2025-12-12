@@ -9,8 +9,12 @@ import re
  
 sys.path.append(str(Path(__file__).parent.parent))
  
-from modules.03_blog_generator.blog_generator import BlogGenerator
-from modules.02_rag_builder.rag_builder import RAGBuilder
+import importlib
+# 숫자로 시작하는 모듈 이름은 동적 import 사용
+blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_generator")
+rag_module = importlib.import_module("modules.02_rag_builder.rag_builder")
+BlogGenerator = blog_gen_module.BlogGenerator
+RAGBuilder = rag_module.RAGBuilder
 from config.settings import GENERATED_BLOGS_DIR
  
 st.set_page_config(

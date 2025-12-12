@@ -12,14 +12,16 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from modules.01_news_scraper import NaverNewsScraper
-from modules.02_rag_builder import RAGBuilder
-from modules.03_blog_generator import BlogGenerator
-from modules.04_critic_qa import BlogCritic
-from modules.05_image_generator import ImageGenerator
-from modules.06_humanizer import Humanizer
-from modules.07_blog_publisher import NaverBlogPublisher
-from modules.08_notifier import SlackNotifier
+import importlib
+# 숫자로 시작하는 모듈 이름은 동적 import 사용
+NaverNewsScraper = importlib.import_module("modules.01_news_scraper").NaverNewsScraper
+RAGBuilder = importlib.import_module("modules.02_rag_builder").RAGBuilder
+BlogGenerator = importlib.import_module("modules.03_blog_generator").BlogGenerator
+BlogCritic = importlib.import_module("modules.04_critic_qa").BlogCritic
+ImageGenerator = importlib.import_module("modules.05_image_generator").ImageGenerator
+Humanizer = importlib.import_module("modules.06_humanizer").Humanizer
+NaverBlogPublisher = importlib.import_module("modules.07_blog_publisher").NaverBlogPublisher
+SlackNotifier = importlib.import_module("modules.08_notifier").SlackNotifier
 from config.settings import MAX_REGENERATION_ATTEMPTS, QUALITY_THRESHOLD
 from config.logger import get_logger
 

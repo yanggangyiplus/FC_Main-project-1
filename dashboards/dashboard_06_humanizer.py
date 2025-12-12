@@ -8,7 +8,10 @@ from pathlib import Path
  
 sys.path.append(str(Path(__file__).parent.parent))
  
-from modules.06_humanizer.humanizer import Humanizer
+import importlib
+# 숫자로 시작하는 모듈 이름은 동적 import 사용
+humanizer_module = importlib.import_module("modules.06_humanizer.humanizer")
+Humanizer = humanizer_module.Humanizer
 from config.settings import GENERATED_BLOGS_DIR
  
 st.set_page_config(

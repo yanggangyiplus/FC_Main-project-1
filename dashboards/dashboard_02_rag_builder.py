@@ -9,7 +9,10 @@ import json
  
 sys.path.append(str(Path(__file__).parent.parent))
  
-from modules.02_rag_builder.rag_builder import RAGBuilder
+import importlib
+# 숫자로 시작하는 모듈 이름은 동적 import 사용
+rag_module = importlib.import_module("modules.02_rag_builder.rag_builder")
+RAGBuilder = rag_module.RAGBuilder
 from config.settings import SCRAPED_NEWS_DIR, CHROMA_COLLECTION_NAME
  
 st.set_page_config(

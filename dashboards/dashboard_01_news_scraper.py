@@ -11,7 +11,11 @@ from datetime import datetime
 # 프로젝트 루트 경로 추가
 sys.path.append(str(Path(__file__).parent.parent))
  
-from modules.01_news_scraper.scraper import NaverNewsScraper, NewsArticle
+import importlib
+# 숫자로 시작하는 모듈 이름은 동적 import 사용
+scraper_module = importlib.import_module("modules.01_news_scraper.scraper")
+NaverNewsScraper = scraper_module.NaverNewsScraper
+NewsArticle = scraper_module.NewsArticle
 from config.settings import NEWS_CATEGORIES, SCRAPED_NEWS_DIR
 
 st.set_page_config(

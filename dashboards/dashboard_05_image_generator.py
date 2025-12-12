@@ -9,7 +9,10 @@ from PIL import Image
  
 sys.path.append(str(Path(__file__).parent.parent))
  
-from modules.05_image_generator.image_generator import ImageGenerator
+import importlib
+# 숫자로 시작하는 모듈 이름은 동적 import 사용
+image_gen_module = importlib.import_module("modules.05_image_generator.image_generator")
+ImageGenerator = image_gen_module.ImageGenerator
 from config.settings import IMAGES_DIR, IMAGE_MODEL, IMAGE_SIZE
  
 st.set_page_config(

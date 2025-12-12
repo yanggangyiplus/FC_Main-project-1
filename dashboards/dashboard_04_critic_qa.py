@@ -8,8 +8,12 @@ from pathlib import Path
  
 sys.path.append(str(Path(__file__).parent.parent))
  
-from modules.04_critic_qa.critic import BlogCritic
-from modules.02_rag_builder.rag_builder import RAGBuilder
+import importlib
+# 숫자로 시작하는 모듈 이름은 동적 import 사용
+critic_module = importlib.import_module("modules.04_critic_qa.critic")
+rag_module = importlib.import_module("modules.02_rag_builder.rag_builder")
+BlogCritic = critic_module.BlogCritic
+RAGBuilder = rag_module.RAGBuilder
 from config.settings import GENERATED_BLOGS_DIR, QUALITY_THRESHOLD
  
 st.set_page_config(
@@ -72,7 +76,7 @@ with tab1:
     # 평가 방법 선택
     eval_method = st.radio(
         "평가 방법",
-        ["저장된 파일 선택", "직접 HTML 입력"]
+        ["저장된 파일 선택", "직접 HTML 입력"],
         horizontal=True
     )
  

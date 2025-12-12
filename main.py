@@ -8,7 +8,9 @@ from datetime import datetime
 from typing import List, Dict
 
 from workflows.blog_workflow import run_workflow
-from modules.08_notifier import SlackNotifier
+import importlib
+# 숫자로 시작하는 모듈 이름은 동적 import 사용
+SlackNotifier = importlib.import_module("modules.08_notifier").SlackNotifier
 from config.settings import NEWS_CATEGORIES
 from config.logger import get_logger
 
@@ -136,7 +138,7 @@ def main():
     # 로고
     print("""
     ╔═══════════════════════════════════════════════════╗
-    ║   🤖 Awesome Raman - 자동 블로그 생성 시스템   ║
+    ║     🤖 Auto blog - 자동 블로그 생성 시스템     ║
     ║           Powered by LangChain & LangGraph         ║
     ╚═══════════════════════════════════════════════════╝
     """)
