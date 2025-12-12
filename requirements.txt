@@ -1,0 +1,48 @@
+# 웹 스크래핑
+selenium==4.16.0
+beautifulsoup4==4.12.3
+webdriver-manager==4.0.1
+lxml==5.1.0
+
+# 벡터 DB 및 임베딩
+chromadb==0.4.22
+sentence-transformers==2.3.1
+
+# LLM 및 LangChain
+langchain==0.1.9
+langchain-openai==0.0.5
+langchain-anthropic==0.1.4
+langgraph==0.0.20
+openai==1.12.0
+anthropic==0.18.1
+
+# 이미지 생성 및 저장
+Pillow==10.2.0
+
+# Cloudinary (이미지 저장소 - 추천)
+cloudinary==1.38.0
+
+# Hugging Face (무료 이미지 생성 - 추천)
+# huggingface-hub==0.20.3  # 필요시 설치
+
+# 구글 드라이브 API (선택)
+google-auth==2.27.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+google-api-python-client==2.116.0
+
+# Slack API
+slack-sdk==3.26.2
+
+# 유틸리티
+python-dotenv==1.0.1
+requests==2.31.0
+pandas==2.2.0
+pydantic==2.6.1
+
+# 로깅 및 모니터링
+loguru==0.7.2
+
+# 테스팅
+pytest==8.0.0
+pytest-asyncio==0.23.4

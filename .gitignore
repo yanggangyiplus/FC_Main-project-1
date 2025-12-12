@@ -144,6 +144,18 @@ ENV/
 env.bak/
 venv.bak/
 
+# 프로젝트 특화 데이터
+data/chroma_db/
+data/scraped_news/*.json
+data/generated_blogs/*.html
+data/images/*
+
+# Google Credentials
+config/google_credentials.json
+
+# 로그
+logs/*.log
+
 # Spyder project settings
 .spyderproject
 .spyproject
