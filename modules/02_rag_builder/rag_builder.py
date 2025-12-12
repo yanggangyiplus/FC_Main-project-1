@@ -1,5 +1,6 @@
 """
 RAG Builder - 뉴스 기사 벡터화 및 ChromaDB 저장
+01_news_scraper의 새로운 데이터 구조 지원
 """
 import chromadb
 from chromadb.config import Settings
@@ -55,14 +56,24 @@ class RAGBuilder:
         )
         logger.info(f"컬렉션 '{self.collection_name}' 준비 완료")
 
-    def add_articles(self, articles: List[Dict[str, Any]], category: str) -> int:
+    def add_articles(
+        self, 
+        articles: List[Dict[str, Any]], 
+        category: str,
+        topic_title: str = "",
+        topic_summary: str = "",
+        related_articles_count: int = 0
+    ) -> int:
         """
         기사 리스트를 벡터화하여 ChromaDB에 저장
-
+        
         Args:
             articles: 기사 딕셔너리 리스트
             category: 카테고리 이름
-
+            topic_title: 주제 제목 (새 구조)
+            topic_summary: 주제 요약 (새 구조)
+            related_articles_count: 관련 기사 수 (새 구조)
+        
         Returns:
             저장된 기사 수
         """
@@ -78,19 +89,22 @@ class RAGBuilder:
 
         for i, article in enumerate(articles):
             # 문서 텍스트 생성 (제목 + 본문)
-            doc_text = f"{article['title']}\n\n{article['content']}"
+            title = article.get('title', '')
+            content = article.get('content', '')
+            doc_text = f"{title}\n\n{content}"
             documents.append(doc_text)
 
-            # 메타데이터
+            # 메타데이터 (새 구조에 맞게 수정)
             metadata = {
-                "title": article['title'],
-                "url": article['url'],
-                "published_at": article['published_at'],
-                "comment_count": article['comment_count'],
-                "reaction_count": article['reaction_count'],
-                "category": article['category'],
-                "related_articles_count": article['related_articles_count'],
-                "score": article['score'],
+                "title": title,
+                "url": article.get('url', ''),
+                "published_at": article.get('published_at', ''),
+                "comment_count": article.get('comment_count', 0),
+                "reaction_count": article.get('reaction_count', 0),
+                "category": category,
+                "topic_title": topic_title,
+                "topic_summary": topic_summary[:200] if topic_summary else "",  # 요약은 200자 제한
+                "related_articles_count": related_articles_count,
                 "added_at": datetime.now().isoformat()
             }
             metadatas.append(metadata)
@@ -119,10 +133,11 @@ class RAGBuilder:
     def add_articles_from_json(self, json_path: Path) -> int:
         """
         JSON 파일에서 기사를 읽어 벡터화 및 저장
-
+        새로운 데이터 구조 지원 (topics 배열 안에 articles)
+        
         Args:
             json_path: JSON 파일 경로
-
+        
         Returns:
             저장된 기사 수
         """
@@ -131,19 +146,50 @@ class RAGBuilder:
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        articles = data.get('articles', [])
         category = data.get('category', 'unknown')
+        total_count = 0
 
-        return self.add_articles(articles, category)
+        # 새로운 구조: topics 배열 안에 articles
+        if 'topics' in data:
+            logger.info(f"새 데이터 구조 감지: {len(data['topics'])}개 주제")
+            
+            for topic in data['topics']:
+                topic_title = topic.get('topic_title', '')
+                topic_summary = topic.get('topic_summary', '')
+                related_count = topic.get('related_articles_count', 0)
+                articles = topic.get('articles', [])
+                
+                if articles:
+                    count = self.add_articles(
+                        articles=articles,
+                        category=category,
+                        topic_title=topic_title,
+                        topic_summary=topic_summary,
+                        related_articles_count=related_count
+                    )
+                    total_count += count
+                    logger.info(f"주제 '{topic_title[:30]}...': {count}개 기사 추가")
+        
+        # 기존 구조: articles 배열이 최상위에 있는 경우 (하위 호환성)
+        elif 'articles' in data:
+            logger.info("기존 데이터 구조 감지")
+            articles = data.get('articles', [])
+            total_count = self.add_articles(articles, category)
+        
+        else:
+            logger.warning("알 수 없는 데이터 구조")
+
+        logger.info(f"총 {total_count}개 기사 저장 완료")
+        return total_count
 
     def search_similar_articles(self, query: str, n_results: int = 10) -> Dict[str, Any]:
         """
         쿼리와 유사한 기사 검색
-
+        
         Args:
             query: 검색 쿼리
             n_results: 반환할 결과 수
-
+        
         Returns:
             검색 결과 딕셔너리
         """
@@ -164,11 +210,11 @@ class RAGBuilder:
     def get_context_for_topic(self, topic: str, n_results: int = 10) -> str:
         """
         특정 주제에 대한 컨텍스트 생성 (블로그 생성용)
-
+        
         Args:
             topic: 주제
             n_results: 참조할 기사 수
-
+        
         Returns:
             컨텍스트 문자열
         """
@@ -183,6 +229,7 @@ class RAGBuilder:
         for i, (doc, metadata) in enumerate(zip(results['documents'][0], results['metadatas'][0]), 1):
             context_parts.append(f"[기사 {i}]")
             context_parts.append(f"제목: {metadata['title']}")
+            context_parts.append(f"주제: {metadata.get('topic_title', 'N/A')}")
             context_parts.append(f"출처: {metadata['url']}")
             context_parts.append(f"발행: {metadata['published_at']}")
             context_parts.append(f"내용: {doc[:500]}...")  # 처음 500자만
@@ -196,7 +243,7 @@ class RAGBuilder:
     def get_collection_stats(self) -> Dict[str, Any]:
         """
         컬렉션 통계 정보 조회
-
+        
         Returns:
             통계 정보 딕셔너리
         """
@@ -221,38 +268,50 @@ class RAGBuilder:
 
 
 if __name__ == "__main__":
-    # 테스트 코드
+    # 테스트 코드 - 새로운 데이터 구조
     rag_builder = RAGBuilder()
 
-    # 샘플 기사 데이터
-    sample_articles = [
-        {
-            "title": "AI 기술 발전의 새로운 전환점",
-            "url": "https://example.com/1",
-            "content": "인공지능 기술이 급속도로 발전하면서 산업 전반에 큰 변화를 가져오고 있다. 특히 생성형 AI는...",
-            "published_at": "2024-01-15T10:00:00",
-            "comment_count": 150,
-            "reaction_count": 300,
-            "category": "it_science",
-            "related_articles_count": 25,
-            "score": 180.5
-        },
-        {
-            "title": "반도체 산업 전망과 과제",
-            "url": "https://example.com/2",
-            "content": "글로벌 반도체 산업이 새로운 국면을 맞이하고 있다. 공급망 재편과 기술 경쟁이 가속화되면서...",
-            "published_at": "2024-01-15T11:00:00",
-            "comment_count": 200,
-            "reaction_count": 400,
-            "category": "it_science",
-            "related_articles_count": 30,
-            "score": 230.0
-        }
-    ]
+    # 새로운 구조의 샘플 데이터
+    sample_data = {
+        "category": "it_science",
+        "scraped_at": "2025-12-12T18:30:00",
+        "topics": [
+            {
+                "topic_title": "AI 기술 발전의 새로운 전환점",
+                "topic_summary": "인공지능 기술이 급속도로 발전하면서 산업 전반에 큰 변화를 가져오고 있다.",
+                "related_articles_count": 39,
+                "articles": [
+                    {
+                        "title": "구글 추격 신경쓰였나…오픈AI, 한달만에 'GPT-5.2' 공개",
+                        "url": "https://example.com/1",
+                        "published_at": "2025-12-12T06:28:12",
+                        "content": "오픈AI가 새로운 GPT 모델을 공개했다. 이번 모델은...",
+                        "reaction_count": 150,
+                        "comment_count": 300
+                    },
+                    {
+                        "title": "AI 반도체 시장 급성장, 엔비디아 독주 계속",
+                        "url": "https://example.com/2",
+                        "published_at": "2025-12-12T07:00:00",
+                        "content": "AI 반도체 시장이 급성장하고 있다...",
+                        "reaction_count": 200,
+                        "comment_count": 150
+                    }
+                ]
+            }
+        ]
+    }
 
-    # 기사 추가
-    count = rag_builder.add_articles(sample_articles, "it_science")
-    print(f"\n추가된 기사 수: {count}")
+    # 직접 기사 추가 테스트
+    for topic in sample_data['topics']:
+        count = rag_builder.add_articles(
+            articles=topic['articles'],
+            category=sample_data['category'],
+            topic_title=topic['topic_title'],
+            topic_summary=topic['topic_summary'],
+            related_articles_count=topic['related_articles_count']
+        )
+        print(f"추가된 기사 수: {count}")
 
     # 통계 조회
     stats = rag_builder.get_collection_stats()
@@ -263,9 +322,9 @@ if __name__ == "__main__":
     results = rag_builder.search_similar_articles("인공지능 기술 발전", n_results=2)
     for i, (doc, metadata) in enumerate(zip(results['documents'][0], results['metadatas'][0]), 1):
         print(f"\n{i}. {metadata['title']}")
-        print(f"   점수: {metadata['score']}")
+        print(f"   주제: {metadata.get('topic_title', 'N/A')}")
 
     # 컨텍스트 생성
     print("\n컨텍스트 생성 테스트:")
     context = rag_builder.get_context_for_topic("AI와 반도체", n_results=2)
-    print(context[:300] + "...")
+    print(context[:500] + "...")

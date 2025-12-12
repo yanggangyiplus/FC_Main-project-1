@@ -152,10 +152,24 @@ with col1:
                         st.caption(f"📅 {article.published_at[:19]}")
                         st.markdown(f"[기사 링크]({article.url})")
                         
-                        # 본문 미리보기
+                        # 본문 미리보기 + 더보기 기능
                         if article.content:
-                            preview = article.content[:200] + "..." if len(article.content) > 200 else article.content
+                            content_len = len(article.content)
+                            st.caption(f"본문 길이: {content_len}자")
+                            
+                            preview = article.content[:200] + "..." if content_len > 200 else article.content
                             st.text(preview)
+                            
+                            # 200자 이상일 때 "더보기" 버튼
+                            if content_len > 200:
+                                show_key = f"show_{i}_{j}_{article.url[:20] if article.url else ''}"
+                                if st.checkbox("📖 전체 본문 보기", key=show_key):
+                                    st.text_area(
+                                        "전체 본문",
+                                        article.content,
+                                        height=300,
+                                        key=f"full_{i}_{j}"
+                                    )
                     
                     with col_b:
                         st.metric("👍 반응", article.reaction_count)
