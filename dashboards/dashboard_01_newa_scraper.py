@@ -158,5 +158,5 @@ else:
  
 # 푸터
 st.markdown("---")
-st.caption("뉴스 스크래퍼 대시보드 v1.0 | Awesome Raman")
+st.caption("뉴스 스크래퍼 대시보드 v1.0 | Auto blog")
  

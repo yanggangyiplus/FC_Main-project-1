@@ -187,4 +187,4 @@ with tab3:
  
 # 푸터
 st.markdown("---")
-st.caption("블로그 생성기 대시보드 v1.0 | Awesome Raman")
+st.caption("블로그 생성기 대시보드 v1.0 | Auto blog")

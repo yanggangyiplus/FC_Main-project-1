@@ -205,4 +205,4 @@ with tab2:
  
 # 푸터
 st.markdown("---")
-st.caption("이미지 생성기 대시보드 v1.0 | Awesome Raman")
+st.caption("이미지 생성기 대시보드 v1.0 | Auto blog")

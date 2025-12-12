@@ -288,4 +288,4 @@ with tab3:
  
 # 푸터
 st.markdown("---")
-st.caption("알림 시스템 대시보드 v1.0 | Awesome Raman")
+st.caption("알림 시스템 대시보드 v1.0 | Auto blog")

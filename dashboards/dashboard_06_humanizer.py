@@ -200,4 +200,4 @@ with tab2:
  
 # 푸터
 st.markdown("---")
-st.caption("Humanizer 대시보드 v1.0 | Awesome Raman")
+st.caption("Humanizer 대시보드 v1.0 | Auto blog")

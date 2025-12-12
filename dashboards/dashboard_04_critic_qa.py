@@ -238,4 +238,4 @@ with tab2:
  
 # 푸터
 st.markdown("---")
-st.caption("Critic & QA 대시보드 v1.0 | Awesome Raman")
+st.caption("Critic & QA 대시보드 v1.0 | Auto blog")

@@ -14,7 +14,7 @@ from config.settings import (
 )
  
 st.set_page_config(
-    page_title="Awesome Raman - 메인 대시보드",
+    page_title="Auto blog - 메인 대시보드",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -50,7 +50,7 @@ st.markdown("""
 # 헤더
 st.markdown("""
 <div class="main-header">
-    <h1>🤖 Awesome Raman</h1>
+    <h1>🤖 Auto blog</h1>
     <p>자동 블로그 생성 시스템 - 통합 대시보드</p>
     <p style="font-size: 0.9em; opacity: 0.9;">Powered by LangChain & LangGraph</p>
 </div>
@@ -398,7 +398,7 @@ dashboards/
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; padding: 2rem; color: #666;">
-    <p>🤖 <strong>Awesome Raman</strong> - 자동 블로그 생성 시스템</p>
+    <p>🤖 <strong>Auto blog</strong> - 자동 블로그 생성 시스템</p>
     <p>Powered by LangChain, LangGraph, OpenAI, Anthropic, Streamlit</p>
     <p style="font-size: 0.9em;">© 2024 All Rights Reserved</p>
 </div>
