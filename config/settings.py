@@ -44,10 +44,11 @@ HEADLESS_MODE = os.getenv("HEADLESS_MODE", "true").lower() == "true"
 SCRAPING_DELAY = int(os.getenv("SCRAPING_DELAY", "2"))
 
 # 뉴스 카테고리 (네이버 뉴스 섹션 ID)
+# URL 형식: https://news.naver.com/section/{id}
 NEWS_CATEGORIES = {
-    "politics": "100",  # 정치
-    "economy": "101",   # 경제
-    "it_science": "105" # IT/과학
+    "politics": "100",    # 정치 - https://news.naver.com/section/100
+    "economy": "101",     # 경제 - https://news.naver.com/section/101
+    "it_science": "105"   # IT/과학 - https://news.naver.com/section/105
 }
 
 # 기사 수집 설정
