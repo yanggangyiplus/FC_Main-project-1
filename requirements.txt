@@ -43,6 +43,9 @@ pydantic==2.6.1
 # 로깅 및 모니터링
 loguru==0.7.2
 
+# 대시보드
+streamlit==1.31.0
+
 # 테스팅
 pytest==8.0.0
 pytest-asyncio==0.23.4
