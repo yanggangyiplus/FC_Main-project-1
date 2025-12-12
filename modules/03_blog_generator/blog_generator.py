@@ -4,20 +4,196 @@
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
-from typing import Optional, Dict, Any
-from datetime import datetime
+from typing import Optional, Dict, Any, List
+from datetime import datetime, timedelta
 from pathlib import Path
 import re
+import json
 
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config.settings import (
     OPENAI_API_KEY, ANTHROPIC_API_KEY, DEFAULT_LLM_MODEL,
-    TEMPERATURE, GENERATED_BLOGS_DIR, IMAGES_PER_BLOG
+    TEMPERATURE, GENERATED_BLOGS_DIR, IMAGES_PER_BLOG,
+    TOPIC_HISTORY_FILE, TOPIC_DUPLICATE_DAYS,
+    LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, LM_STUDIO_MODEL_NAME
 )
 from config.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+class TopicManager:
+    """
+    블로그 주제 관리 클래스
+    - 작성된 주제 기록 (topic_history.json)
+    - 중복 주제 체크 (최근 N일 이내)
+    - 자동 주제 선정 (중복 시 다음 순위로 폴백)
+    """
+    
+    def __init__(self, history_file: Path = TOPIC_HISTORY_FILE, duplicate_days: int = TOPIC_DUPLICATE_DAYS):
+        """
+        Args:
+            history_file: 주제 기록 파일 경로
+            duplicate_days: 중복 체크 기간 (일)
+        """
+        self.history_file = history_file
+        self.duplicate_days = duplicate_days
+        self.history = self._load_history()
+        
+        logger.info(f"TopicManager 초기화 (중복 체크 기간: {duplicate_days}일)")
+    
+    def _load_history(self) -> List[Dict[str, Any]]:
+        """주제 기록 파일 로드"""
+        if self.history_file.exists():
+            try:
+                with open(self.history_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"주제 기록 로드 실패: {e}")
+                return []
+        return []
+    
+    def _save_history(self):
+        """주제 기록 파일 저장"""
+        self.history_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.history_file, 'w', encoding='utf-8') as f:
+            json.dump(self.history, f, ensure_ascii=False, indent=2)
+        logger.info(f"주제 기록 저장 완료: {len(self.history)}개 항목")
+    
+    def is_duplicate(self, topic_title: str) -> bool:
+        """
+        주제가 최근 N일 이내에 작성되었는지 확인
+        
+        Args:
+            topic_title: 확인할 주제 제목
+            
+        Returns:
+            중복 여부 (True: 중복, False: 사용 가능)
+        """
+        cutoff_date = datetime.now() - timedelta(days=self.duplicate_days)
+        
+        for entry in self.history:
+            # 날짜 확인
+            entry_date = datetime.fromisoformat(entry['created_at'])
+            if entry_date < cutoff_date:
+                continue  # 기간 초과, 스킵
+            
+            # 주제 유사도 확인 (정확히 일치하거나 핵심 키워드가 겹치는 경우)
+            if self._is_similar_topic(topic_title, entry['topic_title']):
+                logger.warning(f"중복 주제 발견: '{topic_title}' ≈ '{entry['topic_title']}' (작성일: {entry['created_at']})")
+                return True
+        
+        return False
+    
+    def _is_similar_topic(self, topic1: str, topic2: str) -> bool:
+        """
+        두 주제가 유사한지 확인
+        - 정확히 일치하거나
+        - 핵심 키워드(명사)가 80% 이상 겹치면 유사로 판단
+        """
+        # 정확히 일치
+        if topic1.strip() == topic2.strip():
+            return True
+        
+        # 키워드 추출 (간단한 방식: 2글자 이상 단어)
+        keywords1 = set(w for w in re.findall(r'[가-힣a-zA-Z0-9]+', topic1) if len(w) >= 2)
+        keywords2 = set(w for w in re.findall(r'[가-힣a-zA-Z0-9]+', topic2) if len(w) >= 2)
+        
+        if not keywords1 or not keywords2:
+            return False
+        
+        # 교집합 비율 계산
+        intersection = keywords1 & keywords2
+        min_len = min(len(keywords1), len(keywords2))
+        similarity = len(intersection) / min_len if min_len > 0 else 0
+        
+        return similarity >= 0.8  # 80% 이상 겹치면 유사
+    
+    def add_topic(self, topic_title: str, category: str = "", blog_file: str = ""):
+        """
+        작성한 주제를 기록에 추가
+        
+        Args:
+            topic_title: 주제 제목
+            category: 카테고리
+            blog_file: 저장된 블로그 파일 경로
+        """
+        entry = {
+            "topic_title": topic_title,
+            "category": category,
+            "blog_file": blog_file,
+            "created_at": datetime.now().isoformat()
+        }
+        self.history.append(entry)
+        self._save_history()
+        logger.info(f"주제 기록 추가: '{topic_title}'")
+    
+    def select_best_topic(self, topics: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        중복되지 않은 최상위 주제 선택
+        - 1위가 중복이면 2위, 2위도 중복이면 3위...
+        
+        Args:
+            topics: 주제 리스트 (순위순으로 정렬되어 있어야 함)
+                   [{"topic_title": "제목", "related_articles_count": 50, ...}, ...]
+        
+        Returns:
+            선택된 주제 딕셔너리 또는 None (모두 중복인 경우)
+        """
+        for i, topic in enumerate(topics, 1):
+            topic_title = topic.get('topic_title', '')
+            
+            if not self.is_duplicate(topic_title):
+                logger.info(f"✅ {i}위 주제 선택: '{topic_title}'")
+                return topic
+            else:
+                logger.info(f"❌ {i}위 주제 스킵 (중복): '{topic_title}'")
+        
+        logger.warning("모든 주제가 중복입니다!")
+        return None
+    
+    def get_recent_topics(self, days: int = None) -> List[Dict[str, Any]]:
+        """
+        최근 N일 이내 작성된 주제 목록 반환
+        
+        Args:
+            days: 조회 기간 (기본값: duplicate_days)
+            
+        Returns:
+            주제 기록 리스트
+        """
+        if days is None:
+            days = self.duplicate_days
+            
+        cutoff_date = datetime.now() - timedelta(days=days)
+        
+        recent = [
+            entry for entry in self.history
+            if datetime.fromisoformat(entry['created_at']) >= cutoff_date
+        ]
+        
+        return sorted(recent, key=lambda x: x['created_at'], reverse=True)
+    
+    def cleanup_old_entries(self, days: int = 30):
+        """
+        오래된 기록 정리 (기본 30일 이상 된 항목 삭제)
+        
+        Args:
+            days: 보관 기간
+        """
+        cutoff_date = datetime.now() - timedelta(days=days)
+        original_count = len(self.history)
+        
+        self.history = [
+            entry for entry in self.history
+            if datetime.fromisoformat(entry['created_at']) >= cutoff_date
+        ]
+        
+        removed = original_count - len(self.history)
+        if removed > 0:
+            self._save_history()
+            logger.info(f"오래된 기록 {removed}개 삭제")
 
 
 class BlogGenerator:
@@ -37,7 +213,20 @@ class BlogGenerator:
 
     def _init_llm(self):
         """LLM 초기화"""
-        if "gpt" in self.model_name.lower():
+        if "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
+            # LM Studio (로컬 LLM)
+            if not LM_STUDIO_ENABLED:
+                logger.warning("LM Studio가 비활성화 상태입니다. .env에서 LM_STUDIO_ENABLED=true로 설정하세요.")
+            
+            logger.info(f"LM Studio 연결 시도: {LM_STUDIO_BASE_URL}")
+            return ChatOpenAI(
+                model=LM_STUDIO_MODEL_NAME,
+                temperature=self.temperature,
+                openai_api_key="lm-studio",  # LM Studio는 API key 불필요 (더미값)
+                openai_api_base=LM_STUDIO_BASE_URL,
+                max_retries=2
+            )
+        elif "gpt" in self.model_name.lower():
             if not OPENAI_API_KEY:
                 raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
             return ChatOpenAI(

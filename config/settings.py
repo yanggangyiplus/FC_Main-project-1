@@ -17,6 +17,10 @@ CHROMA_DB_PATH = DATA_DIR / "chroma_db"
 SCRAPED_NEWS_DIR = DATA_DIR / "scraped_news"
 GENERATED_BLOGS_DIR = DATA_DIR / "generated_blogs"
 IMAGES_DIR = DATA_DIR / "images"
+TOPIC_HISTORY_FILE = DATA_DIR / "topic_history.json"  # 작성된 주제 기록 파일
+
+# 중복 주제 방지 설정
+TOPIC_DUPLICATE_DAYS = 5  # 중복 주제 체크 기간 (일)
 
 # 로그 경로
 LOGS_DIR = PROJECT_ROOT / "logs"
@@ -68,6 +72,11 @@ EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 # LLM 설정
 DEFAULT_LLM_MODEL = "gpt-4-turbo-preview"  # 또는 "claude-3-opus-20240229"
 TEMPERATURE = 0.7
+
+# LM Studio (로컬 LLM) 설정
+LM_STUDIO_ENABLED = os.getenv("LM_STUDIO_ENABLED", "false").lower() == "true"
+LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
+LM_STUDIO_MODEL_NAME = os.getenv("LM_STUDIO_MODEL_NAME", "local-model")  # LM Studio에서 로드한 모델명
 
 # 이미지 생성 설정
 IMAGE_MODEL = "dall-e-3"  # 또는 "stable-diffusion-xl"
