@@ -39,14 +39,7 @@ st.set_page_config(
 st.title("✍️ 블로그 생성기 대시보드")
 st.markdown("---")
 
-# 초기화
-@st.cache_resource
-def get_generators():
-    return BlogGenerator(), RAGBuilder(), TopicManager()
-
-blog_generator, rag_builder, topic_manager = get_generators()
-
-# 사이드바
+# 사이드바 (먼저 모델 선택을 받아야 함)
 with st.sidebar:
     st.header("⚙️ 설정")
 
@@ -55,18 +48,24 @@ with st.sidebar:
         "LLM 모델",
         options=[
             "lm-studio (로컬)",
-            "gpt-4", 
+            "gpt-4o-mini",
+            "gpt-4o",
             "gpt-3.5-turbo", 
-            "claude-3-opus", 
-            "claude-3-sonnet"
+            "claude-3-5-sonnet-20241022",
+            "claude-3-opus-20240229"
         ],
-        index=1,
+        index=0,  # 기본값: lm-studio (로컬)
         help="💡 lm-studio: 로컬에서 실행되는 무료 LLM (LM Studio 실행 필요)"
     )
 
     # 온도
     temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
 
+# 모델명 정리 (괄호 제거)
+model_name = model.split(" ")[0] if " " in model else model
+
+# 사이드바 계속 (LM Studio 상태 표시)
+with st.sidebar:
     # LM Studio 상태 표시
     if "lm-studio" in model.lower():
         st.markdown("---")
@@ -92,7 +91,21 @@ with st.sidebar:
 
     # 컨텍스트 설정
     n_articles = st.slider("참조 기사 수", min_value=1, max_value=20, value=10)
-    
+
+# 초기화 (모델 선택에 따라 동적 생성)
+@st.cache_resource
+def get_rag_and_topic_manager():
+    """RAGBuilder와 TopicManager만 캐시 (모델 독립적)"""
+    return RAGBuilder(), TopicManager()
+
+def get_blog_generator(model_name: str, temp: float):
+    """BlogGenerator는 모델에 따라 새로 생성"""
+    return BlogGenerator(model_name=model_name, temperature=temp)
+
+rag_builder, topic_manager = get_rag_and_topic_manager()
+
+# 사이드바 계속 (최근 작성 주제 표시)
+with st.sidebar:
     st.markdown("---")
     
     # 최근 작성 주제 표시
@@ -220,14 +233,39 @@ with tab2:
     else:
         topic = st.text_input("블로그 주제", placeholder="예: 최신 AI 기술 동향과 전망")
 
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 3])
+    # 프롬프트 커스터마이징 섹션
+    st.markdown("---")
+    with st.expander("📝 프롬프트 커스터마이징 (클릭하여 펼치기)", expanded=False):
+        st.info("💡 아래 프롬프트를 수정하여 원하는 스타일의 블로그를 생성할 수 있습니다.")
+        
+        # 기본 프롬프트 가져오기
+        temp_generator = get_blog_generator(model_name, temperature)
+        default_prompt = temp_generator.get_default_prompt()
+        
+        # 프롬프트 사용 여부
+        use_custom_prompt = st.checkbox("커스텀 프롬프트 사용", value=False)
+        
+        custom_prompt = st.text_area(
+            "블로그 생성 프롬프트",
+            value=default_prompt,
+            height=400,
+            help="프롬프트를 수정하여 블로그 스타일을 변경할 수 있습니다.",
+            disabled=not use_custom_prompt
+        )
+        
+        if not use_custom_prompt:
+            custom_prompt = None  # 기본 프롬프트 사용
+    
+    st.markdown("---")
+    
+    col_btn1, col_btn2, col_btn3 = st.columns([1.5, 1.2, 2.3])
 
     with col_btn1:
-        generate_btn = st.button("🚀 생성", type="primary", use_container_width=True)
+        generate_btn = st.button("🚀 생성 및 저장", type="primary", use_container_width=True)
 
     with col_btn2:
         if st.session_state.get('generated_html'):
-            save_btn = st.button("💾 저장", use_container_width=True)
+            save_btn = st.button("🔄 다시 저장", use_container_width=True, help="같은 내용을 새 버전으로 저장")
         else:
             save_btn = False
 
@@ -245,34 +283,48 @@ with tab2:
                 if not context:
                     st.error("❌ 관련 기사를 찾을 수 없습니다. 먼저 RAG 데이터베이스에 기사를 추가하세요.")
                 else:
-                    with st.spinner("블로그 생성 중..."):
-                        # 블로그 생성
-                        html = blog_generator.generate_blog(topic, context)
+                    with st.spinner(f"블로그 생성 중... (모델: {model_name})"):
+                        # BlogGenerator 동적 생성 (선택한 모델로)
+                        blog_generator = get_blog_generator(model_name, temperature)
+                        
+                        # 블로그 생성 (커스텀 프롬프트 전달)
+                        html = blog_generator.generate_blog(topic, context, custom_prompt=custom_prompt)
                         st.session_state.generated_html = html
                         st.session_state.current_topic = topic
                         st.session_state.current_category = st.session_state.get('selected_category', '')
-                        st.success("✅ 블로그 생성 완료!")
+                        
+                        # 자동 저장
+                        with st.spinner("💾 저장 중..."):
+                            filepath = blog_generator.save_blog(html, topic)
+                            
+                            # 주제 기록에 추가 (중복 방지용)
+                            topic_manager.add_topic(
+                                topic_title=topic,
+                                category=st.session_state.get('selected_category', ''),
+                                blog_file=str(filepath)
+                            )
+                            
+                            st.session_state.last_saved_file = filepath
+                        
+                        st.success(f"✅ 블로그 생성 및 저장 완료! (모델: {model_name})")
+                        st.info(f"📁 저장 위치: `{filepath.name}`")
 
             except Exception as e:
                 st.error(f"❌ 오류 발생: {str(e)}")
 
-    # 저장 버튼
+    # 다시 저장 버튼 (동일 내용을 새 파일로 저장)
     if save_btn:
         try:
+            # BlogGenerator 동적 생성
+            blog_generator = get_blog_generator(model_name, temperature)
+            
             filepath = blog_generator.save_blog(
                 st.session_state.generated_html,
                 st.session_state.current_topic
             )
             
-            # 주제 기록에 추가 (중복 방지용)
-            topic_manager.add_topic(
-                topic_title=st.session_state.current_topic,
-                category=st.session_state.get('current_category', ''),
-                blog_file=str(filepath)
-            )
-            
-            st.success(f"✅ 저장 완료: {filepath.name}")
-            st.info("📝 이 주제는 중복 방지 기록에 추가되었습니다.")
+            st.success(f"✅ 다시 저장 완료: {filepath.name}")
+            st.info("💡 동일한 내용이 새로운 타임스탬프로 저장되었습니다.")
             
         except Exception as e:
             st.error(f"❌ 저장 실패: {str(e)}")
@@ -299,7 +351,8 @@ with tab3:
     if st.session_state.get('generated_html'):
         html = st.session_state.generated_html
 
-        # 플레이스홀더 추출
+        # 플레이스홀더 추출 (BlogGenerator 동적 생성)
+        blog_generator = get_blog_generator(model_name, temperature)
         placeholders = blog_generator.extract_image_placeholders(html)
 
         if placeholders:

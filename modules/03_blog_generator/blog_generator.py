@@ -249,6 +249,7 @@ class BlogGenerator:
         self,
         topic: str,
         context: str,
+        custom_prompt: Optional[str] = None,
         previous_feedback: Optional[Dict[str, Any]] = None
     ) -> str:
         """
@@ -257,6 +258,7 @@ class BlogGenerator:
         Args:
             topic: 블로그 주제
             context: RAG에서 가져온 컨텍스트
+            custom_prompt: 사용자 커스텀 프롬프트 (None이면 기본 프롬프트 사용)
             previous_feedback: 이전 피드백 (재생성 시)
 
         Returns:
@@ -265,7 +267,7 @@ class BlogGenerator:
         logger.info(f"블로그 생성 시작: 주제='{topic}'")
 
         # 프롬프트 템플릿 생성
-        prompt = self._create_prompt(topic, context, previous_feedback)
+        prompt = self._create_prompt(topic, context, custom_prompt, previous_feedback)
 
         # LLM 호출
         try:
@@ -282,10 +284,62 @@ class BlogGenerator:
             logger.error(f"블로그 생성 중 오류: {e}")
             raise
 
+    def get_default_prompt(self) -> str:
+        """기본 프롬프트 템플릿 반환"""
+        return """너는 전문 블로거야. 매일 카테고리별 관련된 이슈를 블로그 글로 정리 및 작성해서 올리지.
+
+내가 첨부한 기사들의 **주제, 제목, 본문**을 읽고 **하나의 통합된 블로그 글**로 작성해줘.
+
+⚠️ 중요: 기사를 그대로 나열하지 말고, 모든 기사의 핵심 내용을 종합하여 하나의 흐름 있는 글로 작성해줘.
+
+## 📋 블로그 글 구조 (필수)
+
+아래 구조를 **정확히** 따라서 작성해줘:
+
+```
+<h1>핵심 키워드가 포함된 흥미로운 제목</h1>
+
+<h2>서론</h2>
+<p>독자의 관심을 끄는 도입부 내용...</p>
+<p>이 주제가 왜 중요한지 설명...</p>
+
+<h2>본론</h2>
+<p>기사들의 핵심 내용을 종합한 첫 번째 문단...</p>
+
+<img src="PLACEHOLDER" alt="" class="blog-image">
+
+<p>논리적인 흐름으로 정보 전달하는 두 번째 문단...</p>
+<p>구체적인 수치, 인용을 포함한 세 번째 문단...</p>
+
+<img src="PLACEHOLDER" alt="" class="blog-image">
+
+<p>추가 내용 및 상세 설명...</p>
+
+<h2>결론</h2>
+<p>내용 요약 및 시사점...</p>
+<p>향후 전망 또는 독자에게 전하는 메시지...</p>
+
+<h2>출처</h2>
+<ul>
+<li><a href="URL">기사 제목 1</a></li>
+<li><a href="URL">기사 제목 2</a></li>
+</ul>
+```
+
+## ✅ 작성 가이드라인
+
+1. **구조**: 제목 → 서론 → 본론 → 결론 → 출처 순서 준수
+2. **이미지**: 본론 중간에 2-3개 배치 (독립된 줄, 앞뒤 빈 줄)
+3. **문체**: 자연스러운 블로그 문체 (친근하면서도 전문적)
+4. **길이**: 1500~2500자 분량
+5. **여백**: 문단 사이 적절한 여백 (p 태그 활용)
+6. **SEO**: 키워드를 자연스럽게 배치"""
+
     def _create_prompt(
         self,
         topic: str,
         context: str,
+        custom_prompt: Optional[str] = None,
         previous_feedback: Optional[Dict[str, Any]] = None
     ) -> str:
         """
@@ -294,50 +348,153 @@ class BlogGenerator:
         Args:
             topic: 주제
             context: 컨텍스트
+            custom_prompt: 사용자 커스텀 프롬프트 (None이면 기본 프롬프트 사용)
             previous_feedback: 이전 피드백
 
         Returns:
             프롬프트 문자열
         """
-        base_prompt = f"""당신은 전문 블로그 작가입니다. 주어진 뉴스 기사들을 분석하여 정확하고 흥미로운 블로그 글을 작성해주세요.
+        # 사용자 프롬프트 또는 기본 프롬프트 사용
+        user_prompt = custom_prompt if custom_prompt else self.get_default_prompt()
+        
+        base_prompt = f"""{user_prompt}
 
-**주제**: {topic}
+---
 
-**참고 기사 (컨텍스트)**:
+## 📰 오늘의 주제
+**{topic}**
+
+## 📄 참고 기사들
 {context}
 
-**작성 요구사항**:
-1. **사실 기반 작성**: 제공된 기사 내용을 기반으로 정확하게 작성
-2. **HTML 형식**: 완전한 HTML 문서로 작성 (<!DOCTYPE html>부터 시작)
-3. **구조화**: 제목(h1), 소제목(h2, h3), 본문(p), 리스트(ul/ol) 적절히 사용
-4. **이미지 플레이스홀더**: 총 {IMAGES_PER_BLOG}개의 이미지 위치에 다음 형식 사용
-   ```html
-   <img src="PLACEHOLDER" alt="[이미지 설명: 구체적인 장면이나 개념 설명]" class="blog-image">
-   ```
-5. **길이**: 1500~2000자 분량
-6. **스타일**: 정보 전달과 가독성 중시, 블로그 어조
-7. **인용**: 기사 내용 인용 시 출처 표시
+---
 
-**이미지 플레이스홀더 예시**:
-- `<img src="PLACEHOLDER" alt="[이미지 설명: 기술 발전을 상징하는 미래적인 도시 전경]" class="blog-image">`
-- `<img src="PLACEHOLDER" alt="[이미지 설명: 데이터 분석 화면과 그래프를 보는 비즈니스 팀]" class="blog-image">`
+## 📝 HTML 출력 형식
 
-**CSS 스타일 포함**: 간단한 인라인 CSS 또는 <style> 태그로 스타일링
-"""
+반드시 아래 형식의 완전한 HTML 문서로 출력해줘:
+
+```html
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>블로그 제목</title>
+    <style>
+        body {{ 
+            font-family: 'Noto Sans KR', sans-serif; 
+            line-height: 1.8; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background-color: #1a1a2e;
+            color: #eaeaea;
+        }}
+        h1 {{ 
+            color: #00d4ff; 
+            font-size: 2em; 
+            margin-bottom: 30px; 
+            text-align: center;
+            border-bottom: 3px solid #00d4ff;
+            padding-bottom: 15px;
+        }}
+        h2 {{ 
+            color: #7b68ee; 
+            border-bottom: 2px solid #7b68ee; 
+            padding-bottom: 10px; 
+            margin-top: 40px;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }}
+        h3 {{ color: #98d8c8; margin-top: 25px; }}
+        p {{ 
+            color: #d0d0d0; 
+            margin-bottom: 15px; 
+            line-height: 2.0;
+            text-align: justify;
+        }}
+        a {{ color: #00d4ff; text-decoration: none; }}
+        a:hover {{ text-decoration: underline; }}
+        ul {{ 
+            list-style: none; 
+            padding-left: 0; 
+        }}
+        li {{ 
+            color: #d0d0d0; 
+            margin-bottom: 10px; 
+            padding-left: 20px;
+            position: relative;
+        }}
+        li:before {{
+            content: "▪";
+            color: #7b68ee;
+            position: absolute;
+            left: 0;
+        }}
+        .blog-image {{ 
+            display: block; 
+            width: 100%; 
+            max-width: 600px; 
+            margin: 40px auto; 
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }}
+        .source {{ 
+            background-color: #2d2d44; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-top: 40px;
+            color: #a0a0a0;
+        }}
+        .source a {{ color: #00d4ff; }}
+    </style>
+</head>
+<body>
+    <!-- 블로그 내용 -->
+</body>
+</html>
+```
+
+## 🖼️ 이미지 플레이스홀더 (중요!)
+
+**필수 조건**:
+- 이미지는 총 2~3개를 **본론 섹션 중간**에 배치
+- 이미지는 반드시 **독립된 줄**에 배치 (앞뒤 빈 줄 필수)
+- 본론의 문단들 사이에 자연스럽게 분산 배치
+
+**배치 예시**:
+```html
+<h2>본론</h2>
+<p>첫 번째 문단 내용...</p>
+<p>두 번째 문단 내용...</p>
+
+<img src="PLACEHOLDER" alt="" class="blog-image">
+
+<p>세 번째 문단 내용...</p>
+<p>네 번째 문단 내용...</p>
+
+<img src="PLACEHOLDER" alt="" class="blog-image">
+
+<p>다섯 번째 문단 내용...</p>
+
+<h2>결론</h2>
+```
+
+⚠️ 주의: 서론과 결론에는 이미지를 넣지 말고, 본론에만 배치!
+
+지금 바로 위 구조대로 블로그 HTML을 생성해줘:"""
 
         # 피드백이 있는 경우 추가
         if previous_feedback:
             feedback_text = f"""
 
-**이전 생성 결과 피드백**:
+---
+**⚠️ 이전 피드백 반영 필요**:
 - 점수: {previous_feedback.get('score', 0)}/100
 - 피드백: {previous_feedback.get('feedback', '')}
 
-위 피드백을 반영하여 개선된 버전을 작성해주세요.
+위 피드백을 반영하여 개선된 버전을 작성해줘.
 """
             base_prompt += feedback_text
-
-        base_prompt += "\n\n지금 블로그 HTML을 생성해주세요:"
 
         return base_prompt
 

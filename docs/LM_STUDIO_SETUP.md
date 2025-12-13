@@ -27,6 +27,7 @@ Applications에서 LM Studio 실행
 | **Llama-3-Korean-8B** | 8GB | 한국어 최적화, 빠름 | ⭐⭐⭐⭐⭐ |
 | **EEVE-Korean-10.8B** | 11GB | 한국어 성능 우수 | ⭐⭐⭐⭐ |
 | **Mistral-7B-Instruct** | 7GB | 영어 강력, 한국어 괜찮음 | ⭐⭐⭐ |
+| **Qwen2.5-Coder-14B-Instruct-GGUF** | 9GB | 블로그, 사실기반 요약 괜찮음 | ⭐⭐⭐⭐ |
 
 ### 다운로드 방법
 1. LM Studio 실행

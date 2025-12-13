@@ -70,7 +70,7 @@ CHROMA_COLLECTION_NAME = "news_articles"
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 # LLM 설정
-DEFAULT_LLM_MODEL = "gpt-4-turbo-preview"  # 또는 "claude-3-opus-20240229"
+DEFAULT_LLM_MODEL = "gpt-4o-mini"  # 또는 "gpt-4o", "claude-3-opus-20240229"
 TEMPERATURE = 0.7
 
 # LM Studio (로컬 LLM) 설정
