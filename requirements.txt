@@ -30,7 +30,8 @@ transformers>=4.40.0
 diffusers @ git+https://github.com/huggingface/diffusers@17c0e79dbdf53fb6705e9c09cc1a854b84c39249
 torch==2.9.1
 torchvision==0.24.1
-accelerate==0.25.0
+accelerate>=0.17.0  # Z-Image-Turbo CPU 오프로딩에 필요
+packaging>=20.0  # 버전 비교에 필요
 
 # 구글 드라이브 API (선택)
 google-auth==2.27.0

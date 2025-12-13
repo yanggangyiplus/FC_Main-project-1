@@ -7,7 +7,14 @@ from pathlib import Path
 
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from config.settings import OPENAI_API_KEY, ANTHROPIC_API_KEY, DEFAULT_LLM_MODEL
+from config.settings import (
+    OPENAI_API_KEY, 
+    ANTHROPIC_API_KEY, 
+    DEFAULT_LLM_MODEL,
+    LM_STUDIO_ENABLED,
+    LM_STUDIO_BASE_URL,
+    LM_STUDIO_MODEL_NAME
+)
 from config.logger import get_logger
 
 logger = get_logger(__name__)
@@ -28,7 +35,20 @@ class Humanizer:
 
     def _init_llm(self):
         """LLM 초기화"""
-        if "gpt" in self.model_name.lower():
+        if "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
+            # LM Studio (로컬 LLM)
+            if not LM_STUDIO_ENABLED:
+                logger.warning("LM Studio가 비활성화 상태입니다. .env에서 LM_STUDIO_ENABLED=true로 설정하세요.")
+            
+            logger.info(f"LM Studio 연결 시도: {LM_STUDIO_BASE_URL}")
+            return ChatOpenAI(
+                model=LM_STUDIO_MODEL_NAME,
+                temperature=0.7,  # 창의성 필요
+                api_key="lm-studio",  # LM Studio는 API key 불필요 (더미값)
+                base_url=LM_STUDIO_BASE_URL,
+                max_retries=2
+            )
+        elif "gpt" in self.model_name.lower():
             if not OPENAI_API_KEY:
                 raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
             return ChatOpenAI(

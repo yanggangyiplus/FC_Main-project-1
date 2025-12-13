@@ -7,9 +7,9 @@ import sys
 from pathlib import Path
 import json
 from datetime import datetime
-
+ 
 sys.path.append(str(Path(__file__).parent.parent))
-
+ 
 import importlib
 # 숫자로 시작하는 모듈 이름은 동적 import 사용
 critic_module = importlib.import_module("modules.04_critic_qa.critic")
@@ -18,7 +18,7 @@ blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_genera
 BlogCritic = critic_module.BlogCritic
 RAGBuilder = rag_module.RAGBuilder
 BlogGenerator = blog_gen_module.BlogGenerator
-from config.settings import GENERATED_BLOGS_DIR, QUALITY_THRESHOLD, FEEDBACK_FILE, IMAGE_PROMPTS_FILE, HUMANIZER_INPUT_FILE
+from config.settings import GENERATED_BLOGS_DIR, QUALITY_THRESHOLD, FEEDBACK_FILE, IMAGE_PROMPTS_FILE, HUMANIZER_INPUT_FILE, METADATA_DIR, TEMP_DIR
  
 st.set_page_config(
     page_title="Critic & QA 대시보드",
@@ -32,7 +32,7 @@ st.markdown("---")
 # 사이드바 (모델 선택 먼저)
 with st.sidebar:
     st.header("⚙️ 설정")
-
+ 
     # 모델 선택
     model = st.selectbox(
         "평가 모델",
@@ -49,7 +49,7 @@ with st.sidebar:
     )
 
     st.metric("품질 임계값", f"{QUALITY_THRESHOLD}점 이상", help=f"{QUALITY_THRESHOLD}점 이상이면 평가 통과")
-    
+ 
     st.markdown("---")
 
 # 초기화 (모델 선택에 따라 동적 생성)
@@ -117,19 +117,19 @@ with tab1:
     if eval_method == "저장된 파일 선택":
         if GENERATED_BLOGS_DIR.exists():
             html_files = sorted(list(GENERATED_BLOGS_DIR.glob("*.html")), reverse=True)
-
+ 
             if html_files:
                 selected_file = st.selectbox(
                     "블로그 파일 선택",
                     options=html_files,
                     format_func=lambda x: x.name
                 )
-
+ 
                 if selected_file:
                     # HTML 파일 읽기
                     with open(selected_file, 'r', encoding='utf-8') as f:
                         html_content = f.read()
-
+ 
                     st.success(f"✅ 파일 로드 완료: {selected_file.name}")
                     
                     # 메타데이터 읽기
@@ -171,7 +171,7 @@ with tab1:
             value=default_topic,
             placeholder="예: AI 기술의 미래"
         )
-
+ 
         # 컨텍스트 생성 옵션
         use_rag = st.checkbox("RAG에서 컨텍스트 자동 생성", value=not auto_loaded)
         
@@ -198,7 +198,7 @@ with tab1:
                     context = None
         else:
             context = None
-
+ 
         # 수동 컨텍스트 입력 (자동 로드/RAG 실패 시)
         if not context:
             context = st.text_area(
@@ -295,7 +295,7 @@ with tab2:
         st.info(result.get('feedback', '피드백 없음'))
  
         st.markdown("---")
-
+ 
         # 검증 통과 시: 이미지 설명 자동 저장 및 다음 단계 안내
         if result['passed']:
             st.success("✅ 품질 검증 통과! 이미지 생성 단계로 진행할 수 있습니다.")
@@ -324,7 +324,7 @@ with tab2:
                     }
                     
                     # 파일로 자동 저장
-                    IMAGE_PROMPTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    METADATA_DIR.mkdir(parents=True, exist_ok=True)
                     with open(IMAGE_PROMPTS_FILE, 'w', encoding='utf-8') as f:
                         json.dump(image_prompts_data, f, ensure_ascii=False, indent=2)
                     
@@ -336,7 +336,7 @@ with tab2:
                             st.markdown(f"**이미지 {i}**: {ph['alt']}")
                     
                     # ✅ 블로그 HTML을 6번 모듈로 자동 저장
-                    HUMANIZER_INPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    TEMP_DIR.mkdir(parents=True, exist_ok=True)
                     with open(HUMANIZER_INPUT_FILE, 'w', encoding='utf-8') as f:
                         f.write(evaluated_html)
                     
@@ -355,7 +355,7 @@ with tab2:
         # 재생성 권장
         if not result['passed']:
             st.error("⚠️ 품질이 임계값 미만입니다. 블로그 재생성을 권장합니다.")
-
+ 
             with st.expander("📝 개선 제안"):
                 st.markdown(result.get('feedback', ''))
             
@@ -380,7 +380,7 @@ with tab2:
                     }
                     
                     # 파일로 저장
-                    FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    TEMP_DIR.mkdir(parents=True, exist_ok=True)
                     with open(FEEDBACK_FILE, 'w', encoding='utf-8') as f:
                         json.dump(feedback_data, f, ensure_ascii=False, indent=2)
                     

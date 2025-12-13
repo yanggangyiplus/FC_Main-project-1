@@ -126,7 +126,7 @@ class ScrapedData:
 # ============================================================
 class NaverNewsScraper:
     """네이버 뉴스 스크래퍼 클래스"""
-    
+
     def __init__(self, headless: bool = HEADLESS_MODE):
         """
         Args:
@@ -136,7 +136,7 @@ class NaverNewsScraper:
         self.driver = None
         self.wait = None
         logger.info(f"NaverNewsScraper 초기화 (헤드리스: {headless})")
-    
+
     def _init_driver(self):
         """웹드라이버 초기화"""
         options = webdriver.ChromeOptions()
@@ -147,12 +147,12 @@ class NaverNewsScraper:
         options.add_argument('--disable-blink-features=AutomationControlled')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36')
-        
+
         service = Service(ChromeDriverManager().install())
         self.driver = webdriver.Chrome(service=service, options=options)
         self.wait = WebDriverWait(self.driver, 10)
         logger.info("웹드라이버 초기화 완료")
-    
+
     def _safe_find_element(self, parent, by: By, selector: str, default: str = "") -> str:
         """안전하게 요소 텍스트 찾기 (없으면 기본값 반환)"""
         try:
@@ -206,26 +206,26 @@ class NaverNewsScraper:
     def scrape_category(self, category_name: str, top_n_topics: int = 5, articles_per_topic: int = 5) -> ScrapedData:
         """
         카테고리별 뉴스 스크래핑
-        
+
         Args:
             category_name: 카테고리 이름 (politics, economy, it_science)
             top_n_topics: 수집할 상위 주제 수
             articles_per_topic: 주제당 수집할 기사 수
-        
+
         Returns:
             ScrapedData 객체
         """
         logger.info(f"=== 카테고리 '{category_name}' 스크래핑 시작 ===")
-        
+
         if self.driver is None:
             self._init_driver()
-        
+
         # 카테고리 ID 확인
         category_id = CATEGORY_IDS.get(category_name)
         if not category_id:
             logger.error(f"유효하지 않은 카테고리: {category_name}")
             return ScrapedData(category=category_name, scraped_at=datetime.now().isoformat())
-        
+
         # 결과 데이터 초기화
         result = ScrapedData(
             category=category_name,
@@ -236,9 +236,9 @@ class NaverNewsScraper:
             # 1단계: 카테고리 페이지 접속
             url = SELECTORS["CATEGORY_URL"].format(category_id=category_id)
             logger.info(f"카테고리 페이지 접속: {url}")
-            self.driver.get(url)
-            time.sleep(SCRAPING_DELAY)
-            
+        self.driver.get(url)
+        time.sleep(SCRAPING_DELAY)
+
             # 2단계: 헤드라인 더보기 클릭 (있는 경우)
             self._click_headline_more()
             
@@ -314,21 +314,21 @@ class NaverNewsScraper:
                         "count": count,
                         "url": related_url
                     })
-                    
+
                 except Exception as e:
                     logger.warning(f"헤드라인 아이템 파싱 실패: {e}")
                     continue
-            
+
             # 관련기사 수 기준 내림차순 정렬
             topics.sort(key=lambda x: x["count"], reverse=True)
-            
+
             # 상위 N개만 반환
             return topics[:top_n]
-            
+
         except Exception as e:
             logger.error(f"헤드라인 주제 수집 실패: {e}")
             return []
-    
+
     def _scrape_topic_articles(self, topic_info: Dict[str, Any], max_articles: int) -> Optional[Topic]:
         """
         특정 주제의 관련기사들 수집
@@ -388,17 +388,17 @@ class NaverNewsScraper:
     def _scrape_article_detail(self, url: str) -> Optional[Article]:
         """
         기사 상세 페이지에서 데이터 수집
-        
+
         Args:
             url: 기사 URL
-        
+
         Returns:
             Article 객체 또는 None
         """
         try:
             self.driver.get(url)
             time.sleep(SCRAPING_DELAY / 2)
-            
+
             # 기사 제목
             title = self._safe_find_element(self.driver, By.XPATH, SELECTORS["ARTICLE_TITLE"])
             if not title:
@@ -414,20 +414,20 @@ class NaverNewsScraper:
                 try:
                     dt = datetime.strptime(published_at, "%Y-%m-%d %H:%M:%S")
                     published_at = dt.isoformat()
-                except:
+            except:
                     published_at = datetime.now().isoformat()
             else:
                 published_at = datetime.now().isoformat()
-            
+
             # 본문
             content = self._safe_find_element(self.driver, By.XPATH, SELECTORS["ARTICLE_CONTENT"])
             
             # 반응 수 (합계)
             reaction_count = self._parse_reaction_count()
-            
+
             # 댓글 수
             comment_count = self._parse_comment_count()
-            
+
             article = Article(
                 title=title,
                 url=url,
@@ -436,21 +436,21 @@ class NaverNewsScraper:
                 reaction_count=reaction_count,
                 comment_count=comment_count
             )
-            
+
             logger.debug(f"기사 수집: {title[:40]}... (반응:{reaction_count}, 댓글:{comment_count})")
             return article
-            
+
         except Exception as e:
             logger.error(f"기사 상세 수집 실패 ({url}): {e}")
             return None
-    
+
     # --------------------------------------------------------
     # 저장 및 유틸리티 메서드
     # --------------------------------------------------------
     def save_data(self, data: ScrapedData) -> Path:
         """
         스크래핑 데이터를 JSON 파일로 저장
-        
+
         Args:
             data: ScrapedData 객체
         
@@ -461,13 +461,13 @@ class NaverNewsScraper:
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = SCRAPED_NEWS_DIR / f"{data.category}_{timestamp}.json"
-        
+
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data.to_dict(), f, ensure_ascii=False, indent=2)
-        
+
         logger.info(f"데이터 저장 완료: {filename}")
         return filename
-    
+
     def close(self):
         """웹드라이버 종료"""
         if self.driver:
@@ -541,10 +541,10 @@ if __name__ == "__main__":
                 print(f"\n   📄 기사 {j}: {article.title[:40]}...")
                 print(f"      발행일: {article.published_at}")
                 print(f"      반응: {article.reaction_count} | 댓글: {article.comment_count}")
-        
+
         # 파일 저장
         filepath = scraper.save_data(data)
         print(f"\n✅ 저장 완료: {filepath}")
-        
+
     finally:
         scraper.close()

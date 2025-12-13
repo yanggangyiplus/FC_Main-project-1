@@ -14,11 +14,11 @@ import time
 # 구글 드라이브 관련 import (선택적)
 GOOGLE_DRIVE_AVAILABLE = False
 try:
-    from google.oauth2.credentials import Credentials
-    from google_auth_oauthlib.flow import InstalledAppFlow
-    from google.auth.transport.requests import Request as GoogleRequest
-    from googleapiclient.discovery import build
-    from googleapiclient.http import MediaIoBaseUpload
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request as GoogleRequest
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
     GOOGLE_DRIVE_AVAILABLE = True
 except ImportError as e:
     print(f"⚠️ 구글 드라이브 패키지를 불러올 수 없습니다: {e}")
@@ -51,7 +51,7 @@ logger = get_logger(__name__)
 class ImageGenerator:
     """이미지 생성 및 저장 클래스"""
 
-    def __init__(self, model: str = IMAGE_MODEL, use_google_drive: bool = True):
+    def __init__(self, model: str = IMAGE_MODEL, use_google_drive: bool = True, image_size: str = IMAGE_SIZE):
         """
         Args:
             model: 이미지 생성 모델 
@@ -60,9 +60,11 @@ class ImageGenerator:
                 - "dall-e-3" (유료)
                 - "stable-diffusion-webui" (로컬)
             use_google_drive: 구글 드라이브 저장 여부
+            image_size: 이미지 사이즈 (예: "1024x1024", "512x512")
         """
         self.model = model
         self.use_google_drive = use_google_drive
+        self.image_size = image_size
         self.drive_service = None
         self.client = None  # OpenAI 또는 Hugging Face 클라이언트
         self.z_image_pipe = None  # Z-Image-Turbo 파이프라인
@@ -109,7 +111,7 @@ class ImageGenerator:
         if use_google_drive:
             self._init_google_drive()
 
-        logger.info(f"ImageGenerator 초기화 (모델: {model}, 구글 드라이브: {use_google_drive})")
+        logger.info(f"ImageGenerator 초기화 (모델: {model}, 사이즈: {image_size}, 구글 드라이브: {use_google_drive})")
 
     def _init_google_drive(self):
         """구글 드라이브 API 초기화"""
@@ -172,9 +174,29 @@ class ImageGenerator:
             self.z_image_pipe.to(device)
             
             # CPU 오프로딩 옵션 (메모리가 부족한 경우)
+            # accelerate 버전 체크 필요 (v0.17.0 이상)
             if device == "cpu" or Z_IMAGE_CPU_OFFLOAD:
-                self.z_image_pipe.enable_model_cpu_offload()
-                logger.info("CPU 오프로딩 활성화")
+                try:
+                    import accelerate
+                    from packaging import version
+                    # accelerate 버전 확인
+                    accelerate_version = accelerate.__version__
+                    if version.parse(accelerate_version) < version.parse("0.17.0"):
+                        logger.warning(
+                            f"⚠️ accelerate 버전이 낮습니다 (현재: {accelerate_version}, 필요: >=0.17.0). "
+                            "CPU 오프로딩을 건너뜁니다. "
+                            "업그레이드: pip install accelerate>=0.17.0"
+                        )
+                    else:
+                        self.z_image_pipe.enable_model_cpu_offload()
+                        logger.info("CPU 오프로딩 활성화")
+                except ImportError:
+                    logger.warning(
+                        "⚠️ accelerate 패키지가 설치되지 않았습니다. "
+                        "CPU 오프로딩을 사용하려면 설치하세요: pip install accelerate>=0.17.0"
+                    )
+                except Exception as e:
+                    logger.warning(f"⚠️ CPU 오프로딩 활성화 실패: {e}. 계속 진행합니다.")
             
             logger.info("✅ Z-Image-Turbo 파이프라인 초기화 완료")
             
@@ -261,7 +283,7 @@ class ImageGenerator:
         
         try:
             # 이미지 크기 파싱 (예: "1024x1024" -> (1024, 1024))
-            width, height = map(int, IMAGE_SIZE.split('x'))
+            width, height = map(int, self.image_size.split('x'))
             
             # Z-Image-Turbo 이미지 생성
             # num_inference_steps=9는 실제로 8 NFE (Number of Function Evaluations)
@@ -321,10 +343,17 @@ class ImageGenerator:
             이미지 정보
         """
         # DALL-E 호출
+        # DALL-E 3는 특정 사이즈만 지원: "1024x1024", "1024x1792", "1792x1024"
+        dalle_size = self.image_size
+        # 지원하지 않는 사이즈면 1024x1024로 변경
+        if dalle_size not in ["1024x1024", "1024x1792", "1792x1024"]:
+            logger.warning(f"DALL-E 3가 지원하지 않는 사이즈 {dalle_size}를 1024x1024로 변경합니다.")
+            dalle_size = "1024x1024"
+        
         response = self.client.images.generate(
             model=self.model,
             prompt=prompt,
-            size=IMAGE_SIZE,
+            size=dalle_size,
             quality="standard",  # or "hd"
             n=1
         )
@@ -373,7 +402,10 @@ class ImageGenerator:
             enhanced_prompt = f"{prompt}, high quality, detailed, 4k"
         
         # Hugging Face Inference API 호출
+        # 참고: Hugging Face Inference API는 모델에 따라 사이즈가 다를 수 있습니다.
+        # 일부 모델은 파라미터로 사이즈를 받을 수 있지만, 대부분은 모델 기본값을 사용합니다.
         payload = {"inputs": enhanced_prompt}
+        logger.info(f"이미지 사이즈 요청: {self.image_size} (모델 기본값 사용 가능)")
         
         max_retries = 3
         for attempt in range(max_retries):

@@ -10,9 +10,9 @@ from pathlib import Path
 import re
 import json
 from datetime import datetime
-
+ 
 sys.path.append(str(Path(__file__).parent.parent))
-
+ 
 import importlib
 # 숫자로 시작하는 모듈 이름은 동적 import 사용
 blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_generator")
@@ -30,20 +30,20 @@ CATEGORY_NAMES = {
     "economy": "경제 (Economy)",
     "it_science": "IT/과학 (IT & Science)"
 }
-
+ 
 st.set_page_config(
     page_title="블로그 생성기 대시보드",
     page_icon="✍️",
     layout="wide"
 )
-
+ 
 st.title("✍️ 블로그 생성기 대시보드")
 st.markdown("---")
-
+ 
 # 사이드바 (먼저 모델 선택을 받아야 함)
 with st.sidebar:
     st.header("⚙️ 설정")
-
+ 
     # 모델 선택
     model = st.selectbox(
         "LLM 모델",
@@ -58,10 +58,10 @@ with st.sidebar:
         index=0,  # 기본값: lm-studio (로컬)
         help="💡 lm-studio: 로컬에서 실행되는 무료 LLM (LM Studio 실행 필요)"
     )
-
+ 
     # 온도
     temperature = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
-
+ 
 # 모델명 정리 (괄호 제거)
 model_name = model.split(" ")[0] if " " in model else model
 
@@ -89,10 +89,10 @@ with st.sidebar:
             st.info("💡 LM Studio를 실행하고 Local Server를 시작하세요")
 
     st.markdown("---")
-
+ 
     # 컨텍스트 설정
     n_articles = st.slider("참조 기사 수", min_value=1, max_value=20, value=10)
-
+ 
 # 초기화 (모델 선택에 따라 동적 생성)
 @st.cache_resource
 def get_rag_and_topic_manager():
@@ -122,7 +122,7 @@ with st.sidebar:
 
 # 탭 생성
 tab1, tab2, tab3, tab4 = st.tabs(["📰 주제 선택", "✍️ 블로그 생성", "🖼️ 이미지 설명", "📁 저장된 블로그"])
-
+ 
 # 탭 1: 주제 선택 (RAG에서 가져온 주제들)
 with tab1:
     st.header("📰 주제 선택")
@@ -221,7 +221,7 @@ with tab1:
 # 탭 2: 블로그 생성
 with tab2:
     st.header("✍️ 블로그 생성")
-    
+ 
     # 피드백 파일에서 읽기 (4번 모듈에서 저장한 피드백)
     has_feedback = False
     feedback_data = None
@@ -262,8 +262,8 @@ with tab2:
         else:
             topic = st.text_input("블로그 주제 (직접 입력)", placeholder="예: 최신 AI 기술 동향과 전망")
     else:
-        topic = st.text_input("블로그 주제", placeholder="예: 최신 AI 기술 동향과 전망")
-
+    topic = st.text_input("블로그 주제", placeholder="예: 최신 AI 기술 동향과 전망")
+ 
     # 프롬프트 커스터마이징 섹션
     st.markdown("---")
     with st.expander("📝 프롬프트 커스터마이징 (클릭하여 펼치기)", expanded=False):
@@ -302,18 +302,18 @@ with tab2:
         save_btn = False
     else:
         col_btn1, col_btn2, col_btn3 = st.columns([1.5, 1.2, 2.3])
-
-        with col_btn1:
+ 
+    with col_btn1:
             generate_btn = st.button("🚀 생성 및 저장", type="primary", use_container_width=True)
         
         regenerate_btn = False
-
-        with col_btn2:
-            if st.session_state.get('generated_html'):
+ 
+    with col_btn2:
+        if st.session_state.get('generated_html'):
                 save_btn = st.button("🔄 다시 저장", use_container_width=True, help="같은 내용을 새 버전으로 저장")
-            else:
-                save_btn = False
-
+        else:
+            save_btn = False
+ 
     # 피드백 반영 재생성
     if regenerate_btn and topic:
         st.info("🔄 피드백을 반영하여 블로그를 재생성합니다...")
@@ -381,7 +381,7 @@ with tab2:
             try:
                 # RAG에서 컨텍스트 가져오기
                 context = rag_builder.get_context_for_topic(topic, n_results=n_articles)
-
+ 
                 if not context:
                     st.error("❌ 관련 기사를 찾을 수 없습니다. 먼저 RAG 데이터베이스에 기사를 추가하세요.")
                 else:
@@ -411,10 +411,10 @@ with tab2:
                         
                         st.success(f"✅ 블로그 생성 및 저장 완료! (모델: {model_name})")
                         st.info(f"📁 저장 위치: `{filepath.name}`")
-
+ 
             except Exception as e:
                 st.error(f"❌ 오류 발생: {str(e)}")
-
+ 
     # 다시 저장 버튼 (동일 내용을 새 파일로 저장)
     if save_btn:
         try:
@@ -432,49 +432,49 @@ with tab2:
             
         except Exception as e:
             st.error(f"❌ 저장 실패: {str(e)}")
-
+ 
     # 생성된 블로그 표시
     if st.session_state.get('generated_html'):
         st.markdown("---")
         st.subheader("📝 생성된 블로그")
-
+ 
         # 미리보기/코드 뷰 선택
         view_mode = st.radio("보기 모드", ["미리보기", "HTML 코드"], horizontal=True)
-
+ 
         if view_mode == "미리보기":
             # HTML 렌더링
             st.components.v1.html(st.session_state.generated_html, height=800, scrolling=True)
         else:
             # HTML 코드
             st.code(st.session_state.generated_html, language="html")
-
+ 
 # 탭 3: 이미지 플레이스홀더
 with tab3:
     st.header("🖼️ 이미지 설명 (프롬프트)")
     st.info("💡 블로그 검증(4번 모듈)을 통과하면 이미지 설명이 저장되고, 5번 모듈에서 이미지를 생성합니다.")
-
+ 
     if st.session_state.get('generated_html'):
         html = st.session_state.generated_html
 
         # 플레이스홀더 추출
         blog_generator = get_blog_generator(model_name, temperature)
         placeholders = blog_generator.extract_image_placeholders(html)
-
+ 
         if placeholders:
             st.success(f"✅ {len(placeholders)}개의 이미지 플레이스홀더 발견")
-
+ 
             # 플레이스홀더 미리보기
             for i, ph in enumerate(placeholders, 1):
                 with st.expander(f"🖼️ 이미지 {i}", expanded=True):
                     col_ph1, col_ph2 = st.columns([1, 3])
-
+ 
                     with col_ph1:
                         st.metric("인덱스", ph['index'])
-
+ 
                     with col_ph2:
                         st.markdown(f"**프롬프트 (영어):**")
                         st.code(ph['alt'], language=None)
-                    
+ 
                     st.markdown("**HTML 태그:**")
                     st.code(ph['tag'], language="html")
 
@@ -490,39 +490,39 @@ with tab3:
             st.warning("이미지 플레이스홀더가 없습니다. 블로그 생성 시 이미지 설명이 포함되어야 합니다.")
     else:
         st.info("먼저 블로그를 생성하세요.")
-
+ 
 # 탭 4: 저장된 블로그
 with tab4:
     st.header("📁 저장된 블로그")
-
+ 
     if GENERATED_BLOGS_DIR.exists():
         html_files = sorted(list(GENERATED_BLOGS_DIR.glob("*.html")), reverse=True)
-
+ 
         if html_files:
             selected_file = st.selectbox(
                 "파일 선택",
                 options=html_files,
                 format_func=lambda x: x.name
             )
-
+ 
             if selected_file:
                 col_file1, col_file2 = st.columns([3, 1])
-
+ 
                 with col_file1:
                     st.markdown(f"**파일:** {selected_file.name}")
                     st.markdown(f"**경로:** {selected_file}")
-
+ 
                 with col_file2:
                     file_size = selected_file.stat().st_size
                     st.metric("크기", f"{file_size / 1024:.1f} KB")
-
+ 
                 # 파일 내용 읽기
                 with open(selected_file, 'r', encoding='utf-8') as f:
                     html_content = f.read()
-
+ 
                 # 미리보기/코드 뷰
                 view_mode = st.radio("보기 모드", ["미리보기", "HTML 코드"], horizontal=True, key="saved_view")
-
+ 
                 if view_mode == "미리보기":
                     st.components.v1.html(html_content, height=800, scrolling=True)
                 else:
@@ -531,7 +531,7 @@ with tab4:
             st.info("저장된 블로그가 없습니다.")
     else:
         st.info("블로그 저장 디렉토리가 존재하지 않습니다.")
-
+ 
 # 푸터
 st.markdown("---")
 st.caption("블로그 생성기 대시보드 v2.0 | Auto blog | 중복 주제 방지 기능 포함")

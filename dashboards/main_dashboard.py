@@ -58,7 +58,7 @@ st.markdown("""
  
 # 사이드바
 with st.sidebar:
-    st.image("https://via.placeholder.com/300x100/667eea/ffffff?text=Awesome+Raman", use_container_width=True)
+    st.image("https://via.placeholder.com/300x100/667eea/ffffff?text=Awesome+Raman")
  
     st.markdown("---")
  

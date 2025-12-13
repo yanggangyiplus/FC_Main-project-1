@@ -12,7 +12,12 @@ import importlib
 # 숫자로 시작하는 모듈 이름은 동적 import 사용
 humanizer_module = importlib.import_module("modules.06_humanizer.humanizer")
 Humanizer = humanizer_module.Humanizer
-from config.settings import GENERATED_BLOGS_DIR, HUMANIZER_INPUT_FILE
+from config.settings import (
+    GENERATED_BLOGS_DIR, 
+    HUMANIZER_INPUT_FILE,
+    LM_STUDIO_ENABLED,
+    LM_STUDIO_BASE_URL
+)
  
 st.set_page_config(
     page_title="Humanizer 대시보드",
@@ -23,36 +28,60 @@ st.set_page_config(
 st.title("✨ Humanizer 대시보드")
 st.markdown("---")
  
-# 초기화
-@st.cache_resource
-def get_humanizer():
-    return Humanizer()
- 
-humanizer = get_humanizer()
+# 초기화 (모델 선택에 따라 동적으로 생성)
+def get_humanizer(model_name: str):
+    return Humanizer(model_name=model_name)
  
 # 사이드바
 with st.sidebar:
     st.header("⚙️ 설정")
- 
+
+    # 모델 선택
+    model = st.selectbox(
+        "LLM 모델",
+        options=[
+            "lm-studio (로컬)",
+            "gpt-4o-mini",
+            "gpt-4o",
+            "gpt-3.5-turbo", 
+            "claude-3-5-sonnet-20241022",
+            "claude-3-opus-20240229"
+        ],
+        index=0,  # 기본값: lm-studio (로컬)
+        help="💡 lm-studio: 로컬에서 실행되는 무료 LLM (LM Studio 실행 필요)"
+    )
+
+    # 모델명 정리 (괄호 제거)
+    model_name = model.split(" ")[0] if " " in model else model
+
+    # LM Studio 상태 표시
+    if model_name == "lm-studio":
+        if LM_STUDIO_ENABLED:
+            st.success(f"✅ LM Studio 활성화\n📍 {LM_STUDIO_BASE_URL}")
+        else:
+            st.warning("⚠️ LM Studio 비활성화\n.env에서 LM_STUDIO_ENABLED=true 설정 필요")
+
+    st.markdown("---")
+
     st.markdown("""
     ### 🎯 인간화 개선 방향
- 
+
     1. **문체 자연스럽게**
        - AI 느낌 제거
        - 구어체 적절히 섞기
- 
+
     2. **문장 다양화**
        - 짧은/긴 문장 조화
        - 시작 단어 다양화
- 
+
     3. **표현 풍부하게**
        - 관용구 추가
        - 적절한 강조
- 
+
     4. **가독성 개선**
        - 단락 조정
        - 리스트 활용
- 
+
     5. **구조 최적화**
        - 흥미로운 소제목
        - 강화된 마무리
@@ -78,6 +107,7 @@ with tab1:
                 if st.button("✨ 자동 인간화 진행", type="primary", use_container_width=True):
                     with st.spinner("블로그 인간화 중..."):
                         try:
+                            humanizer = get_humanizer(model_name)
                             humanized_html = humanizer.humanize(auto_html)
                             st.session_state.original_html = auto_html
                             st.session_state.humanized_html = humanized_html
@@ -153,6 +183,7 @@ with tab1:
             if st.button("✨ 인간화", type="primary", use_container_width=True):
                 with st.spinner("블로그 인간화 중..."):
                     try:
+                        humanizer = get_humanizer(model_name)
                         humanized_html = humanizer.humanize(original_html)
                         st.session_state.original_html = original_html
                         st.session_state.humanized_html = humanized_html

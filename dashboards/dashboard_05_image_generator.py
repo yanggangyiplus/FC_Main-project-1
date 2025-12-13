@@ -9,6 +9,7 @@ from pathlib import Path
 from PIL import Image
 import json
 from datetime import datetime
+import hashlib
  
 sys.path.append(str(Path(__file__).parent.parent))
  
@@ -18,7 +19,7 @@ image_gen_module = importlib.import_module("modules.05_image_generator.image_gen
 blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_generator")
 ImageGenerator = image_gen_module.ImageGenerator
 BlogGenerator = blog_gen_module.BlogGenerator
-from config.settings import IMAGES_DIR, IMAGE_MODEL, IMAGE_SIZE, IMAGE_PROMPTS_FILE, GENERATED_BLOGS_DIR
+from config.settings import IMAGES_DIR, IMAGE_MODEL, IMAGE_SIZE, IMAGE_PROMPTS_FILE, GENERATED_BLOGS_DIR, BLOG_IMAGE_MAPPING_FILE, METADATA_DIR
  
 st.set_page_config(
     page_title="이미지 생성기 대시보드",
@@ -32,7 +33,7 @@ st.markdown("---")
 # 사이드바
 with st.sidebar:
     st.header("⚙️ 설정")
-
+ 
     # 이미지 생성 모델 선택
     model_options = {
         "🆓 Hugging Face (무료, 기본)": "huggingface",
@@ -51,8 +52,44 @@ with st.sidebar:
     # 구글 드라이브 사용 여부 (기본적으로 비활성화, 라이브러리 충돌 가능성 때문)
     use_google_drive = st.checkbox("구글 드라이브 업로드", value=False, 
                                      help="⚠️ 구글 드라이브 기능은 현재 불안정할 수 있습니다. 로컬 저장을 권장합니다.")
-
-    st.metric("이미지 크기", IMAGE_SIZE)
+ 
+    st.markdown("---")
+    
+    # 이미지 사이즈 선택
+    st.subheader("📐 이미지 사이즈")
+    
+    # 모델별 지원 사이즈
+    if selected_model == "z-image-turbo":
+        size_options = {
+            "🧪 TEST (작고 낮은 해상도)": "512x512",
+            "⚖️ 중간 품질": "768x768",
+            "✨ 고품질": "1024x1024"
+        }
+        default_index = 2  # 고품질이 기본
+    elif selected_model == "dall-e-3":
+        size_options = {
+            "🧪 TEST (작고 낮은 해상도)": "1024x1024",
+            "⚖️ 중간 품질": "1024x1792",  # 세로형
+            "✨ 고품질": "1792x1024"  # 가로형
+        }
+        default_index = 0  # DALL-E는 1024x1024가 기본
+    else:  # huggingface
+        size_options = {
+            "🧪 TEST (작고 낮은 해상도)": "256x256",
+            "⚖️ 중간 품질": "512x512",
+            "✨ 고품질": "768x768"
+        }
+        default_index = 1  # 중간 품질이 기본
+    
+    selected_size_display = st.selectbox(
+        "해상도 선택",
+        options=list(size_options.keys()),
+        index=default_index,
+        help="TEST는 빠른 테스트용, 중간 품질은 균형잡힌 선택, 고품질은 최고 해상도입니다."
+    )
+    selected_image_size = size_options[selected_size_display]
+    
+    st.caption(f"선택된 사이즈: {selected_image_size}")
     
     # 모델 정보
     st.markdown("---")
@@ -138,7 +175,7 @@ with st.sidebar:
  
 # 탭 생성
 tab0, tab1, tab2 = st.tabs(["📥 블로그 이미지 생성", "🎨 개별 이미지 생성", "📁 생성된 이미지"])
-
+ 
 # 탭 0: 블로그 이미지 생성 (4번 모듈에서 저장된 이미지 설명 불러오기)
 with tab0:
     st.header("📥 블로그 이미지 생성")
@@ -213,7 +250,7 @@ with tab0:
                         if st.button(f"🎨 이미지 {current_idx + 1} 생성", type="primary", use_container_width=True):
                             with st.spinner(f"이미지 {current_idx + 1} 생성 중... (30초~1분 소요)"):
                                 try:
-                                    generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive)
+                                    generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size)
                                     result = generator.generate_single_image(current_ph['alt'], index=current_idx)
                                     
                                     if result.get('local_path'):
@@ -222,7 +259,7 @@ with tab0:
                                         
                                         # 생성된 이미지 표시
                                         img = Image.open(result['local_path'])
-                                        st.image(img, use_container_width=True)
+                                        st.image(img)
                                         
                                         # 다음 이미지로 진행
                                         st.session_state.current_image_index += 1
@@ -239,6 +276,51 @@ with tab0:
                             st.rerun()
                 else:
                     st.success(f"🎉 모든 이미지 생성 완료! ({len(st.session_state.generated_images)}/{len(placeholders)})")
+                    
+                    # ✅ 블로그-이미지 매핑 정보 저장 (7번 모듈에서 사용)
+                    if st.session_state.generated_images:
+                        try:
+                            blog_topic = prompts_data.get('blog_topic', '')
+                            html_file = prompts_data.get('html_file', '')
+                            
+                            # 블로그 식별자 생성 (주제 + 생성 시간 기반)
+                            blog_id = hashlib.md5(f"{blog_topic}_{prompts_data.get('created_at', '')}".encode()).hexdigest()[:8]
+                            
+                            mapping_data = {
+                                "blog_id": blog_id,  # 블로그 고유 식별자
+                                "blog_topic": blog_topic,
+                                "html_file": html_file,
+                                "created_at": datetime.now().isoformat(),
+                                "evaluation_score": prompts_data.get('evaluation_score', 0),
+                                "images": [
+                                    {
+                                        "index": img.get('index', i),
+                                        "local_path": img.get('local_path', ''),
+                                        "url": img.get('url', ''),
+                                        "alt": img.get('alt', ''),
+                                        "model": img.get('model', selected_model)
+                                    }
+                                    for i, img in enumerate(st.session_state.generated_images)
+                                    if img.get('local_path')  # 성공한 이미지만 저장
+                                ]
+                            }
+                            
+                            # 블로그별 고유 매핑 파일 생성
+                            mapping_file = METADATA_DIR / f"blog_image_mapping_{blog_id}.json"
+                            METADATA_DIR.mkdir(parents=True, exist_ok=True)
+                            with open(mapping_file, 'w', encoding='utf-8') as f:
+                                json.dump(mapping_data, f, ensure_ascii=False, indent=2)
+                            
+                            # 최신 매핑 파일 경로도 저장 (7번 모듈에서 쉽게 찾을 수 있도록)
+                            with open(BLOG_IMAGE_MAPPING_FILE, 'w', encoding='utf-8') as f:
+                                json.dump({"latest_mapping_file": str(mapping_file), "blog_id": blog_id}, f, ensure_ascii=False, indent=2)
+                            
+                            st.success(f"💾 블로그-이미지 매핑 정보 저장 완료! ({len(mapping_data['images'])}개 이미지)")
+                            st.caption(f"📁 파일: blog_image_mapping_{blog_id}.json")
+                            st.caption(f"🔑 블로그 ID: {blog_id}")
+                            st.info("💡 이제 **7번 모듈**에서 이 매핑 정보를 사용하여 이미지를 블로그에 삽입할 수 있습니다.")
+                        except Exception as e:
+                            st.warning(f"⚠️ 매핑 정보 저장 실패: {e}")
                     
                     # HTML에 이미지 삽입 버튼
                     html_file = prompts_data.get('html_file', '')
@@ -275,7 +357,7 @@ with tab0:
                         status_text.text(f"이미지 {i+1}/{len(placeholders)} 생성 중...")
                         
                         try:
-                            generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive)
+                            generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size)
                             result = generator.generate_single_image(ph['alt'], index=i)
                             results.append(result)
                             
@@ -296,6 +378,51 @@ with tab0:
                     # 성공한 이미지 수 확인
                     success_count = len([r for r in results if r.get('local_path')])
                     st.success(f"🎉 {success_count}/{len(placeholders)}개 이미지 생성 완료!")
+                    
+                    # ✅ 블로그-이미지 매핑 정보 저장 (7번 모듈에서 사용)
+                    if success_count > 0:
+                        try:
+                            blog_topic = prompts_data.get('blog_topic', '')
+                            html_file = prompts_data.get('html_file', '')
+                            
+                            # 블로그 식별자 생성 (주제 + 생성 시간 기반)
+                            blog_id = hashlib.md5(f"{blog_topic}_{prompts_data.get('created_at', '')}".encode()).hexdigest()[:8]
+                            
+                            mapping_data = {
+                                "blog_id": blog_id,  # 블로그 고유 식별자
+                                "blog_topic": blog_topic,
+                                "html_file": html_file,
+                                "created_at": datetime.now().isoformat(),
+                                "evaluation_score": prompts_data.get('evaluation_score', 0),
+                                "images": [
+                                    {
+                                        "index": img.get('index', i),
+                                        "local_path": img.get('local_path', ''),
+                                        "url": img.get('url', ''),
+                                        "alt": img.get('alt', ''),
+                                        "model": img.get('model', selected_model)
+                                    }
+                                    for i, img in enumerate(results)
+                                    if img.get('local_path')  # 성공한 이미지만 저장
+                                ]
+                            }
+                            
+                            # 블로그별 고유 매핑 파일 생성
+                            mapping_file = METADATA_DIR / f"blog_image_mapping_{blog_id}.json"
+                            METADATA_DIR.mkdir(parents=True, exist_ok=True)
+                            with open(mapping_file, 'w', encoding='utf-8') as f:
+                                json.dump(mapping_data, f, ensure_ascii=False, indent=2)
+                            
+                            # 최신 매핑 파일 경로도 저장 (7번 모듈에서 쉽게 찾을 수 있도록)
+                            with open(BLOG_IMAGE_MAPPING_FILE, 'w', encoding='utf-8') as f:
+                                json.dump({"latest_mapping_file": str(mapping_file), "blog_id": blog_id}, f, ensure_ascii=False, indent=2)
+                            
+                            st.success(f"💾 블로그-이미지 매핑 정보 저장 완료! ({len(mapping_data['images'])}개 이미지)")
+                            st.caption(f"📁 파일: blog_image_mapping_{blog_id}.json")
+                            st.caption(f"🔑 블로그 ID: {blog_id}")
+                            st.info("💡 이제 **7번 모듈**에서 이 매핑 정보를 사용하여 이미지를 블로그에 삽입할 수 있습니다.")
+                        except Exception as e:
+                            st.warning(f"⚠️ 매핑 정보 저장 실패: {e}")
                     
                     # HTML에 이미지 삽입
                     html_file = prompts_data.get('html_file', '')
@@ -319,7 +446,7 @@ with tab0:
                     with cols[i % 3]:
                         if result.get('local_path') and Path(result['local_path']).exists():
                             img = Image.open(result['local_path'])
-                            st.image(img, use_container_width=True)
+                            st.image(img)
                             st.caption(f"이미지 {result['index'] + 1}")
         else:
             st.warning("저장된 이미지 설명이 없습니다.")
@@ -362,7 +489,7 @@ with tab1:
             if prompt:
                 with st.spinner("이미지 생성 중... (30초~1분 소요)"):
                     try:
-                        generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive)
+                        generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size)
                         result = generator.generate_single_image(prompt, index=0)
  
                         st.session_state.single_image_result = result
@@ -387,7 +514,7 @@ with tab1:
                 # 로컬 이미지 표시
                 if result.get('local_path') and Path(result['local_path']).exists():
                     img = Image.open(result['local_path'])
-                    st.image(img, use_container_width=True)
+                    st.image(img)
                 else:
                     st.error("이미지 파일을 찾을 수 없습니다.")
  
@@ -428,7 +555,7 @@ with tab1:
                 placeholders = json.loads(placeholder_input)
  
                 with st.spinner(f"{len(placeholders)}개 이미지 생성 중..."):
-                    generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive)
+                    generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size)
                     results = generator.generate_images(placeholders)
  
                     st.session_state.batch_results = results
@@ -454,7 +581,7 @@ with tab1:
                     with col_batch1:
                         if result.get('local_path') and Path(result['local_path']).exists():
                             img = Image.open(result['local_path'])
-                            st.image(img, use_container_width=True)
+                            st.image(img)
                         else:
                             st.error(f"생성 실패: {result.get('error', '알 수 없는 오류')}")
  
@@ -487,7 +614,7 @@ with tab2:
  
                         with cols[j]:
                             img = Image.open(img_file)
-                            st.image(img, use_container_width=True)
+                            st.image(img)
                             st.caption(img_file.name)
  
                             # 파일 정보

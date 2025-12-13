@@ -17,8 +17,17 @@ CHROMA_DB_PATH = DATA_DIR / "chroma_db"
 SCRAPED_NEWS_DIR = DATA_DIR / "scraped_news"
 GENERATED_BLOGS_DIR = DATA_DIR / "generated_blogs"
 IMAGES_DIR = DATA_DIR / "images"
-TOPIC_HISTORY_FILE = DATA_DIR / "topic_history.json"  # 작성된 주제 기록 파일
-FEEDBACK_FILE = DATA_DIR / "latest_feedback.json"  # 최근 평가 피드백 (4→3 모듈 연동용)
+METADATA_DIR = DATA_DIR / "metadata"  # 메타데이터 파일 저장 디렉토리
+TEMP_DIR = DATA_DIR / "temp"  # 임시/중간 파일 저장 디렉토리
+
+# 메타데이터 파일 경로
+TOPIC_HISTORY_FILE = METADATA_DIR / "topic_history.json"  # 작성된 주제 기록 파일
+IMAGE_PROMPTS_FILE = METADATA_DIR / "image_prompts.json"  # 이미지 설명 저장 (4번 모듈 → 5번 모듈 연결용)
+BLOG_IMAGE_MAPPING_FILE = METADATA_DIR / "blog_image_mapping.json"  # 블로그 이미지 매핑 저장 (5번 모듈 → 7번 모듈 연결용)
+
+# 임시 파일 경로
+FEEDBACK_FILE = TEMP_DIR / "latest_feedback.json"  # 최근 평가 피드백 (4→3 모듈 연동용)
+HUMANIZER_INPUT_FILE = TEMP_DIR / "humanizer_input.html"  # 블로그 HTML 저장 (4번 모듈 → 6번 모듈 연결용)
 
 # 중복 주제 방지 설정
 TOPIC_DUPLICATE_DAYS = 5  # 중복 주제 체크 기간 (일)
@@ -100,8 +109,4 @@ HUGGINGFACE_MODEL = os.getenv("HUGGINGFACE_MODEL", "runwayml/stable-diffusion-v1
 # ⚠️ 주의: "Tongyi-MAI/Z-Image-Turbo"는 Inference API를 지원하지 않습니다.
 #          Z-Image-Turbo를 사용하려면 로컬 실행이 필요합니다 (GPU + diffusers 라이브러리).
 
-# 이미지 설명 저장 (4번 모듈 → 5번 모듈 연결용)
-IMAGE_PROMPTS_FILE = DATA_DIR / "image_prompts.json"
-
-# 블로그 HTML 저장 (4번 모듈 → 6번 모듈 연결용)
-HUMANIZER_INPUT_FILE = DATA_DIR / "humanizer_input.html"
+# 파일 경로는 위에서 정의됨 (METADATA_DIR, TEMP_DIR 사용)
