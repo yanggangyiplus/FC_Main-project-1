@@ -18,7 +18,9 @@ from config.settings import (
     LM_STUDIO_ENABLED,
     LM_STUDIO_BASE_URL,
     BLOG_PUBLISH_DATA_FILE,
-    METADATA_DIR
+    METADATA_DIR,
+    TEMP_DIR,
+    NEWS_CATEGORIES
 )
  
 st.set_page_config(
@@ -28,6 +30,23 @@ st.set_page_config(
 )
  
 st.title("✨ Humanizer 대시보드")
+st.markdown("---")
+
+# 카테고리 매핑
+CATEGORY_MAP = {
+    "politics": "정치 (Politics)",
+    "economy": "경제 (Economy)",
+    "it_science": "IT/과학 (IT & Science)"
+}
+
+# 카테고리 선택
+selected_category = st.selectbox(
+    "📂 카테고리 선택",
+    options=["전체", "politics", "economy", "it_science"],
+    format_func=lambda x: "전체" if x == "전체" else CATEGORY_MAP.get(x, x),
+    index=0
+)
+
 st.markdown("---")
  
 # 초기화 (모델 선택에 따라 동적으로 생성)
@@ -96,17 +115,33 @@ tab1, tab2 = st.tabs(["✨ 인간화하기", "📊 Before/After 비교"])
 with tab1:
     st.header("✨ 블로그 인간화")
  
-    # 4번 모듈에서 자동 전달된 블로그 확인
-    if HUMANIZER_INPUT_FILE.exists():
-        with st.expander("📥 4번 모듈에서 자동 전달된 블로그", expanded=True):
-            try:
-                with open(HUMANIZER_INPUT_FILE, 'r', encoding='utf-8') as f:
-                    auto_html = f.read()
-                st.success(f"✅ 4번 모듈에서 평가 통과한 블로그를 불러왔습니다!")
-                st.caption(f"파일: {HUMANIZER_INPUT_FILE.name}")
+    # 4번 모듈에서 자동 전달된 블로그 확인 (카테고리별)
+    auto_html = None
+    if selected_category != "전체":
+        category_humanizer_file = TEMP_DIR / selected_category / "humanizer_input.html"
+        if category_humanizer_file.exists():
+            with st.expander("📥 4번 모듈에서 자동 전달된 블로그", expanded=True):
+                try:
+                    with open(category_humanizer_file, 'r', encoding='utf-8') as f:
+                        auto_html = f.read()
+                    st.success(f"✅ 4번 모듈에서 평가 통과한 블로그를 불러왔습니다! (카테고리: {CATEGORY_MAP[selected_category]})")
+                    st.caption(f"파일: {category_humanizer_file.name}")
+                except Exception as e:
+                    st.error(f"❌ 파일 로드 실패: {e}")
+    else:
+        if HUMANIZER_INPUT_FILE.exists():
+            with st.expander("📥 4번 모듈에서 자동 전달된 블로그", expanded=True):
+                try:
+                    with open(HUMANIZER_INPUT_FILE, 'r', encoding='utf-8') as f:
+                        auto_html = f.read()
+                    st.success(f"✅ 4번 모듈에서 평가 통과한 블로그를 불러왔습니다!")
+                    st.caption(f"파일: {HUMANIZER_INPUT_FILE.name}")
+                except Exception as e:
+                    st.error(f"❌ 파일 로드 실패: {e}")
+                    auto_html = None
                 
                 # 자동으로 인간화 진행
-                if st.button("✨ 자동 인간화 진행", type="primary", use_container_width=True):
+                if auto_html and st.button("✨ 자동 인간화 진행", type="primary", use_container_width=True):
                     with st.spinner("블로그 인간화 중..."):
                         try:
                             humanizer = get_humanizer(model_name)
@@ -120,7 +155,14 @@ with tab1:
                             from bs4 import BeautifulSoup
                             
                             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                            filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
+                            
+                            # 카테고리별 저장
+                            if selected_category != "전체":
+                                category_dir = GENERATED_BLOGS_DIR / selected_category
+                                category_dir.mkdir(parents=True, exist_ok=True)
+                                filename = category_dir / f"humanized_{timestamp}.html"
+                            else:
+                                filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
                             
                             GENERATED_BLOGS_DIR.mkdir(parents=True, exist_ok=True)
                             with open(filename, 'w', encoding='utf-8') as f:
@@ -154,14 +196,24 @@ with tab1:
                                         img.decompose()
                                     blog_content = soup.get_text(separator='\n', strip=True)
                                 
-                                # 발행용 데이터 저장
+                                # 발행용 데이터 저장 (카테고리별)
                                 publish_data = {
                                     'blog_title': blog_title or "블로그 제목",
                                     'blog_content': blog_content,
                                     'html_file': str(filename),
-                                    'created_at': datetime.now().isoformat()
+                                    'created_at': datetime.now().isoformat(),
+                                    'category': selected_category if selected_category != "전체" else None
                                 }
                                 
+                                # 카테고리별 저장
+                                if selected_category != "전체":
+                                    category_metadata_dir = METADATA_DIR / selected_category
+                                    category_metadata_dir.mkdir(parents=True, exist_ok=True)
+                                    category_publish_file = category_metadata_dir / "blog_publish_data.json"
+                                    with open(category_publish_file, 'w', encoding='utf-8') as f:
+                                        json.dump(publish_data, f, ensure_ascii=False, indent=2)
+                                
+                                # 전체 파일도 업데이트 (호환성)
                                 METADATA_DIR.mkdir(parents=True, exist_ok=True)
                                 with open(BLOG_PUBLISH_DATA_FILE, 'w', encoding='utf-8') as f:
                                     json.dump(publish_data, f, ensure_ascii=False, indent=2)
@@ -178,8 +230,6 @@ with tab1:
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ 인간화 실패: {str(e)}")
-            except Exception as e:
-                st.error(f"❌ 파일 로드 실패: {e}")
     
     # 입력 방법 선택
     input_method = st.radio(
@@ -203,7 +253,16 @@ with tab1:
             st.info("💡 4번 모듈(품질 평가)에서 평가 통과 시 자동으로 전달됩니다.")
     elif input_method == "저장된 파일 선택":
         if GENERATED_BLOGS_DIR.exists():
-            html_files = sorted(list(GENERATED_BLOGS_DIR.glob("*.html")), reverse=True)
+            # 카테고리별 필터링
+            if selected_category != "전체":
+                category_dir = GENERATED_BLOGS_DIR / selected_category
+                if category_dir.exists():
+                    html_files = sorted(list(category_dir.glob("*.html")), reverse=True)
+                else:
+                    html_files = []
+            else:
+                # 전체 카테고리에서 검색
+                html_files = sorted(list(GENERATED_BLOGS_DIR.glob("**/*.html")), reverse=True)
 
             if html_files:
                 selected_file = st.selectbox(
@@ -247,7 +306,14 @@ with tab1:
                         from bs4 import BeautifulSoup
                         
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
+                        
+                        # 카테고리별 저장
+                        if selected_category != "전체":
+                            category_dir = GENERATED_BLOGS_DIR / selected_category
+                            category_dir.mkdir(parents=True, exist_ok=True)
+                            filename = category_dir / f"humanized_{timestamp}.html"
+                        else:
+                            filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
                         
                         GENERATED_BLOGS_DIR.mkdir(parents=True, exist_ok=True)
                         with open(filename, 'w', encoding='utf-8') as f:
@@ -281,14 +347,24 @@ with tab1:
                                     img.decompose()
                                 blog_content = soup.get_text(separator='\n', strip=True)
                             
-                            # 발행용 데이터 저장
+                            # 발행용 데이터 저장 (카테고리별)
                             publish_data = {
                                 'blog_title': blog_title or "블로그 제목",
                                 'blog_content': blog_content,
                                 'html_file': str(filename),
-                                'created_at': datetime.now().isoformat()
+                                'created_at': datetime.now().isoformat(),
+                                'category': selected_category if selected_category != "전체" else None
                             }
                             
+                            # 카테고리별 저장
+                            if selected_category != "전체":
+                                category_metadata_dir = METADATA_DIR / selected_category
+                                category_metadata_dir.mkdir(parents=True, exist_ok=True)
+                                category_publish_file = category_metadata_dir / "blog_publish_data.json"
+                                with open(category_publish_file, 'w', encoding='utf-8') as f:
+                                    json.dump(publish_data, f, ensure_ascii=False, indent=2)
+                            
+                            # 전체 파일도 업데이트 (호환성)
                             METADATA_DIR.mkdir(parents=True, exist_ok=True)
                             with open(BLOG_PUBLISH_DATA_FILE, 'w', encoding='utf-8') as f:
                                 json.dump(publish_data, f, ensure_ascii=False, indent=2)
@@ -332,7 +408,14 @@ with tab1:
                 from bs4 import BeautifulSoup
                 
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
+                
+                # 카테고리별 저장
+                if selected_category != "전체":
+                    category_dir = GENERATED_BLOGS_DIR / selected_category
+                    category_dir.mkdir(parents=True, exist_ok=True)
+                    filename = category_dir / f"humanized_{timestamp}.html"
+                else:
+                    filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
 
                 GENERATED_BLOGS_DIR.mkdir(parents=True, exist_ok=True)
                 with open(filename, 'w', encoding='utf-8') as f:
@@ -366,14 +449,24 @@ with tab1:
                             img.decompose()
                         blog_content = soup.get_text(separator='\n', strip=True)
                     
-                    # 발행용 데이터 저장
+                    # 발행용 데이터 저장 (카테고리별)
                     publish_data = {
                         'blog_title': blog_title or "블로그 제목",
                         'blog_content': blog_content,
                         'html_file': str(filename),
-                        'created_at': datetime.now().isoformat()
+                        'created_at': datetime.now().isoformat(),
+                        'category': selected_category if selected_category != "전체" else None
                     }
                     
+                    # 카테고리별 저장
+                    if selected_category != "전체":
+                        category_metadata_dir = METADATA_DIR / selected_category
+                        category_metadata_dir.mkdir(parents=True, exist_ok=True)
+                        category_publish_file = category_metadata_dir / "blog_publish_data.json"
+                        with open(category_publish_file, 'w', encoding='utf-8') as f:
+                            json.dump(publish_data, f, ensure_ascii=False, indent=2)
+                    
+                    # 전체 파일도 업데이트 (호환성)
                     METADATA_DIR.mkdir(parents=True, exist_ok=True)
                     with open(BLOG_PUBLISH_DATA_FILE, 'w', encoding='utf-8') as f:
                         json.dump(publish_data, f, ensure_ascii=False, indent=2)

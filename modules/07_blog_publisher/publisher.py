@@ -55,7 +55,15 @@ class NaverBlogPublisher:
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36')
 
-        service = Service(ChromeDriverManager().install())
+        # ChromeDriverManager가 잘못된 파일을 반환하는 버그 수정
+        driver_path = ChromeDriverManager().install()
+        
+        # THIRD_PARTY_NOTICES 파일이 반환된 경우 실제 chromedriver로 수정
+        if "THIRD_PARTY_NOTICES" in driver_path:
+            driver_path = driver_path.replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver")
+            logger.warning(f"ChromeDriver 경로 수정: {driver_path}")
+        
+        service = Service(driver_path)
         self.driver = webdriver.Chrome(service=service, options=options)
         logger.info("웹드라이버 초기화 완료")
 
@@ -102,36 +110,71 @@ class NaverBlogPublisher:
             logger.error(f"로그인 중 오류: {e}")
             return False
 
-    def load_image_mapping(self, mapping_file: Optional[Path] = None) -> Optional[Dict[str, Any]]:
+    def load_image_mapping(self, mapping_file: Optional[Path] = None, category: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         블로그 이미지 매핑 정보 로드
 
         Args:
             mapping_file: 매핑 파일 경로 (None이면 최신 파일 자동 로드)
+            category: 카테고리 (있으면 카테고리별 파일에서 로드)
 
         Returns:
             매핑 정보 딕셔너리 또는 None
         """
         try:
-            if mapping_file is None:
-                # 최신 매핑 파일 찾기
-                if BLOG_IMAGE_MAPPING_FILE.exists():
-                    with open(BLOG_IMAGE_MAPPING_FILE, 'r', encoding='utf-8') as f:
+            # 1. 지정된 파일이 있으면 사용
+            if mapping_file and mapping_file.exists():
+                with open(mapping_file, 'r', encoding='utf-8') as f:
+                    mapping_data = json.load(f)
+                logger.info(f"이미지 매핑 정보 로드 완료: {mapping_file.name} ({len(mapping_data.get('images', []))}개 이미지)")
+                return mapping_data
+            
+            # 2. 카테고리별 파일 우선 확인
+            if category:
+                category_dir = METADATA_DIR / category
+                category_mapping_file = category_dir / "blog_image_mapping.json"
+                if category_mapping_file.exists():
+                    with open(category_mapping_file, 'r', encoding='utf-8') as f:
                         latest_info = json.load(f)
-                    mapping_file = Path(latest_info.get('latest_mapping_file', ''))
+                    latest_mapping_file = Path(latest_info.get('latest_mapping_file', ''))
+                    
+                    if latest_mapping_file.exists():
+                        with open(latest_mapping_file, 'r', encoding='utf-8') as f:
+                            mapping_data = json.load(f)
+                        logger.info(f"이미지 매핑 정보 로드 완료 (카테고리: {category}): {latest_mapping_file.name} ({len(mapping_data.get('images', []))}개 이미지)")
+                        return mapping_data
                 
-                # 매핑 파일이 없으면 metadata 디렉토리에서 최신 파일 찾기
-                if not mapping_file or not mapping_file.exists():
+                # 카테고리 디렉토리에서 최신 파일 찾기
+                if category_dir.exists():
                     mapping_files = sorted(
-                        METADATA_DIR.glob("blog_image_mapping_*.json"),
+                        category_dir.glob("blog_image_mapping_*.json"),
                         key=lambda x: x.stat().st_mtime,
                         reverse=True
                     )
                     if mapping_files:
-                        mapping_file = mapping_files[0]
-                    else:
-                        logger.warning("이미지 매핑 파일을 찾을 수 없습니다.")
-                        return None
+                        with open(mapping_files[0], 'r', encoding='utf-8') as f:
+                            mapping_data = json.load(f)
+                        logger.info(f"이미지 매핑 정보 로드 완료 (카테고리 최신 파일): {mapping_files[0].name} ({len(mapping_data.get('images', []))}개 이미지)")
+                        return mapping_data
+            
+            # 3. 최신 매핑 파일 찾기
+            if BLOG_IMAGE_MAPPING_FILE.exists():
+                with open(BLOG_IMAGE_MAPPING_FILE, 'r', encoding='utf-8') as f:
+                    latest_info = json.load(f)
+                mapping_file = Path(latest_info.get('latest_mapping_file', ''))
+            
+            # 4. 매핑 파일이 없으면 metadata 디렉토리에서 최신 파일 찾기
+            if not mapping_file or not mapping_file.exists():
+                mapping_files = sorted(
+                    METADATA_DIR.glob("blog_image_mapping_*.json"),
+                    key=lambda x: x.stat().st_mtime,
+                    reverse=True
+                )
+                if mapping_files:
+                    mapping_file = mapping_files[0]
+                else:
+                    logger.warning("이미지 매핑 파일을 찾을 수 없습니다.")
+                    return None
             
             if mapping_file.exists():
                 with open(mapping_file, 'r', encoding='utf-8') as f:
@@ -268,9 +311,12 @@ class NaverBlogPublisher:
         logger.info("HTML 조립 완료")
         return result_html
 
-    def load_publish_data(self) -> Optional[Dict[str, Any]]:
+    def load_publish_data(self, category: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
-        블로그 발행용 데이터 로드 (4번 모듈에서 저장된 데이터)
+        블로그 발행용 데이터 로드 (6번 모듈에서 저장된 데이터)
+
+        Args:
+            category: 카테고리 (있으면 카테고리별 파일에서 로드)
 
         Returns:
             발행 데이터 딕셔너리 또는 None
@@ -279,10 +325,22 @@ class NaverBlogPublisher:
                 "blog_title": str,
                 "blog_content": str,  # 텍스트만 (이미지 제외)
                 "html_file": str,
-                "evaluation_score": int
+                "evaluation_score": int,
+                "category": str,
+                "blog_category": str
             }
         """
         try:
+            # 카테고리별 파일 우선 확인
+            if category:
+                category_publish_file = METADATA_DIR / category / "blog_publish_data.json"
+                if category_publish_file.exists():
+                    with open(category_publish_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    logger.info(f"블로그 발행 데이터 로드 완료 (카테고리: {category}): {category_publish_file.name}")
+                    return data
+            
+            # 기본 파일 확인
             if BLOG_PUBLISH_DATA_FILE.exists():
                 with open(BLOG_PUBLISH_DATA_FILE, 'r', encoding='utf-8') as f:
                     data = json.load(f)
@@ -361,8 +419,21 @@ class NaverBlogPublisher:
                 "attempts": int
             }
         """
-        # 블로그 발행 데이터 자동 로드 (4번 모듈에서 저장된 데이터)
-        publish_data = self.load_publish_data()
+        # 블로그 발행 데이터 자동 로드 (6번 모듈에서 저장된 데이터)
+        # category 파라미터가 있으면 카테고리별 데이터 로드
+        # category가 블로그 카테고리(it_tech, economy, politics)이면 뉴스 카테고리로 변환 필요
+        data_category = None
+        if category:
+            # 블로그 카테고리를 뉴스 카테고리로 역매핑
+            # it_tech -> it_science, economy -> economy, politics -> politics
+            blog_to_news_mapping = {
+                "it_tech": "it_science",
+                "economy": "economy",
+                "politics": "politics"
+            }
+            data_category = blog_to_news_mapping.get(category, category)
+        
+        publish_data = self.load_publish_data(category=data_category)
         
         # 제목과 본문 텍스트 가져오기
         blog_title = None
@@ -406,8 +477,16 @@ class NaverBlogPublisher:
                 content = ""
         
         # 이미지 매핑 정보 자동 로드
+        # category 파라미터가 있으면 카테고리별 데이터 로드
         if images is None:
-            mapping_data = self.load_image_mapping(mapping_file)
+            # publish_data에서 category 추출 (우선순위: publish_data > data_category)
+            load_category = None
+            if publish_data:
+                load_category = publish_data.get('category')
+            elif data_category:
+                load_category = data_category
+            
+            mapping_data = self.load_image_mapping(mapping_file, category=load_category)
             if mapping_data:
                 images = mapping_data.get('images', [])
             else:
@@ -498,7 +577,18 @@ class NaverBlogPublisher:
             except:
                 logger.info("iframe 없음, 메인 프레임에서 진행")
 
-            # 도움말 창 닫기 (있는 경우)
+            # 작성중인 글 팝업 확인 버튼 클릭 (있는 경우) - 먼저 처리
+            try:
+                draft_confirm_btn = WebDriverWait(self.driver, 3).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "button.se-popup-button.se-popup-button-confirm"))
+                )
+                draft_confirm_btn.click()
+                time.sleep(0.5)
+                logger.info("작성중인 글 팝업 확인 버튼 클릭 완료")
+            except:
+                logger.info("작성중인 글 팝업 없음 (정상)")
+
+            # 도움말 창 닫기 (있는 경우) - 그 다음 처리
             try:
                 help_close_btn = WebDriverWait(self.driver, 3).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, "button.se-help-panel-close-button"))

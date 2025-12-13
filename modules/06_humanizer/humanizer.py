@@ -13,7 +13,9 @@ from config.settings import (
     DEFAULT_LLM_MODEL,
     LM_STUDIO_ENABLED,
     LM_STUDIO_BASE_URL,
-    LM_STUDIO_MODEL_NAME
+    LM_STUDIO_MODEL_NAME,
+    LM_STUDIO_CONTEXT_LENGTH,
+    MAX_CONTEXT_CHARS
 )
 from config.logger import get_logger
 
@@ -98,6 +100,32 @@ class Humanizer:
             logger.error(f"인간화 중 오류: {e}")
             raise
 
+    def _truncate_html(self, html: str, max_chars: int = None) -> str:
+        """
+        HTML을 지정된 길이로 자르기 (LM Studio 컨텍스트 길이 제한 대응)
+        
+        Args:
+            html: 원본 HTML
+            max_chars: 최대 문자 수 (None이면 설정값 사용)
+        
+        Returns:
+            잘린 HTML
+        """
+        if max_chars is None:
+            max_chars = MAX_CONTEXT_CHARS
+        
+        if len(html) <= max_chars:
+            return html
+        
+        # HTML이 너무 길면 자르고 경고 메시지 추가
+        truncated = html[:max_chars]
+        logger.warning(
+            f"⚠️ HTML이 너무 깁니다 ({len(html)}자 > {max_chars}자). "
+            f"자동으로 {max_chars}자로 잘랐습니다. "
+            f"LM Studio에서 컨텍스트 길이를 늘리세요."
+        )
+        return truncated + "\n\n[참고: HTML이 길어 일부가 생략되었습니다.]"
+
     def _create_humanization_prompt(self, html: str) -> str:
         """
         인간화 프롬프트 생성
@@ -108,6 +136,10 @@ class Humanizer:
         Returns:
             프롬프트 문자열
         """
+        # LM Studio 사용 시 HTML 자동 자르기
+        if "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
+            html = self._truncate_html(html)
+        
         prompt = f"""당신은 블로그 글을 더 자연스럽고 인간적으로 만드는 전문가입니다.
 
 다음 블로그 글을 개선해주세요. **사실 내용은 절대 변경하지 마세요.** 오직 문체, 표현, 구조만 개선하세요.

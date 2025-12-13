@@ -16,7 +16,8 @@ from config.settings import (
     OPENAI_API_KEY, ANTHROPIC_API_KEY, DEFAULT_LLM_MODEL,
     TEMPERATURE, GENERATED_BLOGS_DIR, IMAGES_PER_BLOG,
     TOPIC_HISTORY_FILE, TOPIC_DUPLICATE_DAYS,
-    LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, LM_STUDIO_MODEL_NAME
+    LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, LM_STUDIO_MODEL_NAME,
+    LM_STUDIO_CONTEXT_LENGTH, MAX_CONTEXT_CHARS
 )
 from config.logger import get_logger
 
@@ -339,6 +340,32 @@ class BlogGenerator:
 5. **여백**: 문단 사이 적절한 여백 (p 태그 활용)
 6. **SEO**: 키워드를 자연스럽게 배치"""
 
+    def _truncate_context(self, context: str, max_chars: int = None) -> str:
+        """
+        컨텍스트를 지정된 길이로 자르기 (LM Studio 컨텍스트 길이 제한 대응)
+        
+        Args:
+            context: 원본 컨텍스트
+            max_chars: 최대 문자 수 (None이면 설정값 사용)
+        
+        Returns:
+            잘린 컨텍스트
+        """
+        if max_chars is None:
+            max_chars = MAX_CONTEXT_CHARS
+        
+        if len(context) <= max_chars:
+            return context
+        
+        # 컨텍스트가 너무 길면 자르고 경고 메시지 추가
+        truncated = context[:max_chars]
+        logger.warning(
+            f"⚠️ 컨텍스트가 너무 깁니다 ({len(context)}자 > {max_chars}자). "
+            f"자동으로 {max_chars}자로 잘랐습니다. "
+            f"LM Studio에서 컨텍스트 길이를 늘리거나, 기사 수를 줄이세요."
+        )
+        return truncated + "\n\n[참고: 컨텍스트가 길어 일부가 생략되었습니다.]"
+
     def _create_prompt(
         self,
         topic: str,
@@ -358,6 +385,10 @@ class BlogGenerator:
         Returns:
             프롬프트 문자열
         """
+        # LM Studio 사용 시 컨텍스트 자동 자르기
+        if "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
+            context = self._truncate_context(context)
+        
         # 사용자 프롬프트 또는 기본 프롬프트 사용
         user_prompt = custom_prompt if custom_prompt else self.get_default_prompt()
         
@@ -537,25 +568,31 @@ class BlogGenerator:
 
         return html
 
-    def save_blog(self, html: str, topic: str, context: str = "", version: int = 1) -> Path:
+    def save_blog(self, html: str, topic: str, context: str = "", version: int = 1, category: str = "") -> Path:
         """
-        블로그 HTML 파일로 저장 (메타데이터 포함)
+        블로그 HTML 파일로 저장 (메타데이터 포함, 카테고리별 폴더)
 
         Args:
             html: HTML 내용
             topic: 주제
             context: 사용된 컨텍스트 (품질 평가용)
             version: 버전 번호 (재생성 시 증가)
+            category: 카테고리 (폴더 구분용)
 
         Returns:
             저장된 파일 경로
         """
-        GENERATED_BLOGS_DIR.mkdir(parents=True, exist_ok=True)
+        # 카테고리별 폴더 생성
+        if category:
+            save_dir = GENERATED_BLOGS_DIR / category
+        else:
+            save_dir = GENERATED_BLOGS_DIR
+        save_dir.mkdir(parents=True, exist_ok=True)
 
         # 파일명 생성 (안전한 파일명으로 변환)
         safe_topic = re.sub(r'[^\w\s-]', '', topic).strip().replace(' ', '_')
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = GENERATED_BLOGS_DIR / f"{safe_topic}_{timestamp}_v{version}.html"
+        filename = save_dir / f"{safe_topic}_{timestamp}_v{version}.html"
 
         # HTML 파일 저장
         with open(filename, 'w', encoding='utf-8') as f:
@@ -568,14 +605,15 @@ class BlogGenerator:
             "context": context,
             "created_at": datetime.now().isoformat(),
             "html_file": filename.name,
-            "version": version
+            "version": version,
+            "category": category  # 카테고리 정보 포함
         }
         
         import json
         with open(meta_filename, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
 
-        logger.info(f"블로그 저장 완료: {filename} (메타데이터 포함)")
+        logger.info(f"블로그 저장 완료: {filename} (카테고리: {category or '없음'}, 메타데이터 포함)")
         return filename
 
     def extract_image_placeholders(self, html: str) -> list:

@@ -106,6 +106,8 @@ TEMPERATURE = 0.7
 LM_STUDIO_ENABLED = os.getenv("LM_STUDIO_ENABLED", "false").lower() == "true"
 LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
 LM_STUDIO_MODEL_NAME = os.getenv("LM_STUDIO_MODEL_NAME", "local-model")  # LM Studio에서 로드한 모델명
+LM_STUDIO_CONTEXT_LENGTH = int(os.getenv("LM_STUDIO_CONTEXT_LENGTH", "4096"))  # LM Studio 모델 컨텍스트 길이 (기본값: 4096)
+MAX_CONTEXT_CHARS = int(os.getenv("MAX_CONTEXT_CHARS", "12000"))  # 컨텍스트 최대 문자 수 (대략 3000 토큰, 1 토큰 ≈ 4자)
 
 # 이미지 생성 설정
 # 모델 옵션: "huggingface" (무료, 기본), "z-image-turbo" (로컬, GPU 필요), "dall-e-3" (유료), "stable-diffusion-webui" (로컬)

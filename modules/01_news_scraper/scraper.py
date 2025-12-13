@@ -148,7 +148,15 @@ class NaverNewsScraper:
         options.add_argument('--window-size=1920,1080')
         options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36')
 
-        service = Service(ChromeDriverManager().install())
+        # ChromeDriverManager가 잘못된 파일을 반환하는 버그 수정
+        driver_path = ChromeDriverManager().install()
+        
+        # THIRD_PARTY_NOTICES 파일이 반환된 경우 실제 chromedriver로 수정
+        if "THIRD_PARTY_NOTICES" in driver_path:
+            driver_path = driver_path.replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver")
+            logger.warning(f"ChromeDriver 경로 수정: {driver_path}")
+        
+        service = Service(driver_path)
         self.driver = webdriver.Chrome(service=service, options=options)
         self.wait = WebDriverWait(self.driver, 10)
         logger.info("웹드라이버 초기화 완료")
@@ -236,8 +244,8 @@ class NaverNewsScraper:
             # 1단계: 카테고리 페이지 접속
             url = SELECTORS["CATEGORY_URL"].format(category_id=category_id)
             logger.info(f"카테고리 페이지 접속: {url}")
-        self.driver.get(url)
-        time.sleep(SCRAPING_DELAY)
+            self.driver.get(url)
+            time.sleep(SCRAPING_DELAY)
 
             # 2단계: 헤드라인 더보기 클릭 (있는 경우)
             self._click_headline_more()
@@ -414,7 +422,7 @@ class NaverNewsScraper:
                 try:
                     dt = datetime.strptime(published_at, "%Y-%m-%d %H:%M:%S")
                     published_at = dt.isoformat()
-            except:
+                except:
                     published_at = datetime.now().isoformat()
             else:
                 published_at = datetime.now().isoformat()
@@ -449,7 +457,7 @@ class NaverNewsScraper:
     # --------------------------------------------------------
     def save_data(self, data: ScrapedData) -> Path:
         """
-        스크래핑 데이터를 JSON 파일로 저장
+        스크래핑 데이터를 JSON 파일로 저장 (카테고리별 폴더)
 
         Args:
             data: ScrapedData 객체
@@ -457,15 +465,17 @@ class NaverNewsScraper:
         Returns:
             저장된 파일 경로
         """
-        SCRAPED_NEWS_DIR.mkdir(parents=True, exist_ok=True)
+        # 카테고리별 폴더 생성
+        category_dir = SCRAPED_NEWS_DIR / data.category
+        category_dir.mkdir(parents=True, exist_ok=True)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = SCRAPED_NEWS_DIR / f"{data.category}_{timestamp}.json"
+        filename = category_dir / f"{data.category}_{timestamp}.json"
 
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data.to_dict(), f, ensure_ascii=False, indent=2)
 
-        logger.info(f"데이터 저장 완료: {filename}")
+        logger.info(f"데이터 저장 완료: {filename} (카테고리: {data.category})")
         return filename
 
     def close(self):

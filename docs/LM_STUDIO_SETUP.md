@@ -54,9 +54,13 @@ LM Studio → 상단 메뉴 → Local Server
 #### ③ Server 설정
 ```yaml
 Port: 1234 (기본값 유지)
-Context Length: 4096 이상 권장
+Context Length: 8192 이상 강력 권장 (4096은 부족할 수 있음)
 Temperature: 0.7 (블로그 생성 기준)
 ```
+
+⚠️ **중요**: Context Length는 **8192 이상**으로 설정하세요!
+- 기본값 4096은 긴 블로그나 많은 기사가 포함된 컨텍스트를 처리하기에 부족할 수 있습니다.
+- 오류 메시지: "Trying to keep the first 6757 tokens when context the overflows"가 발생하면 Context Length를 늘려야 합니다.
 
 #### ④ Server 시작
 - **Start Server** 버튼 클릭
@@ -159,6 +163,33 @@ LM Studio 종료 → 재실행 → Server 재시작
    - EEVE-Korean-10.8B
 2. Temperature 조정 (0.5 ~ 0.9)
 3. 프롬프트에 "한국어로 자연스럽게 작성해줘" 추가
+
+### ❌ "Context Length" 오류 (6757 tokens > 4096)
+
+**오류 메시지:**
+```
+Error code: 400 - Trying to keep the first 6757 tokens when context the overflows. 
+However, the model is loaded with context length of only 4096 tokens
+```
+
+**원인:**
+- LM Studio에서 모델을 4096 토큰 컨텍스트 길이로만 로드했는데, 입력 텍스트가 더 길어서 발생
+
+**해결 방법:**
+
+1. **LM Studio에서 컨텍스트 길이 늘리기 (권장)**
+   - LM Studio → Local Server 탭
+   - **Context Length**를 **8192** 또는 **16384**로 변경
+   - 모델을 다시 로드 (Load Model 버튼 클릭)
+   - Server 재시작
+
+2. **코드에서 자동 처리 (이미 구현됨)**
+   - 코드가 자동으로 컨텍스트를 잘라서 처리합니다
+   - `.env` 파일에 `MAX_CONTEXT_CHARS=12000` 설정 (기본값)
+   - 더 많은 기사를 포함하려면 LM Studio에서 컨텍스트 길이를 늘리는 것이 좋습니다
+
+3. **기사 수 줄이기**
+   - 대시보드에서 RAG 기사 수를 줄이기 (예: 10개 → 5개)
 
 ---
 

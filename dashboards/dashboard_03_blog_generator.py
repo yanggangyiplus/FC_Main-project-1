@@ -39,7 +39,18 @@ st.set_page_config(
  
 st.title("✍️ 블로그 생성기 대시보드")
 st.markdown("---")
- 
+
+# 카테고리 선택
+selected_category = st.selectbox(
+    "📂 카테고리 선택",
+    options=["전체", "politics", "economy", "it_science"],
+    format_func=lambda x: "전체" if x == "전체" else CATEGORY_NAMES.get(x, x),
+    index=0,
+    key="main_category_selector"
+)
+
+st.markdown("---")
+
 # 사이드바 (먼저 모델 선택을 받아야 함)
 with st.sidebar:
     st.header("⚙️ 설정")
@@ -132,13 +143,26 @@ with tab1:
     st.subheader("📁 스크래핑 데이터에서 주제 선택")
     
     if SCRAPED_NEWS_DIR.exists():
-        json_files = sorted(list(SCRAPED_NEWS_DIR.glob("*.json")), reverse=True)
+        # 카테고리별 또는 전체 파일 검색
+        if selected_category == "전체":
+            json_files = sorted(list(SCRAPED_NEWS_DIR.glob("**/*.json")), reverse=True)
+            # 루트에 있는 기존 파일도 포함
+            root_files = sorted(list(SCRAPED_NEWS_DIR.glob("*.json")), reverse=True)
+            json_files = sorted(set(json_files) | set(root_files), key=lambda x: x.stat().st_mtime, reverse=True)
+        else:
+            category_dir = SCRAPED_NEWS_DIR / selected_category
+            if category_dir.exists():
+                json_files = sorted(list(category_dir.glob("*.json")), reverse=True)
+            else:
+                # 기존 파일 (카테고리 폴더 없을 때)
+                json_files = [f for f in SCRAPED_NEWS_DIR.glob("*.json") if f.name.startswith(selected_category)]
+                json_files = sorted(json_files, reverse=True)
         
         if json_files:
             selected_file = st.selectbox(
                 "스크래핑 파일 선택",
                 options=json_files,
-                format_func=lambda x: f"{x.name} ({x.stat().st_size / 1024:.1f} KB)"
+                format_func=lambda x: f"[{x.parent.name}] {x.name} ({x.stat().st_size / 1024:.1f} KB)" if x.parent != SCRAPED_NEWS_DIR else f"{x.name} ({x.stat().st_size / 1024:.1f} KB)"
             )
             
             if selected_file:
@@ -262,7 +286,7 @@ with tab2:
         else:
             topic = st.text_input("블로그 주제 (직접 입력)", placeholder="예: 최신 AI 기술 동향과 전망")
     else:
-    topic = st.text_input("블로그 주제", placeholder="예: 최신 AI 기술 동향과 전망")
+        topic = st.text_input("블로그 주제", placeholder="예: 최신 AI 기술 동향과 전망")
  
     # 프롬프트 커스터마이징 섹션
     st.markdown("---")
@@ -302,17 +326,17 @@ with tab2:
         save_btn = False
     else:
         col_btn1, col_btn2, col_btn3 = st.columns([1.5, 1.2, 2.3])
- 
-    with col_btn1:
+
+        with col_btn1:
             generate_btn = st.button("🚀 생성 및 저장", type="primary", use_container_width=True)
         
         regenerate_btn = False
- 
-    with col_btn2:
-        if st.session_state.get('generated_html'):
+
+        with col_btn2:
+            if st.session_state.get('generated_html'):
                 save_btn = st.button("🔄 다시 저장", use_container_width=True, help="같은 내용을 새 버전으로 저장")
-        else:
-            save_btn = False
+            else:
+                save_btn = False
  
     # 피드백 반영 재생성
     if regenerate_btn and topic:
@@ -394,16 +418,17 @@ with tab2:
                         st.session_state.generated_html = html
                         st.session_state.current_topic = topic
                         st.session_state.current_context = context  # 컨텍스트 저장 (4번 모듈에서 사용)
-                        st.session_state.current_category = st.session_state.get('selected_category', '')
+                        st.session_state.current_category = selected_category if selected_category != "전체" else ""
                         
-                        # 자동 저장 (컨텍스트 포함)
+                        # 자동 저장 (컨텍스트 포함, 카테고리별)
                         with st.spinner("💾 저장 중..."):
-                            filepath = blog_generator.save_blog(html, topic, context)
+                            current_category = selected_category if selected_category != "전체" else ""
+                            filepath = blog_generator.save_blog(html, topic, context, category=current_category)
                             
                             # 주제 기록에 추가 (중복 방지용)
                             topic_manager.add_topic(
                                 topic_title=topic,
-                                category=st.session_state.get('selected_category', ''),
+                                category=current_category,
                                 blog_file=str(filepath)
                             )
                             
@@ -424,7 +449,8 @@ with tab2:
             filepath = blog_generator.save_blog(
                 st.session_state.generated_html,
                 st.session_state.current_topic,
-                st.session_state.get('current_context', '')
+                st.session_state.get('current_context', ''),
+                category=selected_category if selected_category != "전체" else ""  # 카테고리 추가
             )
             
             st.success(f"✅ 다시 저장 완료: {filepath.name}")
@@ -496,13 +522,24 @@ with tab4:
     st.header("📁 저장된 블로그")
  
     if GENERATED_BLOGS_DIR.exists():
-        html_files = sorted(list(GENERATED_BLOGS_DIR.glob("*.html")), reverse=True)
+        # 카테고리별 또는 전체 파일 검색
+        if selected_category == "전체":
+            html_files = sorted(list(GENERATED_BLOGS_DIR.glob("**/*.html")), reverse=True)
+            # 루트에 있는 기존 파일도 포함
+            root_files = sorted(list(GENERATED_BLOGS_DIR.glob("*.html")), reverse=True)
+            html_files = sorted(set(html_files) | set(root_files), key=lambda x: x.stat().st_mtime, reverse=True)
+        else:
+            category_dir = GENERATED_BLOGS_DIR / selected_category
+            if category_dir.exists():
+                html_files = sorted(list(category_dir.glob("*.html")), reverse=True)
+            else:
+                html_files = []
  
         if html_files:
             selected_file = st.selectbox(
                 "파일 선택",
                 options=html_files,
-                format_func=lambda x: x.name
+                format_func=lambda x: f"[{x.parent.name}] {x.name}" if x.parent != GENERATED_BLOGS_DIR else x.name
             )
  
             if selected_file:

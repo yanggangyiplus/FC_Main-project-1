@@ -18,7 +18,7 @@ blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_genera
 BlogCritic = critic_module.BlogCritic
 RAGBuilder = rag_module.RAGBuilder
 BlogGenerator = blog_gen_module.BlogGenerator
-from config.settings import GENERATED_BLOGS_DIR, QUALITY_THRESHOLD, FEEDBACK_FILE, IMAGE_PROMPTS_FILE, HUMANIZER_INPUT_FILE, METADATA_DIR, TEMP_DIR
+from config.settings import GENERATED_BLOGS_DIR, QUALITY_THRESHOLD, FEEDBACK_FILE, IMAGE_PROMPTS_FILE, HUMANIZER_INPUT_FILE, METADATA_DIR, TEMP_DIR, NEWS_CATEGORIES
  
 st.set_page_config(
     page_title="Critic & QA 대시보드",
@@ -96,6 +96,23 @@ with st.sidebar:
        - 적절한 길이
     """)
  
+# 카테고리 매핑
+CATEGORY_MAP = {
+    "politics": "정치 (Politics)",
+    "economy": "경제 (Economy)",
+    "it_science": "IT/과학 (IT & Science)"
+}
+
+# 카테고리 선택
+selected_category = st.selectbox(
+    "📂 카테고리 선택",
+    options=["전체", "politics", "economy", "it_science"],
+    format_func=lambda x: "전체" if x == "전체" else CATEGORY_MAP.get(x, x),
+    index=0
+)
+
+st.markdown("---")
+
 # 탭 생성
 tab1, tab2 = st.tabs(["🎯 평가하기", "📊 평가 결과"])
  
@@ -116,16 +133,31 @@ with tab1:
  
     if eval_method == "저장된 파일 선택":
         if GENERATED_BLOGS_DIR.exists():
-            html_files = sorted(list(GENERATED_BLOGS_DIR.glob("*.html")), reverse=True)
- 
+            # 카테고리별 필터링
+            if selected_category != "전체":
+                category_dir = GENERATED_BLOGS_DIR / selected_category
+                if category_dir.exists():
+                    html_files = sorted(list(category_dir.glob("*.html")), key=lambda x: x.stat().st_mtime, reverse=True)
+                else:
+                    html_files = []
+            else:
+                # 전체 카테고리에서 검색 (하위 폴더 + 루트 폴더)
+                html_files = list(GENERATED_BLOGS_DIR.glob("**/*.html"))
+                root_files = list(GENERATED_BLOGS_DIR.glob("*.html"))
+                html_files = sorted(set(html_files) | set(root_files), key=lambda x: x.stat().st_mtime, reverse=True)
+
             if html_files:
                 selected_file = st.selectbox(
                     "블로그 파일 선택",
                     options=html_files,
-                    format_func=lambda x: x.name
+                    format_func=lambda x: f"[{x.parent.name}] {x.name}" if x.parent != GENERATED_BLOGS_DIR else x.name
                 )
  
                 if selected_file:
+                    # 선택한 파일을 세션에 저장 (나중에 저장할 때 사용)
+                    st.session_state.selected_blog_file = selected_file
+                    st.session_state.selected_blog_category = selected_category
+                    
                     # HTML 파일 읽기
                     with open(selected_file, 'r', encoding='utf-8') as f:
                         html_content = f.read()
@@ -142,10 +174,12 @@ with tab1:
                         # 세션 상태에 저장 (아래에서 사용)
                         st.session_state.loaded_topic = metadata.get('topic', '')
                         st.session_state.loaded_context = metadata.get('context', '')
+                        st.session_state.loaded_category = metadata.get('category', selected_category)
                         st.info("💡 블로그 메타데이터(주제, 컨텍스트)를 자동으로 불러왔습니다.")
                     else:
                         st.session_state.loaded_topic = None
                         st.session_state.loaded_context = None
+                        st.session_state.loaded_category = selected_category
             else:
                 st.info("저장된 블로그가 없습니다.")
         else:
@@ -309,46 +343,75 @@ with tab2:
                 placeholders = temp_blog_gen.extract_image_placeholders(evaluated_html)
                 
                 if placeholders:
-                    # ✅ 이미지 설명 자동 저장
+                    # ✅ 이미지 설명 자동 저장 (카테고리별)
                     html_file = ""
                     if st.session_state.get('selected_blog_file'):
                         html_file = str(st.session_state.selected_blog_file)
                     
+                    # 평가 시점의 카테고리 사용 (파일 선택 시 저장된 카테고리 또는 메타데이터의 카테고리)
+                    save_category = st.session_state.get('selected_blog_category', '')
+                    if not save_category or save_category == "전체":
+                        save_category = st.session_state.get('loaded_category', '')
+                    if not save_category or save_category == "전체":
+                        save_category = selected_category if selected_category != "전체" else ""
+                    
+                    # 평가 시점의 주제 사용
+                    evaluated_topic = st.session_state.get('evaluated_topic', st.session_state.get('loaded_topic', ''))
+                    
                     # 이미지 설명 데이터 준비
                     image_prompts_data = {
-                        'blog_topic': st.session_state.get('loaded_topic', topic),
+                        'blog_topic': evaluated_topic,
                         'html_file': html_file,
                         'placeholders': placeholders,
                         'created_at': datetime.now().isoformat(),
-                        'evaluation_score': result['score']
+                        'evaluation_score': result['score'],
+                        'category': save_category
                     }
                     
-                    # 파일로 자동 저장
-                    METADATA_DIR.mkdir(parents=True, exist_ok=True)
-                    with open(IMAGE_PROMPTS_FILE, 'w', encoding='utf-8') as f:
+                    # 카테고리별 폴더에 저장
+                    if save_category:
+                        category_metadata_dir = METADATA_DIR / save_category
+                        category_metadata_dir.mkdir(parents=True, exist_ok=True)
+                        save_path = category_metadata_dir / "image_prompts.json"
+                    else:
+                        METADATA_DIR.mkdir(parents=True, exist_ok=True)
+                        save_path = IMAGE_PROMPTS_FILE
+                    
+                    with open(save_path, 'w', encoding='utf-8') as f:
                         json.dump(image_prompts_data, f, ensure_ascii=False, indent=2)
                     
                     st.success(f"💾 이미지 설명이 자동 저장되었습니다! ({len(placeholders)}개)")
+                    st.caption(f"저장 위치: {save_path}")
+                    st.caption(f"카테고리: {save_category if save_category else '없음'}")
+                    st.caption(f"주제: {evaluated_topic}")
                     
                     # 이미지 설명 미리보기
                     with st.expander("📋 저장된 이미지 설명 확인", expanded=True):
                         for i, ph in enumerate(placeholders, 1):
                             st.markdown(f"**이미지 {i}**: {ph['alt']}")
                     
-                    # ✅ 블로그 HTML을 6번 모듈로 자동 저장
-                    TEMP_DIR.mkdir(parents=True, exist_ok=True)
-                    with open(HUMANIZER_INPUT_FILE, 'w', encoding='utf-8') as f:
+                    # ✅ 블로그 HTML을 6번 모듈로 자동 저장 (카테고리별)
+                    if save_category:
+                        category_temp_dir = TEMP_DIR / save_category
+                        category_temp_dir.mkdir(parents=True, exist_ok=True)
+                        humanizer_save_path = category_temp_dir / "humanizer_input.html"
+                    else:
+                        TEMP_DIR.mkdir(parents=True, exist_ok=True)
+                        humanizer_save_path = HUMANIZER_INPUT_FILE
+                    
+                    with open(humanizer_save_path, 'w', encoding='utf-8') as f:
                         f.write(evaluated_html)
                     
                     st.success(f"💾 블로그 HTML이 6번 모듈로 자동 저장되었습니다!")
+                    st.caption(f"저장 위치: {humanizer_save_path}")
                     
                     st.info("""
                     👉 **다음 단계 (병렬 진행 가능)**:
                     - **5번 모듈 (이미지 생성기)**: 이미지 생성 진행
                     - **6번 모듈 (Humanizer)**: 블로그 인간화 진행 (인간화 완료 시 발행용 데이터 자동 저장)
                     """)
-                    st.caption(f"이미지 설명 저장: {IMAGE_PROMPTS_FILE}")
-                    st.caption(f"블로그 HTML 저장: {HUMANIZER_INPUT_FILE}")
+                    st.caption(f"이미지 설명 저장: {save_path}")
+                    st.caption(f"블로그 HTML 저장: {humanizer_save_path}")
                 else:
                     st.warning("이미지 플레이스홀더가 없습니다. 블로그에 이미지 설명이 포함되어 있는지 확인하세요.")
 
@@ -369,24 +432,32 @@ with tab2:
             
             with col_regenerate1:
                 if st.button("🔄 피드백 반영하여 재생성", type="primary", use_container_width=True):
-                    # 재생성에 필요한 정보를 파일로 저장 (대시보드 간 공유용)
+                    # 재생성에 필요한 정보를 파일로 저장 (대시보드 간 공유용, 카테고리별)
                     feedback_data = {
                         'score': result['score'],
                         'feedback': result.get('feedback', ''),
                         'details': result.get('details', {}),
                         'topic': st.session_state.get('loaded_topic', topic),
                         'context': st.session_state.get('loaded_context', context),
+                        'category': selected_category if selected_category != "전체" else "",
                         'created_at': datetime.now().isoformat()
                     }
                     
-                    # 파일로 저장
-                    TEMP_DIR.mkdir(parents=True, exist_ok=True)
-                    with open(FEEDBACK_FILE, 'w', encoding='utf-8') as f:
+                    # 카테고리별 폴더에 저장
+                    if selected_category != "전체":
+                        category_temp_dir = TEMP_DIR / selected_category
+                        category_temp_dir.mkdir(parents=True, exist_ok=True)
+                        feedback_save_path = category_temp_dir / "latest_feedback.json"
+                    else:
+                        TEMP_DIR.mkdir(parents=True, exist_ok=True)
+                        feedback_save_path = FEEDBACK_FILE
+                    
+                    with open(feedback_save_path, 'w', encoding='utf-8') as f:
                         json.dump(feedback_data, f, ensure_ascii=False, indent=2)
                     
                     st.success("✅ 피드백이 저장되었습니다!")
                     st.info("👉 3번 모듈(블로그 생성기)로 이동하여 '🔄 피드백 반영 재생성' 버튼을 클릭하세요!")
-                    st.caption(f"저장 위치: {FEEDBACK_FILE}")
+                    st.caption(f"저장 위치: {feedback_save_path}")
             
             with col_regenerate2:
                 st.caption("피드백을 3번 모듈로 전달하여 개선된 블로그를 생성합니다.")

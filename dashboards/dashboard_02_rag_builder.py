@@ -30,19 +30,29 @@ st.set_page_config(
  
 st.title("🗄️ RAG Builder 대시보드")
 st.markdown("---")
- 
+
+# 카테고리 선택
+selected_category = st.selectbox(
+    "📂 카테고리 선택",
+    options=["전체", "politics", "economy", "it_science"],
+    format_func=lambda x: "전체" if x == "전체" else CATEGORY_NAMES.get(x, x),
+    index=0
+)
+
+st.markdown("---")
+
 # RAG Builder 초기화
 @st.cache_resource
 def get_rag_builder():
     try:
-    return RAGBuilder()
+        return RAGBuilder()
     except Exception as e:
         st.error(f"❌ RAG Builder 초기화 실패: {e}")
         return None
- 
+
 # 초기화 시도
 try:
-rag_builder = get_rag_builder()
+    rag_builder = get_rag_builder()
 except Exception as e:
     st.error(f"❌ RAG Builder 로드 실패: {e}")
     rag_builder = None
@@ -89,9 +99,22 @@ tab1, tab2, tab3 = st.tabs(["📥 데이터 추가", "🔍 검색", "📊 통계
 with tab1:
     st.header("📥 데이터 추가")
  
-    # JSON 파일 선택
+    # JSON 파일 선택 (카테고리별 필터링)
     if SCRAPED_NEWS_DIR.exists():
-        json_files = sorted(list(SCRAPED_NEWS_DIR.glob("*.json")), reverse=True)
+        # 카테고리별 또는 전체 파일 검색
+        if selected_category == "전체":
+            json_files = sorted(list(SCRAPED_NEWS_DIR.glob("**/*.json")), reverse=True)
+            # 루트에 있는 기존 파일도 포함
+            root_files = sorted(list(SCRAPED_NEWS_DIR.glob("*.json")), reverse=True)
+            json_files = sorted(set(json_files) | set(root_files), key=lambda x: x.stat().st_mtime, reverse=True)
+        else:
+            category_dir = SCRAPED_NEWS_DIR / selected_category
+            if category_dir.exists():
+                json_files = sorted(list(category_dir.glob("*.json")), reverse=True)
+            else:
+                # 기존 파일 (카테고리 폴더 없을 때)
+                json_files = [f for f in SCRAPED_NEWS_DIR.glob("*.json") if f.name.startswith(selected_category)]
+                json_files = sorted(json_files, reverse=True)
  
         if json_files:
             col1, col2 = st.columns([3, 1])
@@ -100,7 +123,7 @@ with tab1:
                 selected_file = st.selectbox(
                     "스크래핑된 JSON 파일 선택",
                     options=json_files,
-                    format_func=lambda x: x.name
+                    format_func=lambda x: f"[{x.parent.name}] {x.name}" if x.parent != SCRAPED_NEWS_DIR else x.name
                 )
  
             with col2:
@@ -109,7 +132,7 @@ with tab1:
                     st.session_state.add_file = selected_file
  
             # 파일 정보 표시
-            if selected_file:
+            if selected_file and selected_file.exists():
                 with open(selected_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
  
@@ -146,12 +169,12 @@ with tab1:
                                     st.caption(f"  {j}. {article.get('title', 'N/A')[:60]}...")
                 else:
                     # 기존 구조: articles 배열
-                col_a, col_b, col_c = st.columns(3)
-                with col_a:
+                    col_a, col_b, col_c = st.columns(3)
+                    with col_a:
                         cat_value = data.get('category', 'N/A')
                         st.metric("카테고리", CATEGORY_NAMES.get(cat_value, cat_value))
-                with col_b:
-                    st.metric("기사 수", len(data.get('articles', [])))
+                    with col_b:
+                        st.metric("기사 수", len(data.get('articles', [])))
                 with col_c:
                     st.metric("수집 시각", data.get('scraped_at', 'N/A')[:19])
  

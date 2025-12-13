@@ -145,9 +145,9 @@ with col1:
                 
                 # 기사 리스트
                 for j, article in enumerate(topic.articles, 1):
-                col_a, col_b = st.columns([3, 1])
- 
-                with col_a:
+                    col_a, col_b = st.columns([3, 1])
+
+                    with col_a:
                         st.markdown(f"**{j}. {article.title}**")
                         st.caption(f"📅 {article.published_at[:19]}")
                         st.markdown(f"[기사 링크]({article.url})")
@@ -171,7 +171,7 @@ with col1:
                                         key=f"full_{i}_{j}"
                                     )
  
-                with col_b:
+                    with col_b:
                         st.metric("👍 반응", article.reaction_count)
                         st.metric("💬 댓글", article.comment_count)
                     
@@ -211,15 +211,44 @@ with col2:
 # 저장된 파일 목록
 st.markdown("---")
 st.header("📁 저장된 스크래핑 파일")
- 
+
+# 카테고리 필터 추가
+category_filter = st.selectbox(
+    "📂 카테고리 필터",
+    options=["전체"] + list(CATEGORY_IDS.keys()),
+    format_func=lambda x: {
+        "전체": "전체 (All)",
+        "politics": "정치 (Politics)",
+        "economy": "경제 (Economy)",
+        "it_science": "IT/과학 (IT & Science)"
+    }.get(x, x)
+)
+
 if SCRAPED_NEWS_DIR.exists():
-    json_files = sorted(list(SCRAPED_NEWS_DIR.glob("*.json")), reverse=True)
- 
+    # 카테고리별 또는 전체 파일 검색
+    if category_filter == "전체":
+        # 모든 카테고리 폴더에서 파일 검색
+        json_files = sorted(list(SCRAPED_NEWS_DIR.glob("**/*.json")), reverse=True)
+        # 루트에 있는 기존 파일도 포함
+        json_files += sorted(list(SCRAPED_NEWS_DIR.glob("*.json")), reverse=True)
+        json_files = sorted(set(json_files), key=lambda x: x.stat().st_mtime, reverse=True)
+    else:
+        category_dir = SCRAPED_NEWS_DIR / category_filter
+        if category_dir.exists():
+            json_files = sorted(list(category_dir.glob("*.json")), reverse=True)
+        else:
+            json_files = []
+            # 기존 파일 (카테고리 폴더 없을 때)
+            for f in SCRAPED_NEWS_DIR.glob("*.json"):
+                if f.name.startswith(category_filter):
+                    json_files.append(f)
+            json_files = sorted(json_files, reverse=True)
+
     if json_files:
         selected_file = st.selectbox(
             "파일 선택",
             options=json_files,
-            format_func=lambda x: x.name
+            format_func=lambda x: f"[{x.parent.name}] {x.name}" if x.parent != SCRAPED_NEWS_DIR else x.name
         )
  
         if selected_file:

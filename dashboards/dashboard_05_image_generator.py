@@ -19,7 +19,7 @@ image_gen_module = importlib.import_module("modules.05_image_generator.image_gen
 blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_generator")
 ImageGenerator = image_gen_module.ImageGenerator
 BlogGenerator = blog_gen_module.BlogGenerator
-from config.settings import IMAGES_DIR, IMAGE_MODEL, IMAGE_SIZE, IMAGE_PROMPTS_FILE, GENERATED_BLOGS_DIR, BLOG_IMAGE_MAPPING_FILE, METADATA_DIR
+from config.settings import IMAGES_DIR, IMAGE_MODEL, IMAGE_SIZE, IMAGE_PROMPTS_FILE, GENERATED_BLOGS_DIR, BLOG_IMAGE_MAPPING_FILE, METADATA_DIR, NEWS_CATEGORIES
  
 st.set_page_config(
     page_title="이미지 생성기 대시보드",
@@ -28,6 +28,23 @@ st.set_page_config(
 )
  
 st.title("🎨 이미지 생성기 대시보드")
+st.markdown("---")
+
+# 카테고리 매핑
+CATEGORY_MAP = {
+    "politics": "정치 (Politics)",
+    "economy": "경제 (Economy)",
+    "it_science": "IT/과학 (IT & Science)"
+}
+
+# 카테고리 선택
+selected_category = st.selectbox(
+    "📂 카테고리 선택",
+    options=["전체", "politics", "economy", "it_science"],
+    format_func=lambda x: "전체" if x == "전체" else CATEGORY_MAP.get(x, x),
+    index=0
+)
+
 st.markdown("---")
  
 # 사이드바
@@ -181,12 +198,86 @@ with tab0:
     st.header("📥 블로그 이미지 생성")
     st.info("💡 4번 모듈(품질 평가)에서 검증 통과 후 저장된 이미지 설명을 불러와 이미지를 생성합니다.")
     
-    # 저장된 이미지 설명 확인
-    if IMAGE_PROMPTS_FILE.exists():
-        with open(IMAGE_PROMPTS_FILE, 'r', encoding='utf-8') as f:
-            prompts_data = json.load(f)
+    # 저장된 이미지 설명 확인 (카테고리별)
+    prompts_data = None
+    if selected_category != "전체":
+        category_prompts_file = METADATA_DIR / selected_category / "image_prompts.json"
+        category_dir = METADATA_DIR / selected_category
         
-        st.success(f"✅ 저장된 이미지 설명 파일을 불러왔습니다!")
+        # 디렉토리 존재 여부 확인
+        if not category_dir.exists():
+            st.warning(f"📭 {CATEGORY_MAP[selected_category]} 카테고리 디렉토리가 없습니다.")
+            st.info(f"💡 **해결 방법**: 4번 모듈(품질 평가)에서 {CATEGORY_MAP[selected_category]} 카테고리의 블로그를 평가하고 통과시켜주세요.")
+        elif category_prompts_file.exists():
+            try:
+                with open(category_prompts_file, 'r', encoding='utf-8') as f:
+                    prompts_data = json.load(f)
+                st.success(f"✅ 저장된 이미지 설명 파일을 불러왔습니다! (카테고리: {CATEGORY_MAP[selected_category]})")
+                st.caption(f"📁 파일 경로: {category_prompts_file}")
+            except json.JSONDecodeError as e:
+                st.error(f"❌ JSON 파일 파싱 오류: {e}")
+            except Exception as e:
+                st.error(f"❌ 파일 읽기 오류: {e}")
+        else:
+            st.warning(f"📭 {CATEGORY_MAP[selected_category]} 카테고리의 이미지 설명 파일이 없습니다.")
+            st.info(f"💡 **해결 방법**: 4번 모듈(품질 평가)에서 {CATEGORY_MAP[selected_category]} 카테고리의 블로그를 평가하고 통과시켜주세요.")
+            st.caption(f"📁 예상 경로: {category_prompts_file}")
+            
+            # 디렉토리 내 다른 파일 확인
+            if category_dir.exists():
+                other_files = list(category_dir.glob("*.json"))
+                if other_files:
+                    st.caption(f"📂 디렉토리 내 다른 파일: {', '.join([f.name for f in other_files])}")
+    else:
+        # 전체 카테고리에서 최신 파일 찾기
+        if IMAGE_PROMPTS_FILE.exists():
+            try:
+                with open(IMAGE_PROMPTS_FILE, 'r', encoding='utf-8') as f:
+                    prompts_data = json.load(f)
+                st.success(f"✅ 저장된 이미지 설명 파일을 불러왔습니다!")
+                st.caption(f"📁 파일 경로: {IMAGE_PROMPTS_FILE}")
+            except Exception as e:
+                st.error(f"❌ 파일 읽기 오류: {e}")
+        else:
+            # 카테고리별 디렉토리에서 최신 파일 찾기
+            latest_file = None
+            latest_time = 0
+            found_categories = []
+            
+            for cat in ["politics", "economy", "it_science"]:
+                cat_file = METADATA_DIR / cat / "image_prompts.json"
+                if cat_file.exists():
+                    mtime = cat_file.stat().st_mtime
+                    found_categories.append(f"{CATEGORY_MAP[cat]} ({cat})")
+                    if mtime > latest_time:
+                        latest_time = mtime
+                        latest_file = cat_file
+            
+            if latest_file:
+                try:
+                    with open(latest_file, 'r', encoding='utf-8') as f:
+                        prompts_data = json.load(f)
+                    st.success(f"✅ 저장된 이미지 설명 파일을 불러왔습니다! (최신 파일: {latest_file.parent.name})")
+                    st.caption(f"📁 파일 경로: {latest_file}")
+                except Exception as e:
+                    st.error(f"❌ 파일 읽기 오류: {e}")
+            else:
+                st.warning("📭 이미지 설명 파일이 없습니다.")
+                st.info("💡 **해결 방법**: 4번 모듈(품질 평가)에서 블로그를 평가하고 통과시켜주세요.")
+                
+                # 각 카테고리별 상태 표시
+                st.markdown("**카테고리별 파일 상태:**")
+                for cat in ["politics", "economy", "it_science"]:
+                    cat_file = METADATA_DIR / cat / "image_prompts.json"
+                    cat_dir = METADATA_DIR / cat
+                    if cat_file.exists():
+                        st.caption(f"✅ {CATEGORY_MAP[cat]}: 파일 존재")
+                    elif cat_dir.exists():
+                        st.caption(f"⚠️ {CATEGORY_MAP[cat]}: 디렉토리 존재하지만 파일 없음")
+                    else:
+                        st.caption(f"❌ {CATEGORY_MAP[cat]}: 디렉토리 없음")
+    
+    if prompts_data:
         
         # 기본 정보 표시
         col_info1, col_info2 = st.columns(2)
@@ -282,9 +373,17 @@ with tab0:
                         try:
                             blog_topic = prompts_data.get('blog_topic', '')
                             html_file = prompts_data.get('html_file', '')
+                            data_category = prompts_data.get('category', selected_category if selected_category != "전체" else None)
                             
                             # 블로그 식별자 생성 (주제 + 생성 시간 기반)
                             blog_id = hashlib.md5(f"{blog_topic}_{prompts_data.get('created_at', '')}".encode()).hexdigest()[:8]
+                            
+                            # 카테고리별 디렉토리 생성
+                            if data_category:
+                                category_metadata_dir = METADATA_DIR / data_category
+                                category_metadata_dir.mkdir(parents=True, exist_ok=True)
+                            else:
+                                category_metadata_dir = METADATA_DIR
                             
                             mapping_data = {
                                 "blog_id": blog_id,  # 블로그 고유 식별자
@@ -292,6 +391,7 @@ with tab0:
                                 "html_file": html_file,
                                 "created_at": datetime.now().isoformat(),
                                 "evaluation_score": prompts_data.get('evaluation_score', 0),
+                                "category": data_category,
                                 "images": [
                                     {
                                         "index": img.get('index', i),
@@ -305,15 +405,28 @@ with tab0:
                                 ]
                             }
                             
-                            # 블로그별 고유 매핑 파일 생성
-                            mapping_file = METADATA_DIR / f"blog_image_mapping_{blog_id}.json"
-                            METADATA_DIR.mkdir(parents=True, exist_ok=True)
+                            # 블로그별 고유 매핑 파일 생성 (카테고리별)
+                            mapping_file = category_metadata_dir / f"blog_image_mapping_{blog_id}.json"
                             with open(mapping_file, 'w', encoding='utf-8') as f:
                                 json.dump(mapping_data, f, ensure_ascii=False, indent=2)
                             
-                            # 최신 매핑 파일 경로도 저장 (7번 모듈에서 쉽게 찾을 수 있도록)
+                            # 최신 매핑 파일 경로 저장 (카테고리별)
+                            if data_category:
+                                category_mapping_file = category_metadata_dir / "blog_image_mapping.json"
+                                with open(category_mapping_file, 'w', encoding='utf-8') as f:
+                                    json.dump({
+                                        "latest_mapping_file": str(mapping_file),
+                                        "blog_id": blog_id,
+                                        "category": data_category
+                                    }, f, ensure_ascii=False, indent=2)
+                            
+                            # 전체 최신 매핑 파일도 업데이트 (호환성)
                             with open(BLOG_IMAGE_MAPPING_FILE, 'w', encoding='utf-8') as f:
-                                json.dump({"latest_mapping_file": str(mapping_file), "blog_id": blog_id}, f, ensure_ascii=False, indent=2)
+                                json.dump({
+                                    "latest_mapping_file": str(mapping_file),
+                                    "blog_id": blog_id,
+                                    "category": data_category
+                                }, f, ensure_ascii=False, indent=2)
                             
                             st.success(f"💾 블로그-이미지 매핑 정보 저장 완료! ({len(mapping_data['images'])}개 이미지)")
                             st.caption(f"📁 파일: blog_image_mapping_{blog_id}.json")

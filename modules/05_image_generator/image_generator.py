@@ -14,11 +14,11 @@ import time
 # 구글 드라이브 관련 import (선택적)
 GOOGLE_DRIVE_AVAILABLE = False
 try:
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request as GoogleRequest
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from google.auth.transport.requests import Request as GoogleRequest
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaIoBaseUpload
     GOOGLE_DRIVE_AVAILABLE = True
 except ImportError as e:
     print(f"⚠️ 구글 드라이브 패키지를 불러올 수 없습니다: {e}")

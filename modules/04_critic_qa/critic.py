@@ -10,7 +10,8 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config.settings import (
     OPENAI_API_KEY, ANTHROPIC_API_KEY, DEFAULT_LLM_MODEL,
-    QUALITY_THRESHOLD, LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, LM_STUDIO_MODEL_NAME
+    QUALITY_THRESHOLD, LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, LM_STUDIO_MODEL_NAME,
+    LM_STUDIO_CONTEXT_LENGTH, MAX_CONTEXT_CHARS
 )
 from config.logger import get_logger
 
@@ -107,6 +108,53 @@ class BlogCritic:
             logger.error(f"평가 중 오류: {e}")
             raise
 
+    def _truncate_context(self, context: str, max_chars: int = None) -> str:
+        """
+        컨텍스트를 지정된 길이로 자르기 (LM Studio 컨텍스트 길이 제한 대응)
+        
+        Args:
+            context: 원본 컨텍스트
+            max_chars: 최대 문자 수 (None이면 설정값 사용)
+        
+        Returns:
+            잘린 컨텍스트
+        """
+        if max_chars is None:
+            max_chars = MAX_CONTEXT_CHARS
+        
+        if len(context) <= max_chars:
+            return context
+        
+        # 컨텍스트가 너무 길면 자르고 경고 메시지 추가
+        truncated = context[:max_chars]
+        logger.warning(
+            f"⚠️ 컨텍스트가 너무 깁니다 ({len(context)}자 > {max_chars}자). "
+            f"자동으로 {max_chars}자로 잘랐습니다. "
+            f"LM Studio에서 컨텍스트 길이를 늘리거나, 기사 수를 줄이세요."
+        )
+        return truncated + "\n\n[참고: 컨텍스트가 길어 일부가 생략되었습니다.]"
+
+    def _truncate_html(self, html: str, max_chars: int = 8000) -> str:
+        """
+        HTML을 지정된 길이로 자르기 (평가 시 HTML이 너무 길 경우)
+        
+        Args:
+            html: 원본 HTML
+            max_chars: 최대 문자 수
+        
+        Returns:
+            잘린 HTML
+        """
+        if len(html) <= max_chars:
+            return html
+        
+        truncated = html[:max_chars]
+        logger.warning(
+            f"⚠️ HTML이 너무 깁니다 ({len(html)}자 > {max_chars}자). "
+            f"자동으로 {max_chars}자로 잘랐습니다."
+        )
+        return truncated + "\n\n[참고: HTML이 길어 일부가 생략되었습니다.]"
+
     def _create_evaluation_prompt(self, html: str, topic: str, context: str) -> str:
         """
         평가 프롬프트 생성
@@ -119,12 +167,17 @@ class BlogCritic:
         Returns:
             프롬프트 문자열
         """
+        # LM Studio 사용 시 컨텍스트와 HTML 자동 자르기
+        if "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
+            context = self._truncate_context(context, max_chars=2000)  # 평가용으로 더 짧게
+            html = self._truncate_html(html, max_chars=6000)  # HTML도 일부만
+        
         prompt = f"""당신은 엄격한 블로그 품질 평가자입니다. 다음 블로그를 **객관적이고 일관된 기준**으로 평가해주세요.
 
 **주제**: {topic}
 
 **원본 컨텍스트 (사실 확인용)**:
-{context[:1000]}...
+{context}
 
 **평가할 블로그 HTML**:
 {html}

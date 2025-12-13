@@ -28,6 +28,23 @@ st.set_page_config(
  
 st.title("📤 블로그 발행기 대시보드")
 st.markdown("---")
+
+# 카테고리 매핑
+CATEGORY_MAP = {
+    "politics": "정치 (Politics)",
+    "economy": "경제 (Economy)",
+    "it_science": "IT/과학 (IT & Science)"
+}
+
+# 카테고리 선택
+selected_category = st.selectbox(
+    "📂 카테고리 선택",
+    options=["전체", "politics", "economy", "it_science"],
+    format_func=lambda x: "전체" if x == "전체" else CATEGORY_MAP.get(x, x),
+    index=0
+)
+
+st.markdown("---")
  
 # 사이드바
 with st.sidebar:
@@ -77,21 +94,39 @@ with tab1:
         blog_title = None
         
         if input_method == "🔄 자동 로드 (6번 모듈 + 5번 모듈)":
-            # 6번 모듈에서 생성된 HTML 로드
-            if HUMANIZER_INPUT_FILE.exists():
+            # 6번 모듈에서 생성된 HTML 로드 (카테고리별)
+            humanizer_file = None
+            if selected_category != "전체":
+                category_humanizer_file = TEMP_DIR / selected_category / "humanizer_input.html"
+                if category_humanizer_file.exists():
+                    humanizer_file = category_humanizer_file
+            
+            if humanizer_file is None and HUMANIZER_INPUT_FILE.exists():
+                humanizer_file = HUMANIZER_INPUT_FILE
+            
+            if humanizer_file and humanizer_file.exists():
                 try:
-                    with open(HUMANIZER_INPUT_FILE, 'r', encoding='utf-8') as f:
+                    with open(humanizer_file, 'r', encoding='utf-8') as f:
                         html_content = f.read()
-                    st.success(f"✅ 6번 모듈 HTML 로드 완료: {HUMANIZER_INPUT_FILE.name}")
+                    st.success(f"✅ 6번 모듈 HTML 로드 완료: {humanizer_file.name}")
                 except Exception as e:
                     st.error(f"❌ HTML 로드 실패: {e}")
             else:
                 st.warning("📭 6번 모듈에서 생성된 HTML이 없습니다.")
             
-            # 5번 모듈에서 생성된 이미지 매핑 정보 로드
-            if BLOG_IMAGE_MAPPING_FILE.exists():
+            # 5번 모듈에서 생성된 이미지 매핑 정보 로드 (카테고리별)
+            mapping_info_file = None
+            if selected_category != "전체":
+                category_mapping_file = METADATA_DIR / selected_category / "blog_image_mapping.json"
+                if category_mapping_file.exists():
+                    mapping_info_file = category_mapping_file
+            
+            if mapping_info_file is None and BLOG_IMAGE_MAPPING_FILE.exists():
+                mapping_info_file = BLOG_IMAGE_MAPPING_FILE
+            
+            if mapping_info_file and mapping_info_file.exists():
                 try:
-                    with open(BLOG_IMAGE_MAPPING_FILE, 'r', encoding='utf-8') as f:
+                    with open(mapping_info_file, 'r', encoding='utf-8') as f:
                         latest_info = json.load(f)
                     mapping_file = Path(latest_info.get('latest_mapping_file', ''))
                     
@@ -106,10 +141,41 @@ with tab1:
                     st.error(f"❌ 이미지 매핑 정보 로드 실패: {e}")
             else:
                 st.warning("📭 이미지 매핑 정보가 없습니다.")
+            
+            # 블로그 발행 데이터 로드 (카테고리별)
+            publish_data_file = None
+            if selected_category != "전체":
+                category_publish_file = METADATA_DIR / selected_category / "blog_publish_data.json"
+                if category_publish_file.exists():
+                    publish_data_file = category_publish_file
+            
+            if publish_data_file is None:
+                from config.settings import BLOG_PUBLISH_DATA_FILE
+                if BLOG_PUBLISH_DATA_FILE.exists():
+                    publish_data_file = BLOG_PUBLISH_DATA_FILE
+            
+            if publish_data_file and publish_data_file.exists():
+                try:
+                    with open(publish_data_file, 'r', encoding='utf-8') as f:
+                        publish_data = json.load(f)
+                    if not blog_title:
+                        blog_title = publish_data.get('blog_title', '')
+                    st.success(f"✅ 발행 데이터 로드 완료: {publish_data_file.name}")
+                except Exception as e:
+                    st.warning(f"⚠️ 발행 데이터 로드 실패: {e}")
         
         elif input_method == "📁 저장된 파일 선택":
             if GENERATED_BLOGS_DIR.exists():
-                html_files = sorted(list(GENERATED_BLOGS_DIR.glob("*.html")), reverse=True)
+                # 카테고리별 필터링
+                if selected_category != "전체":
+                    category_dir = GENERATED_BLOGS_DIR / selected_category
+                    if category_dir.exists():
+                        html_files = sorted(list(category_dir.glob("*.html")), reverse=True)
+                    else:
+                        html_files = []
+                else:
+                    # 전체 카테고리에서 검색
+                    html_files = sorted(list(GENERATED_BLOGS_DIR.glob("**/*.html")), reverse=True)
                 
                 if html_files:
                     selected_file = st.selectbox(
@@ -130,9 +196,16 @@ with tab1:
             else:
                 st.info("블로그 디렉토리가 존재하지 않습니다.")
             
-            # 이미지 매핑 파일 선택
+            # 이미지 매핑 파일 선택 (카테고리별)
             if METADATA_DIR.exists():
-                mapping_files = sorted(list(METADATA_DIR.glob("blog_image_mapping_*.json")), reverse=True)
+                if selected_category != "전체":
+                    category_dir = METADATA_DIR / selected_category
+                    if category_dir.exists():
+                        mapping_files = sorted(list(category_dir.glob("blog_image_mapping_*.json")), reverse=True)
+                    else:
+                        mapping_files = []
+                else:
+                    mapping_files = sorted(list(METADATA_DIR.glob("**/blog_image_mapping_*.json")), reverse=True)
                 if mapping_files:
                     selected_mapping = st.selectbox(
                         "이미지 매핑 파일 선택",
