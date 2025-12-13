@@ -12,7 +12,7 @@ import importlib
 # 숫자로 시작하는 모듈 이름은 동적 import 사용
 humanizer_module = importlib.import_module("modules.06_humanizer.humanizer")
 Humanizer = humanizer_module.Humanizer
-from config.settings import GENERATED_BLOGS_DIR
+from config.settings import GENERATED_BLOGS_DIR, HUMANIZER_INPUT_FILE
  
 st.set_page_config(
     page_title="Humanizer 대시보드",
@@ -65,30 +65,74 @@ tab1, tab2 = st.tabs(["✨ 인간화하기", "📊 Before/After 비교"])
 with tab1:
     st.header("✨ 블로그 인간화")
  
+    # 4번 모듈에서 자동 전달된 블로그 확인
+    if HUMANIZER_INPUT_FILE.exists():
+        with st.expander("📥 4번 모듈에서 자동 전달된 블로그", expanded=True):
+            try:
+                with open(HUMANIZER_INPUT_FILE, 'r', encoding='utf-8') as f:
+                    auto_html = f.read()
+                st.success(f"✅ 4번 모듈에서 평가 통과한 블로그를 불러왔습니다!")
+                st.caption(f"파일: {HUMANIZER_INPUT_FILE.name}")
+                
+                # 자동으로 인간화 진행
+                if st.button("✨ 자동 인간화 진행", type="primary", use_container_width=True):
+                    with st.spinner("블로그 인간화 중..."):
+                        try:
+                            humanized_html = humanizer.humanize(auto_html)
+                            st.session_state.original_html = auto_html
+                            st.session_state.humanized_html = humanized_html
+                            
+                            # 자동 저장
+                            from datetime import datetime
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
+                            
+                            GENERATED_BLOGS_DIR.mkdir(parents=True, exist_ok=True)
+                            with open(filename, 'w', encoding='utf-8') as f:
+                                f.write(humanized_html)
+                            
+                            st.success(f"✅ 인간화 완료 및 자동 저장: {filename.name}")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ 인간화 실패: {str(e)}")
+            except Exception as e:
+                st.error(f"❌ 파일 로드 실패: {e}")
+    
     # 입력 방법 선택
     input_method = st.radio(
         "입력 방법",
-        ["저장된 파일 선택", "직접 HTML 입력"],
+        ["4번 모듈에서 자동 전달", "저장된 파일 선택", "직접 HTML 입력"],
         horizontal=True
     )
- 
+
     original_html = None
- 
-    if input_method == "저장된 파일 선택":
+
+    if input_method == "4번 모듈에서 자동 전달":
+        if HUMANIZER_INPUT_FILE.exists():
+            try:
+                with open(HUMANIZER_INPUT_FILE, 'r', encoding='utf-8') as f:
+                    original_html = f.read()
+                st.success(f"✅ 4번 모듈에서 전달된 블로그 로드 완료: {HUMANIZER_INPUT_FILE.name}")
+            except Exception as e:
+                st.error(f"❌ 파일 로드 실패: {e}")
+        else:
+            st.warning("📭 4번 모듈에서 전달된 블로그가 없습니다. 먼저 4번 모듈에서 평가를 통과하세요.")
+            st.info("💡 4번 모듈(품질 평가)에서 평가 통과 시 자동으로 전달됩니다.")
+    elif input_method == "저장된 파일 선택":
         if GENERATED_BLOGS_DIR.exists():
             html_files = sorted(list(GENERATED_BLOGS_DIR.glob("*.html")), reverse=True)
- 
+
             if html_files:
                 selected_file = st.selectbox(
                     "블로그 파일 선택",
                     options=html_files,
                     format_func=lambda x: x.name
                 )
- 
+
                 if selected_file:
                     with open(selected_file, 'r', encoding='utf-8') as f:
                         original_html = f.read()
- 
+
                     st.success(f"✅ 파일 로드 완료: {selected_file.name}")
             else:
                 st.info("저장된 블로그가 없습니다.")
@@ -112,9 +156,19 @@ with tab1:
                         humanized_html = humanizer.humanize(original_html)
                         st.session_state.original_html = original_html
                         st.session_state.humanized_html = humanized_html
-                        st.success("✅ 인간화 완료!")
+                        
+                        # 자동 저장
+                        from datetime import datetime
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
+                        
+                        GENERATED_BLOGS_DIR.mkdir(parents=True, exist_ok=True)
+                        with open(filename, 'w', encoding='utf-8') as f:
+                            f.write(humanized_html)
+                        
+                        st.success(f"✅ 인간화 완료 및 자동 저장: {filename.name}")
                         st.rerun()
- 
+
                     except Exception as e:
                         st.error(f"❌ 인간화 실패: {str(e)}")
  

@@ -34,7 +34,7 @@ class Humanizer:
             return ChatOpenAI(
                 model=self.model_name,
                 temperature=0.7,  # 창의성 필요
-                openai_api_key=OPENAI_API_KEY
+                api_key=OPENAI_API_KEY
             )
         elif "claude" in self.model_name.lower():
             if not ANTHROPIC_API_KEY:

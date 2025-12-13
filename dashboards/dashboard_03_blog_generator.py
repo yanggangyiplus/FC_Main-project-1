@@ -20,8 +20,9 @@ rag_module = importlib.import_module("modules.02_rag_builder.rag_builder")
 BlogGenerator = blog_gen_module.BlogGenerator
 TopicManager = blog_gen_module.TopicManager
 RAGBuilder = rag_module.RAGBuilder
-from config.settings import GENERATED_BLOGS_DIR, SCRAPED_NEWS_DIR, TOPIC_DUPLICATE_DAYS, LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL
+from config.settings import GENERATED_BLOGS_DIR, SCRAPED_NEWS_DIR, TOPIC_DUPLICATE_DAYS, LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, QUALITY_THRESHOLD, FEEDBACK_FILE
 import requests
+import json
 
 # 카테고리 한글 매핑
 CATEGORY_NAMES = {
@@ -120,7 +121,7 @@ with st.sidebar:
         st.caption("작성된 주제가 없습니다.")
 
 # 탭 생성
-tab1, tab2, tab3, tab4 = st.tabs(["📰 주제 선택", "✍️ 블로그 생성", "🖼️ 이미지 플레이스홀더", "📁 저장된 블로그"])
+tab1, tab2, tab3, tab4 = st.tabs(["📰 주제 선택", "✍️ 블로그 생성", "🖼️ 이미지 설명", "📁 저장된 블로그"])
 
 # 탭 1: 주제 선택 (RAG에서 가져온 주제들)
 with tab1:
@@ -220,9 +221,39 @@ with tab1:
 # 탭 2: 블로그 생성
 with tab2:
     st.header("✍️ 블로그 생성")
+    
+    # 피드백 파일에서 읽기 (4번 모듈에서 저장한 피드백)
+    has_feedback = False
+    feedback_data = None
+    
+    if FEEDBACK_FILE.exists():
+        try:
+            with open(FEEDBACK_FILE, 'r', encoding='utf-8') as f:
+                feedback_data = json.load(f)
+            has_feedback = True
+        except:
+            has_feedback = False
+    
+    if has_feedback and feedback_data:
+        st.warning("🔄 품질 평가 피드백이 있습니다. 개선된 블로그를 생성할 수 있습니다.")
+        
+        with st.expander("📊 이전 평가 결과", expanded=True):
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                st.metric("이전 점수", f"{feedback_data.get('score', 0)}/100")
+            with col_f2:
+                st.metric("목표 점수", f"{QUALITY_THRESHOLD}점 이상")
+            
+            st.markdown("**피드백:**")
+            st.info(feedback_data.get('feedback', ''))
+        
+        st.markdown("---")
 
     # 선택된 주제 또는 직접 입력
-    if st.session_state.get('selected_topic'):
+    if has_feedback and feedback_data.get('topic'):
+        st.info(f"📌 재생성할 주제: {feedback_data['topic']}")
+        topic = feedback_data['topic']
+    elif st.session_state.get('selected_topic'):
         st.info(f"📌 선택된 주제: {st.session_state.selected_topic}")
         use_selected = st.checkbox("선택된 주제 사용", value=True)
         
@@ -258,19 +289,90 @@ with tab2:
     
     st.markdown("---")
     
-    col_btn1, col_btn2, col_btn3 = st.columns([1.5, 1.2, 2.3])
+    # 버튼 레이아웃 (피드백 모드에 따라 다르게)
+    if has_feedback:
+        col_btn1, col_btn2, col_btn3 = st.columns([1.5, 1.5, 2])
+        
+        with col_btn1:
+            regenerate_btn = st.button("🔄 피드백 반영 재생성", type="primary", use_container_width=True)
+        
+        with col_btn2:
+            generate_btn = st.button("🚀 새로 생성", use_container_width=True)
+        
+        save_btn = False
+    else:
+        col_btn1, col_btn2, col_btn3 = st.columns([1.5, 1.2, 2.3])
 
-    with col_btn1:
-        generate_btn = st.button("🚀 생성 및 저장", type="primary", use_container_width=True)
+        with col_btn1:
+            generate_btn = st.button("🚀 생성 및 저장", type="primary", use_container_width=True)
+        
+        regenerate_btn = False
 
-    with col_btn2:
-        if st.session_state.get('generated_html'):
-            save_btn = st.button("🔄 다시 저장", use_container_width=True, help="같은 내용을 새 버전으로 저장")
+        with col_btn2:
+            if st.session_state.get('generated_html'):
+                save_btn = st.button("🔄 다시 저장", use_container_width=True, help="같은 내용을 새 버전으로 저장")
+            else:
+                save_btn = False
+
+    # 피드백 반영 재생성
+    if regenerate_btn and topic:
+        st.info("🔄 피드백을 반영하여 블로그를 재생성합니다...")
+        
+        # 파일에서 컨텍스트와 피드백 읽기
+        context = feedback_data.get('context', '')
+        
+        if not context:
+            st.error("❌ 컨텍스트를 찾을 수 없습니다.")
         else:
-            save_btn = False
+            with st.spinner(f"블로그 재생성 중... (모델: {model_name})"):
+                try:
+                    # BlogGenerator 동적 생성 (선택한 모델로)
+                    blog_generator = get_blog_generator(model_name, temperature)
+                    
+                    # 피드백을 포함하여 블로그 재생성
+                    previous_feedback = {
+                        'score': feedback_data.get('score', 0),
+                        'feedback': feedback_data.get('feedback', ''),
+                        'details': feedback_data.get('details', {})
+                    }
+                    
+                    html = blog_generator.generate_blog(
+                        topic, 
+                        context, 
+                        custom_prompt=custom_prompt,
+                        previous_feedback=previous_feedback  # 피드백 전달
+                    )
+                    st.session_state.generated_html = html
+                    st.session_state.current_topic = topic
+                    st.session_state.current_context = context
+                    st.session_state.current_category = st.session_state.get('selected_category', '')
+                    
+                    # 자동 저장
+                    with st.spinner("💾 저장 중..."):
+                        filepath = blog_generator.save_blog(html, topic, context)
+                        
+                        # 주제 기록에 추가
+                        topic_manager.add_topic(
+                            topic_title=topic,
+                            category=st.session_state.get('selected_category', ''),
+                            blog_file=str(filepath)
+                        )
+                        
+                        st.session_state.last_saved_file = filepath
+                    
+                    # 피드백 파일 삭제 (재생성 완료)
+                    if FEEDBACK_FILE.exists():
+                        FEEDBACK_FILE.unlink()
+                    
+                    st.success(f"✅ 블로그 재생성 및 저장 완료! (모델: {model_name})")
+                    st.info(f"📁 저장 위치: `{filepath.name}`")
+                    st.balloons()
+                    
+                except Exception as e:
+                    st.error(f"❌ 오류 발생: {str(e)}")
 
     # 블로그 생성
-    if generate_btn and topic:
+    elif generate_btn and topic:
         # 중복 체크 경고
         if topic_manager.is_duplicate(topic):
             st.warning(f"⚠️ 이 주제는 최근 {TOPIC_DUPLICATE_DAYS}일 이내에 사용되었습니다. 계속 진행합니다...")
@@ -291,11 +393,12 @@ with tab2:
                         html = blog_generator.generate_blog(topic, context, custom_prompt=custom_prompt)
                         st.session_state.generated_html = html
                         st.session_state.current_topic = topic
+                        st.session_state.current_context = context  # 컨텍스트 저장 (4번 모듈에서 사용)
                         st.session_state.current_category = st.session_state.get('selected_category', '')
                         
-                        # 자동 저장
+                        # 자동 저장 (컨텍스트 포함)
                         with st.spinner("💾 저장 중..."):
-                            filepath = blog_generator.save_blog(html, topic)
+                            filepath = blog_generator.save_blog(html, topic, context)
                             
                             # 주제 기록에 추가 (중복 방지용)
                             topic_manager.add_topic(
@@ -320,7 +423,8 @@ with tab2:
             
             filepath = blog_generator.save_blog(
                 st.session_state.generated_html,
-                st.session_state.current_topic
+                st.session_state.current_topic,
+                st.session_state.get('current_context', '')
             )
             
             st.success(f"✅ 다시 저장 완료: {filepath.name}")
@@ -346,31 +450,44 @@ with tab2:
 
 # 탭 3: 이미지 플레이스홀더
 with tab3:
-    st.header("🖼️ 이미지 플레이스홀더")
+    st.header("🖼️ 이미지 설명 (프롬프트)")
+    st.info("💡 블로그 검증(4번 모듈)을 통과하면 이미지 설명이 저장되고, 5번 모듈에서 이미지를 생성합니다.")
 
     if st.session_state.get('generated_html'):
         html = st.session_state.generated_html
 
-        # 플레이스홀더 추출 (BlogGenerator 동적 생성)
+        # 플레이스홀더 추출
         blog_generator = get_blog_generator(model_name, temperature)
         placeholders = blog_generator.extract_image_placeholders(html)
 
         if placeholders:
             st.success(f"✅ {len(placeholders)}개의 이미지 플레이스홀더 발견")
 
+            # 플레이스홀더 미리보기
             for i, ph in enumerate(placeholders, 1):
                 with st.expander(f"🖼️ 이미지 {i}", expanded=True):
-                    col_ph1, col_ph2 = st.columns([1, 2])
+                    col_ph1, col_ph2 = st.columns([1, 3])
 
                     with col_ph1:
                         st.metric("인덱스", ph['index'])
 
                     with col_ph2:
-                        st.markdown(f"**설명:** {ph['alt']}")
-
+                        st.markdown(f"**프롬프트 (영어):**")
+                        st.code(ph['alt'], language=None)
+                    
+                    st.markdown("**HTML 태그:**")
                     st.code(ph['tag'], language="html")
+
+            st.markdown("---")
+            st.markdown("""
+            ### 📋 다음 단계
+            1. **Tab 4** (저장된 블로그)에서 HTML 파일 확인
+            2. **4번 모듈** (품질 평가)에서 블로그 검증
+            3. 검증 통과 시 이미지 설명 자동 저장
+            4. **5번 모듈** (이미지 생성기)에서 이미지 생성
+            """)
         else:
-            st.warning("이미지 플레이스홀더가 없습니다.")
+            st.warning("이미지 플레이스홀더가 없습니다. 블로그 생성 시 이미지 설명이 포함되어야 합니다.")
     else:
         st.info("먼저 블로그를 생성하세요.")
 

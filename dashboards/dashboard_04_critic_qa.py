@@ -5,16 +5,20 @@ Critic & QA 대시보드
 import streamlit as st
 import sys
 from pathlib import Path
- 
+import json
+from datetime import datetime
+
 sys.path.append(str(Path(__file__).parent.parent))
- 
+
 import importlib
 # 숫자로 시작하는 모듈 이름은 동적 import 사용
 critic_module = importlib.import_module("modules.04_critic_qa.critic")
 rag_module = importlib.import_module("modules.02_rag_builder.rag_builder")
+blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_generator")
 BlogCritic = critic_module.BlogCritic
 RAGBuilder = rag_module.RAGBuilder
-from config.settings import GENERATED_BLOGS_DIR, QUALITY_THRESHOLD
+BlogGenerator = blog_gen_module.BlogGenerator
+from config.settings import GENERATED_BLOGS_DIR, QUALITY_THRESHOLD, FEEDBACK_FILE, IMAGE_PROMPTS_FILE, HUMANIZER_INPUT_FILE
  
 st.set_page_config(
     page_title="Critic & QA 대시보드",
@@ -25,20 +29,46 @@ st.set_page_config(
 st.title("🎯 Critic & QA 대시보드")
 st.markdown("---")
  
-# 초기화
-@st.cache_resource
-def get_critic():
-    return BlogCritic(), RAGBuilder()
- 
-critic, rag_builder = get_critic()
- 
-# 사이드바
+# 사이드바 (모델 선택 먼저)
 with st.sidebar:
     st.header("⚙️ 설정")
- 
-    st.metric("품질 임계값", QUALITY_THRESHOLD)
- 
+
+    # 모델 선택
+    model = st.selectbox(
+        "평가 모델",
+        options=[
+            "lm-studio (로컬)",
+            "gpt-4o-mini",
+            "gpt-4o",
+            "gpt-3.5-turbo",
+            "claude-3-5-sonnet-20241022",
+            "claude-3-opus-20240229"
+        ],
+        index=0,
+        help="💡 lm-studio: 로컬에서 실행되는 무료 LLM (LM Studio 실행 필요)"
+    )
+
+    st.metric("품질 임계값", f"{QUALITY_THRESHOLD}점 이상", help=f"{QUALITY_THRESHOLD}점 이상이면 평가 통과")
+    
     st.markdown("---")
+
+# 초기화 (모델 선택에 따라 동적 생성)
+@st.cache_resource
+def get_rag_builder():
+    """RAGBuilder만 캐시 (모델 독립적)"""
+    return RAGBuilder()
+
+def get_critic(model_name: str):
+    """BlogCritic는 모델에 따라 새로 생성"""
+    return BlogCritic(model_name=model_name)
+
+rag_builder = get_rag_builder()
+
+# 모델명 정리 (괄호 제거)
+model_name = model.split(" ")[0] if " " in model else model
+
+# 사이드바 계속
+with st.sidebar:
  
     # 평가 기준 안내
     st.subheader("📊 평가 기준")
@@ -87,19 +117,35 @@ with tab1:
     if eval_method == "저장된 파일 선택":
         if GENERATED_BLOGS_DIR.exists():
             html_files = sorted(list(GENERATED_BLOGS_DIR.glob("*.html")), reverse=True)
- 
+
             if html_files:
                 selected_file = st.selectbox(
                     "블로그 파일 선택",
                     options=html_files,
                     format_func=lambda x: x.name
                 )
- 
+
                 if selected_file:
+                    # HTML 파일 읽기
                     with open(selected_file, 'r', encoding='utf-8') as f:
                         html_content = f.read()
- 
+
                     st.success(f"✅ 파일 로드 완료: {selected_file.name}")
+                    
+                    # 메타데이터 읽기
+                    meta_file = selected_file.with_suffix('.meta.json')
+                    if meta_file.exists():
+                        import json
+                        with open(meta_file, 'r', encoding='utf-8') as f:
+                            metadata = json.load(f)
+                            
+                        # 세션 상태에 저장 (아래에서 사용)
+                        st.session_state.loaded_topic = metadata.get('topic', '')
+                        st.session_state.loaded_context = metadata.get('context', '')
+                        st.info("💡 블로그 메타데이터(주제, 컨텍스트)를 자동으로 불러왔습니다.")
+                    else:
+                        st.session_state.loaded_topic = None
+                        st.session_state.loaded_context = None
             else:
                 st.info("저장된 블로그가 없습니다.")
         else:
@@ -114,12 +160,31 @@ with tab1:
     # 주제 및 컨텍스트
     if html_content:
         st.markdown("---")
-        topic = st.text_input("블로그 주제", placeholder="예: AI 기술의 미래")
- 
+        
+        # 메타데이터에서 자동 로드
+        auto_loaded = st.session_state.get('loaded_topic') and st.session_state.get('loaded_context')
+        
+        # 주제 입력 (메타데이터에서 로드된 값을 기본값으로)
+        default_topic = st.session_state.get('loaded_topic', '')
+        topic = st.text_input(
+            "블로그 주제", 
+            value=default_topic,
+            placeholder="예: AI 기술의 미래"
+        )
+
         # 컨텍스트 생성 옵션
-        use_rag = st.checkbox("RAG에서 컨텍스트 자동 생성", value=True)
- 
-        if use_rag and topic:
+        use_rag = st.checkbox("RAG에서 컨텍스트 자동 생성", value=not auto_loaded)
+        
+        # 메타데이터에서 로드된 컨텍스트 사용
+        if auto_loaded and st.session_state.get('loaded_context'):
+            context = st.session_state.get('loaded_context')
+            st.success("✅ 블로그 생성 시 사용된 컨텍스트를 불러왔습니다.")
+            
+            # 컨텍스트 미리보기
+            with st.expander("📄 불러온 컨텍스트 미리보기"):
+                preview = context[:500] + "..." if len(context) > 500 else context
+                st.text(preview)
+        elif use_rag and topic:
             with st.spinner("컨텍스트 생성 중..."):
                 try:
                     context = rag_builder.get_context_for_topic(topic, n_results=10)
@@ -127,10 +192,15 @@ with tab1:
                         st.success("✅ 컨텍스트 생성 완료")
                     else:
                         st.warning("관련 기사를 찾을 수 없습니다. 수동으로 입력하세요.")
+                        context = None
                 except Exception as e:
                     st.error(f"컨텍스트 생성 실패: {str(e)}")
- 
-        if not use_rag or not context:
+                    context = None
+        else:
+            context = None
+
+        # 수동 컨텍스트 입력 (자동 로드/RAG 실패 시)
+        if not context:
             context = st.text_area(
                 "컨텍스트 (사실 확인용)",
                 height=200,
@@ -144,8 +214,11 @@ with tab1:
             elif not context:
                 st.error("컨텍스트를 입력하거나 생성하세요.")
             else:
-                with st.spinner("블로그 평가 중..."):
+                with st.spinner(f"블로그 평가 중... (모델: {model_name})"):
                     try:
+                        # BlogCritic 동적 생성 (선택한 모델로)
+                        critic = get_critic(model_name)
+                        
                         result = critic.evaluate(html_content, topic, context)
                         st.session_state.evaluation_result = result
                         st.session_state.evaluated_html = html_content
@@ -222,13 +295,101 @@ with tab2:
         st.info(result.get('feedback', '피드백 없음'))
  
         st.markdown("---")
- 
+
+        # 검증 통과 시: 이미지 설명 자동 저장 및 다음 단계 안내
+        if result['passed']:
+            st.success("✅ 품질 검증 통과! 이미지 생성 단계로 진행할 수 있습니다.")
+            
+            # 이미지 플레이스홀더 추출
+            evaluated_html = st.session_state.get('evaluated_html', '')
+            if not evaluated_html:
+                st.warning("평가된 HTML이 없습니다. 다시 평가를 실행해주세요.")
+            else:
+                temp_blog_gen = BlogGenerator()
+                placeholders = temp_blog_gen.extract_image_placeholders(evaluated_html)
+                
+                if placeholders:
+                    # ✅ 이미지 설명 자동 저장
+                    html_file = ""
+                    if st.session_state.get('selected_blog_file'):
+                        html_file = str(st.session_state.selected_blog_file)
+                    
+                    # 이미지 설명 데이터 준비
+                    image_prompts_data = {
+                        'blog_topic': st.session_state.get('loaded_topic', topic),
+                        'html_file': html_file,
+                        'placeholders': placeholders,
+                        'created_at': datetime.now().isoformat(),
+                        'evaluation_score': result['score']
+                    }
+                    
+                    # 파일로 자동 저장
+                    IMAGE_PROMPTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    with open(IMAGE_PROMPTS_FILE, 'w', encoding='utf-8') as f:
+                        json.dump(image_prompts_data, f, ensure_ascii=False, indent=2)
+                    
+                    st.success(f"💾 이미지 설명이 자동 저장되었습니다! ({len(placeholders)}개)")
+                    
+                    # 이미지 설명 미리보기
+                    with st.expander("📋 저장된 이미지 설명 확인", expanded=True):
+                        for i, ph in enumerate(placeholders, 1):
+                            st.markdown(f"**이미지 {i}**: {ph['alt']}")
+                    
+                    # ✅ 블로그 HTML을 6번 모듈로 자동 저장
+                    HUMANIZER_INPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    with open(HUMANIZER_INPUT_FILE, 'w', encoding='utf-8') as f:
+                        f.write(evaluated_html)
+                    
+                    st.success(f"💾 블로그 HTML이 6번 모듈로 자동 저장되었습니다!")
+                    
+                    st.info("""
+                    👉 **다음 단계 (병렬 진행 가능)**:
+                    - **5번 모듈 (이미지 생성기)**: 이미지 생성 진행
+                    - **6번 모듈 (Humanizer)**: 블로그 인간화 진행
+                    """)
+                    st.caption(f"이미지 설명 저장: {IMAGE_PROMPTS_FILE}")
+                    st.caption(f"블로그 HTML 저장: {HUMANIZER_INPUT_FILE}")
+                else:
+                    st.warning("이미지 플레이스홀더가 없습니다. 블로그에 이미지 설명이 포함되어 있는지 확인하세요.")
+
         # 재생성 권장
         if not result['passed']:
             st.error("⚠️ 품질이 임계값 미만입니다. 블로그 재생성을 권장합니다.")
- 
+
             with st.expander("📝 개선 제안"):
                 st.markdown(result.get('feedback', ''))
+            
+            st.markdown("---")
+            
+            # 피드백 반영하여 재생성 버튼
+            st.subheader("🔄 블로그 개선")
+            st.info("💡 평가 피드백을 반영하여 블로그를 자동으로 개선할 수 있습니다.")
+            
+            col_regenerate1, col_regenerate2 = st.columns([1, 2])
+            
+            with col_regenerate1:
+                if st.button("🔄 피드백 반영하여 재생성", type="primary", use_container_width=True):
+                    # 재생성에 필요한 정보를 파일로 저장 (대시보드 간 공유용)
+                    feedback_data = {
+                        'score': result['score'],
+                        'feedback': result.get('feedback', ''),
+                        'details': result.get('details', {}),
+                        'topic': st.session_state.get('loaded_topic', topic),
+                        'context': st.session_state.get('loaded_context', context),
+                        'created_at': datetime.now().isoformat()
+                    }
+                    
+                    # 파일로 저장
+                    FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
+                    with open(FEEDBACK_FILE, 'w', encoding='utf-8') as f:
+                        json.dump(feedback_data, f, ensure_ascii=False, indent=2)
+                    
+                    st.success("✅ 피드백이 저장되었습니다!")
+                    st.info("👉 3번 모듈(블로그 생성기)로 이동하여 '🔄 피드백 반영 재생성' 버튼을 클릭하세요!")
+                    st.caption(f"저장 위치: {FEEDBACK_FILE}")
+            
+            with col_regenerate2:
+                st.caption("피드백을 3번 모듈로 전달하여 개선된 블로그를 생성합니다.")
  
         # 평가된 블로그 미리보기
         st.markdown("---")

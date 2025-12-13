@@ -10,7 +10,7 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config.settings import (
     OPENAI_API_KEY, ANTHROPIC_API_KEY, DEFAULT_LLM_MODEL,
-    QUALITY_THRESHOLD
+    QUALITY_THRESHOLD, LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, LM_STUDIO_MODEL_NAME
 )
 from config.logger import get_logger
 
@@ -33,13 +33,26 @@ class BlogCritic:
 
     def _init_llm(self):
         """LLM 초기화"""
-        if "gpt" in self.model_name.lower():
+        if "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
+            # LM Studio (로컬 LLM)
+            if not LM_STUDIO_ENABLED:
+                logger.warning("LM Studio가 비활성화 상태입니다. .env에서 LM_STUDIO_ENABLED=true로 설정하세요.")
+            
+            logger.info(f"LM Studio 연결 시도: {LM_STUDIO_BASE_URL}")
+            return ChatOpenAI(
+                model=LM_STUDIO_MODEL_NAME,
+                temperature=0.0,  # 평가는 일관성이 중요
+                api_key="lm-studio",  # LM Studio는 API key 불필요 (더미값)
+                base_url=LM_STUDIO_BASE_URL,
+                max_retries=2
+            )
+        elif "gpt" in self.model_name.lower():
             if not OPENAI_API_KEY:
                 raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
             return ChatOpenAI(
                 model=self.model_name,
                 temperature=0.0,  # 평가는 일관성이 중요
-                openai_api_key=OPENAI_API_KEY
+                api_key=OPENAI_API_KEY
             )
         elif "claude" in self.model_name.lower():
             if not ANTHROPIC_API_KEY:
@@ -150,14 +163,14 @@ class BlogCritic:
 **응답 형식** (반드시 이 형식을 따라주세요):
 
 ```
-SCORE: [총점 0~100]
-
 DETAILS:
 - Factual Accuracy: [0~20]
 - Structure: [0~20]
 - Readability: [0~20]
 - Image Placement: [0~20]
 - Completeness: [0~20]
+
+SCORE: [세부 점수의 합계, 자동 계산됨]
 
 FEEDBACK:
 [구체적인 피드백을 3~5문장으로 작성. 점수가 낮은 이유와 개선 방안 포함]
@@ -167,7 +180,9 @@ RECOMMENDATION:
 ```
 
 **중요**:
-- 점수는 **엄격하게** 채점하세요. 80점 이상은 매우 우수한 경우에만 부여
+- **총점 = 사실 정확성 + 구조 + 가독성 + 이미지 배치 + 완성도**
+- 각 항목은 0~20점으로 채점
+- 점수는 **엄격하게** 채점하세요. 각 항목 18점 이상은 매우 우수한 경우에만 부여
 - 피드백은 **구체적이고 실행 가능**해야 함
 - 임계값은 {self.threshold}점입니다
 
@@ -187,10 +202,6 @@ RECOMMENDATION:
         """
         import re
 
-        # 총점 추출
-        score_match = re.search(r'SCORE:\s*(\d+)', result_text)
-        score = int(score_match.group(1)) if score_match else 0
-
         # 세부 점수 추출
         details = {}
         details_section = re.search(r'DETAILS:(.*?)FEEDBACK:', result_text, re.DOTALL)
@@ -201,6 +212,11 @@ RECOMMENDATION:
             details['readability'] = self._extract_score(details_text, 'Readability')
             details['image_placement'] = self._extract_score(details_text, 'Image Placement')
             details['completeness'] = self._extract_score(details_text, 'Completeness')
+
+        # 총점은 세부 점수의 합계로 계산 (LLM이 제시한 총점은 무시)
+        score = sum(details.values()) if details else 0
+        
+        logger.info(f"세부 점수 합계: {score} = {details}")
 
         # 피드백 추출
         feedback_match = re.search(r'FEEDBACK:\s*(.*?)RECOMMENDATION:', result_text, re.DOTALL)

@@ -222,8 +222,8 @@ class BlogGenerator:
             return ChatOpenAI(
                 model=LM_STUDIO_MODEL_NAME,
                 temperature=self.temperature,
-                openai_api_key="lm-studio",  # LM Studio는 API key 불필요 (더미값)
-                openai_api_base=LM_STUDIO_BASE_URL,
+                api_key="lm-studio",  # LM Studio는 API key 불필요 (더미값)
+                base_url=LM_STUDIO_BASE_URL,
                 max_retries=2
             )
         elif "gpt" in self.model_name.lower():
@@ -232,7 +232,7 @@ class BlogGenerator:
             return ChatOpenAI(
                 model=self.model_name,
                 temperature=self.temperature,
-                openai_api_key=OPENAI_API_KEY
+                api_key=OPENAI_API_KEY
             )
         elif "claude" in self.model_name.lower():
             if not ANTHROPIC_API_KEY:
@@ -306,12 +306,12 @@ class BlogGenerator:
 <h2>본론</h2>
 <p>기사들의 핵심 내용을 종합한 첫 번째 문단...</p>
 
-<img src="PLACEHOLDER" alt="" class="blog-image">
+<img src="PLACEHOLDER" alt="이미지 생성을 위한 구체적인 영어 설명" class="blog-image">
 
 <p>논리적인 흐름으로 정보 전달하는 두 번째 문단...</p>
 <p>구체적인 수치, 인용을 포함한 세 번째 문단...</p>
 
-<img src="PLACEHOLDER" alt="" class="blog-image">
+<img src="PLACEHOLDER" alt="이미지 생성을 위한 구체적인 영어 설명" class="blog-image">
 
 <p>추가 내용 및 상세 설명...</p>
 
@@ -330,6 +330,10 @@ class BlogGenerator:
 
 1. **구조**: 제목 → 서론 → 본론 → 결론 → 출처 순서 준수
 2. **이미지**: 본론 중간에 2-3개 배치 (독립된 줄, 앞뒤 빈 줄)
+   - **중요**: alt 속성에는 AI 이미지 생성을 위한 **구체적이고 상세한 영어 설명**을 작성해줘
+   - 예: "A modern data center with glowing servers and blue lights, digital art style"
+   - 예: "Business professionals analyzing charts on large screens, photorealistic"
+   - alt는 반드시 영어로 작성하고, 이미지 스타일(digital art, photorealistic 등)을 명시해줘
 3. **문체**: 자연스러운 블로그 문체 (친근하면서도 전문적)
 4. **길이**: 1500~2500자 분량
 5. **여백**: 문단 사이 적절한 여백 (p 태그 활용)
@@ -533,13 +537,14 @@ class BlogGenerator:
 
         return html
 
-    def save_blog(self, html: str, topic: str, version: int = 1) -> Path:
+    def save_blog(self, html: str, topic: str, context: str = "", version: int = 1) -> Path:
         """
-        블로그 HTML 파일로 저장
+        블로그 HTML 파일로 저장 (메타데이터 포함)
 
         Args:
             html: HTML 내용
             topic: 주제
+            context: 사용된 컨텍스트 (품질 평가용)
             version: 버전 번호 (재생성 시 증가)
 
         Returns:
@@ -552,10 +557,25 @@ class BlogGenerator:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = GENERATED_BLOGS_DIR / f"{safe_topic}_{timestamp}_v{version}.html"
 
+        # HTML 파일 저장
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(html)
 
-        logger.info(f"블로그 저장 완료: {filename}")
+        # 메타데이터 저장 (같은 이름의 .meta.json 파일)
+        meta_filename = filename.with_suffix('.meta.json')
+        metadata = {
+            "topic": topic,
+            "context": context,
+            "created_at": datetime.now().isoformat(),
+            "html_file": filename.name,
+            "version": version
+        }
+        
+        import json
+        with open(meta_filename, 'w', encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"블로그 저장 완료: {filename} (메타데이터 포함)")
         return filename
 
     def extract_image_placeholders(self, html: str) -> list:
@@ -582,6 +602,61 @@ class BlogGenerator:
 
         logger.info(f"추출된 플레이스홀더: {len(placeholders)}개")
         return placeholders
+
+    def update_images_in_html(
+        self, 
+        html_path: Path, 
+        image_results: List[Dict[str, Any]]
+    ) -> Path:
+        """
+        HTML 파일의 이미지 플레이스홀더를 실제 이미지로 교체
+        
+        Args:
+            html_path: 원본 HTML 파일 경로
+            image_results: 이미지 생성 결과 리스트
+                [{"index": 0, "local_path": "...", "url": "...", "alt": "..."}, ...]
+        
+        Returns:
+            업데이트된 HTML 파일 경로
+        """
+        # HTML 읽기
+        with open(html_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+        
+        # 이미지 교체
+        for img_result in image_results:
+            index = img_result['index']
+            local_path = img_result.get('local_path', '')
+            alt = img_result.get('alt', '')
+            
+            if local_path and Path(local_path).exists():
+                # 상대 경로로 변환 (HTML에서 접근 가능하도록)
+                # 또는 파일을 base64로 인코딩하여 임베드
+                import base64
+                with open(local_path, 'rb') as img_file:
+                    img_data = base64.b64encode(img_file.read()).decode('utf-8')
+                    # PNG 확장자 확인
+                    ext = Path(local_path).suffix.lower()
+                    mime_type = 'image/png' if ext == '.png' else 'image/jpeg'
+                    img_src = f"data:{mime_type};base64,{img_data}"
+                
+                # 플레이스홀더 교체 (첫 번째 PLACEHOLDER부터 순차적으로)
+                html_content = html_content.replace(
+                    'src="PLACEHOLDER"',
+                    f'src="{img_src}"',
+                    1  # 한 번에 하나씩만 교체
+                )
+                
+                logger.info(f"이미지 {index} 삽입 완료: {local_path}")
+            else:
+                logger.warning(f"이미지 {index} 파일을 찾을 수 없음: {local_path}")
+        
+        # 업데이트된 HTML 저장
+        with open(html_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+        
+        logger.info(f"이미지가 삽입된 HTML 저장: {html_path}")
+        return html_path
 
 
 if __name__ == "__main__":
