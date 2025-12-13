@@ -6,10 +6,19 @@ import streamlit as st
 import sys
 from pathlib import Path
 import json
+from datetime import datetime
  
 sys.path.append(str(Path(__file__).parent.parent))
  
-from config.settings import GENERATED_BLOGS_DIR, NAVER_BLOG_URL
+import importlib
+publisher_module = importlib.import_module("modules.07_blog_publisher.publisher")
+NaverBlogPublisher = publisher_module.NaverBlogPublisher
+
+from config.settings import (
+    GENERATED_BLOGS_DIR, NAVER_BLOG_URL, NAVER_ID, NAVER_PASSWORD,
+    BLOG_IMAGE_MAPPING_FILE, METADATA_DIR, TEMP_DIR, HUMANIZER_INPUT_FILE,
+    NAVER_BLOG_CATEGORIES
+)
  
 st.set_page_config(
     page_title="블로그 발행기 대시보드",
@@ -45,89 +54,203 @@ tab1, tab2 = st.tabs(["📤 발행하기", "📊 발행 기록"])
 # 탭 1: 발행하기
 with tab1:
     st.header("📤 블로그 발행")
- 
-    st.info("⚠️ 이 대시보드는 시연용입니다. 실제 발행은 Selenium을 통해 별도로 실행하세요.")
- 
-    # HTML 선택
-    if GENERATED_BLOGS_DIR.exists():
-        html_files = sorted(list(GENERATED_BLOGS_DIR.glob("*.html")), reverse=True)
- 
-        if html_files:
-            selected_file = st.selectbox(
-                "발행할 블로그 선택",
-                options=html_files,
-                format_func=lambda x: x.name
-            )
- 
-            if selected_file:
-                with open(selected_file, 'r', encoding='utf-8') as f:
-                    html_content = f.read()
- 
-                # 파일 정보
-                col_file1, col_file2 = st.columns([3, 1])
- 
-                with col_file1:
-                    st.markdown(f"**파일:** {selected_file.name}")
- 
-                with col_file2:
-                    file_size = selected_file.stat().st_size / 1024
-                    st.metric("크기", f"{file_size:.1f} KB")
- 
-                # 미리보기
-                st.markdown("---")
-                st.subheader("📝 미리보기")
-                st.components.v1.html(html_content, height=400, scrolling=True)
- 
-                st.markdown("---")
- 
-                # 발행 설정
-                st.subheader("⚙️ 발행 설정")
- 
-                col_set1, col_set2 = st.columns(2)
- 
-                with col_set1:
-                    title = st.text_input("블로그 제목", placeholder="예: AI 기술의 미래")
- 
-                with col_set2:
-                    category = st.selectbox("카테고리", ["IT/과학", "정치", "경제", "기타"])
- 
-                # 이미지 정보 입력
-                st.markdown("**이미지 정보 (JSON)**")
-                images_json = st.text_area(
-                    "이미지 정보",
-                    value="""[
-  {
-    "index": 0,
-    "url": "https://example.com/image1.png",
-    "alt": "이미지 설명"
-  }
-]""",
-                    height=150
-                )
- 
-                # 발행 버튼 (시연용 - 실제 동작 안함)
-                st.markdown("---")
-                if st.button("📤 발행 (시연)", type="primary", disabled=True):
-                    st.warning("⚠️ 시연 모드입니다. 실제 발행은 별도 스크립트를 사용하세요.")
- 
-                # 실제 사용 안내
-                st.info("""
-                💡 **실제 발행 방법**
- 
-                터미널에서 다음 명령 실행:
-                ```bash
-                python -c "from modules.07_blog_publisher.publisher import NaverBlogPublisher; ..."
-                ```
- 
-                또는 메인 워크플로우 사용:
-                ```bash
-                python main.py --category it_science --topic "AI 기술"
-                ```
-                """)
-        else:
-            st.info("발행할 블로그가 없습니다.")
+    
+    # 계정 정보 확인
+    if not NAVER_ID or not NAVER_PASSWORD:
+        st.error("❌ 네이버 계정 정보가 설정되지 않았습니다.")
+        st.info("💡 `.env` 파일에 `NAVER_ID`와 `NAVER_PASSWORD`를 설정하세요.")
+    elif not NAVER_BLOG_URL:
+        st.error("❌ 네이버 블로그 URL이 설정되지 않았습니다.")
+        st.info("💡 `.env` 파일에 `NAVER_BLOG_URL`을 설정하세요.")
     else:
-        st.info("블로그 디렉토리가 존재하지 않습니다.")
+        st.success("✅ 네이버 계정 정보 설정 완료")
+        
+        # 입력 방법 선택
+        input_method = st.radio(
+            "입력 방법",
+            ["🔄 자동 로드 (6번 모듈 + 5번 모듈)", "📁 저장된 파일 선택", "✏️ 직접 입력"],
+            horizontal=True
+        )
+        
+        html_content = None
+        images_data = None
+        blog_title = None
+        
+        if input_method == "🔄 자동 로드 (6번 모듈 + 5번 모듈)":
+            # 6번 모듈에서 생성된 HTML 로드
+            if HUMANIZER_INPUT_FILE.exists():
+                try:
+                    with open(HUMANIZER_INPUT_FILE, 'r', encoding='utf-8') as f:
+                        html_content = f.read()
+                    st.success(f"✅ 6번 모듈 HTML 로드 완료: {HUMANIZER_INPUT_FILE.name}")
+                except Exception as e:
+                    st.error(f"❌ HTML 로드 실패: {e}")
+            else:
+                st.warning("📭 6번 모듈에서 생성된 HTML이 없습니다.")
+            
+            # 5번 모듈에서 생성된 이미지 매핑 정보 로드
+            if BLOG_IMAGE_MAPPING_FILE.exists():
+                try:
+                    with open(BLOG_IMAGE_MAPPING_FILE, 'r', encoding='utf-8') as f:
+                        latest_info = json.load(f)
+                    mapping_file = Path(latest_info.get('latest_mapping_file', ''))
+                    
+                    if mapping_file.exists():
+                        with open(mapping_file, 'r', encoding='utf-8') as f:
+                            images_data = json.load(f)
+                        st.success(f"✅ 이미지 매핑 정보 로드 완료: {mapping_file.name} ({len(images_data.get('images', []))}개 이미지)")
+                        blog_title = images_data.get('blog_topic', '')
+                    else:
+                        st.warning("📭 이미지 매핑 파일을 찾을 수 없습니다.")
+                except Exception as e:
+                    st.error(f"❌ 이미지 매핑 정보 로드 실패: {e}")
+            else:
+                st.warning("📭 이미지 매핑 정보가 없습니다.")
+        
+        elif input_method == "📁 저장된 파일 선택":
+            if GENERATED_BLOGS_DIR.exists():
+                html_files = sorted(list(GENERATED_BLOGS_DIR.glob("*.html")), reverse=True)
+                
+                if html_files:
+                    selected_file = st.selectbox(
+                        "발행할 블로그 선택",
+                        options=html_files,
+                        format_func=lambda x: x.name
+                    )
+                    
+                    if selected_file:
+                        try:
+                            with open(selected_file, 'r', encoding='utf-8') as f:
+                                html_content = f.read()
+                            st.success(f"✅ 파일 로드 완료: {selected_file.name}")
+                        except Exception as e:
+                            st.error(f"❌ 파일 로드 실패: {e}")
+                else:
+                    st.info("저장된 블로그가 없습니다.")
+            else:
+                st.info("블로그 디렉토리가 존재하지 않습니다.")
+            
+            # 이미지 매핑 파일 선택
+            if METADATA_DIR.exists():
+                mapping_files = sorted(list(METADATA_DIR.glob("blog_image_mapping_*.json")), reverse=True)
+                if mapping_files:
+                    selected_mapping = st.selectbox(
+                        "이미지 매핑 파일 선택",
+                        options=[None] + mapping_files,
+                        format_func=lambda x: "선택 안함" if x is None else x.name
+                    )
+                    
+                    if selected_mapping:
+                        try:
+                            with open(selected_mapping, 'r', encoding='utf-8') as f:
+                                images_data = json.load(f)
+                            st.success(f"✅ 이미지 매핑 로드 완료: {len(images_data.get('images', []))}개 이미지")
+                            if not blog_title:
+                                blog_title = images_data.get('blog_topic', '')
+                        except Exception as e:
+                            st.error(f"❌ 이미지 매핑 로드 실패: {e}")
+        
+        else:  # 직접 입력
+            html_content = st.text_area(
+                "블로그 HTML",
+                height=300,
+                placeholder="<html>...</html>"
+            )
+        
+        # HTML 미리보기
+        if html_content:
+            st.markdown("---")
+            st.subheader("📝 미리보기")
+            
+            # 제목 추출
+            import re
+            title_match = re.search(r'<title>(.*?)</title>', html_content, re.IGNORECASE)
+            if title_match and not blog_title:
+                blog_title = title_match.group(1)
+            
+            col_preview1, col_preview2 = st.columns([2, 1])
+            
+            with col_preview1:
+                st.components.v1.html(html_content, height=400, scrolling=True)
+            
+            with col_preview2:
+                st.markdown("**파일 정보**")
+                if html_content:
+                    st.metric("HTML 크기", f"{len(html_content) / 1024:.1f} KB")
+                if images_data:
+                    st.metric("이미지 개수", f"{len(images_data.get('images', []))}개")
+                if images_data:
+                    st.metric("이미지 개수", f"{len(images_data.get('images', []))}개")
+        
+        # 카테고리 선택
+        st.markdown("---")
+        st.subheader("📂 블로그 카테고리 선택")
+        category_options = {
+            "선택 안함": None,
+            "IT/기술": "it_tech",
+            "경제": "economy",
+            "정치": "politics"
+        }
+        selected_category_display = st.selectbox(
+            "카테고리",
+            options=list(category_options.keys()),
+            help="블로그 글을 발행할 카테고리를 선택하세요."
+        )
+        selected_category = category_options[selected_category_display]
+        
+        if selected_category:
+            st.info(f"📂 선택된 카테고리: **{selected_category_display}** ({NAVER_BLOG_CATEGORIES[selected_category]['name']})")
+        
+        # 발행 설정
+        st.markdown("---")
+        st.subheader("⚙️ 발행 설정")
+        
+        col_set1, col_set2 = st.columns(2)
+        
+        with col_set1:
+            title_input = st.text_input("블로그 제목", value=blog_title or "", placeholder="블로그 제목을 입력하세요")
+        
+        with col_set2:
+            use_base64 = st.checkbox("Base64 인코딩 사용", value=True, help="이미지를 base64로 인코딩하여 삽입합니다.")
+        
+        # 발행 버튼
+        st.markdown("---")
+        col_btn1, col_btn2 = st.columns([1, 3])
+        
+        with col_btn1:
+            if st.button("📤 발행하기", type="primary", use_container_width=True):
+                if not title_input:
+                    st.error("❌ 블로그 제목을 입력하세요.")
+                else:
+                    with st.spinner("블로그 발행 중... (30초~1분 소요)"):
+                        try:
+                            publisher = NaverBlogPublisher(headless=False)
+                            
+                            images_list = images_data.get('images', []) if images_data else []
+                            
+                            result = publisher.publish(
+                                category=selected_category,
+                                html=html_content,
+                                images=images_list if images_list else None,
+                                title=title_input,
+                                use_base64=use_base64
+                            )
+                            
+                            publisher.close()
+                            
+                            if result['success']:
+                                st.success(f"✅ 발행 성공! (시도 {result['attempts']}회)")
+                                st.markdown(f"**발행 URL:** [{result['url']}]({result['url']})")
+                                
+                                # 발행 기록 저장 (추후 구현)
+                                st.balloons()
+                            else:
+                                st.error(f"❌ 발행 실패: {result.get('error', '알 수 없는 오류')}")
+                        except Exception as e:
+                            st.error(f"❌ 발행 중 오류 발생: {e}")
+            
+            with col_btn2:
+                st.caption("⚠️ 발행 시 브라우저가 열립니다. 캡차가 발생할 수 있습니다.")
  
 # 탭 2: 발행 기록
 with tab2:

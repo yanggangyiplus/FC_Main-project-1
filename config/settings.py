@@ -75,6 +75,25 @@ MAX_REGENERATION_ATTEMPTS = 3  # 블로그 재생성 최대 시도 횟수
 # 블로그 발행 설정
 MAX_PUBLISH_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
 
+# 네이버 블로그 카테고리 설정
+NAVER_BLOG_CATEGORIES = {
+    "it_tech": {
+        "name": "IT/기술",
+        "category_no": 17,
+        "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=17" if NAVER_BLOG_URL else None
+    },
+    "economy": {
+        "name": "경제",
+        "category_no": 18,
+        "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=18" if NAVER_BLOG_URL else None
+    },
+    "politics": {
+        "name": "정치",
+        "category_no": 19,
+        "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=19" if NAVER_BLOG_URL else None
+    }
+}
+
 # ChromaDB 설정
 CHROMA_COLLECTION_NAME = "news_articles"
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
@@ -109,4 +128,5 @@ HUGGINGFACE_MODEL = os.getenv("HUGGINGFACE_MODEL", "runwayml/stable-diffusion-v1
 # ⚠️ 주의: "Tongyi-MAI/Z-Image-Turbo"는 Inference API를 지원하지 않습니다.
 #          Z-Image-Turbo를 사용하려면 로컬 실행이 필요합니다 (GPU + diffusers 라이브러리).
 
-# 파일 경로는 위에서 정의됨 (METADATA_DIR, TEMP_DIR 사용)
+# 블로그 발행용 데이터 저장 (4번 모듈 → 7번 모듈 연결용)
+BLOG_PUBLISH_DATA_FILE = METADATA_DIR / "blog_publish_data.json"  # 블로그 주제와 본문 텍스트 저장

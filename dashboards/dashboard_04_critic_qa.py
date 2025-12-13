@@ -345,7 +345,7 @@ with tab2:
                     st.info("""
                     👉 **다음 단계 (병렬 진행 가능)**:
                     - **5번 모듈 (이미지 생성기)**: 이미지 생성 진행
-                    - **6번 모듈 (Humanizer)**: 블로그 인간화 진행
+                    - **6번 모듈 (Humanizer)**: 블로그 인간화 진행 (인간화 완료 시 발행용 데이터 자동 저장)
                     """)
                     st.caption(f"이미지 설명 저장: {IMAGE_PROMPTS_FILE}")
                     st.caption(f"블로그 HTML 저장: {HUMANIZER_INPUT_FILE}")

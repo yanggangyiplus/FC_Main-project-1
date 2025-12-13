@@ -47,6 +47,7 @@ python-dotenv==1.0.1
 requests==2.31.0
 pandas==2.2.0
 pydantic==2.6.1
+pyperclip==1.8.2  # 클립보드 복사/붙여넣기 (블로그 발행용)
 
 # 로깅 및 모니터링
 loguru==0.7.2

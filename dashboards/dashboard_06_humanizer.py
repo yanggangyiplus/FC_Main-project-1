@@ -16,7 +16,9 @@ from config.settings import (
     GENERATED_BLOGS_DIR, 
     HUMANIZER_INPUT_FILE,
     LM_STUDIO_ENABLED,
-    LM_STUDIO_BASE_URL
+    LM_STUDIO_BASE_URL,
+    BLOG_PUBLISH_DATA_FILE,
+    METADATA_DIR
 )
  
 st.set_page_config(
@@ -114,6 +116,9 @@ with tab1:
                             
                             # 자동 저장
                             from datetime import datetime
+                            import json
+                            from bs4 import BeautifulSoup
+                            
                             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                             filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
                             
@@ -121,7 +126,55 @@ with tab1:
                             with open(filename, 'w', encoding='utf-8') as f:
                                 f.write(humanized_html)
                             
-                            st.success(f"✅ 인간화 완료 및 자동 저장: {filename.name}")
+                            # ✅ 블로그 주제와 본문 텍스트 추출하여 7번 모듈용으로 저장
+                            try:
+                                soup = BeautifulSoup(humanized_html, 'html.parser')
+                                
+                                # 제목 추출 (title 태그 또는 h1 태그)
+                                blog_title = ""
+                                title_tag = soup.find('title')
+                                if title_tag:
+                                    blog_title = title_tag.get_text(strip=True)
+                                else:
+                                    h1_tag = soup.find('h1')
+                                    if h1_tag:
+                                        blog_title = h1_tag.get_text(strip=True)
+                                
+                                # 본문 텍스트 추출 (이미지 제외)
+                                body_content = soup.find('body')
+                                if body_content:
+                                    # 이미지 태그 제거
+                                    for img in body_content.find_all('img'):
+                                        img.decompose()
+                                    # 텍스트만 추출
+                                    blog_content = body_content.get_text(separator='\n', strip=True)
+                                else:
+                                    # body가 없으면 전체에서 추출
+                                    for img in soup.find_all('img'):
+                                        img.decompose()
+                                    blog_content = soup.get_text(separator='\n', strip=True)
+                                
+                                # 발행용 데이터 저장
+                                publish_data = {
+                                    'blog_title': blog_title or "블로그 제목",
+                                    'blog_content': blog_content,
+                                    'html_file': str(filename),
+                                    'created_at': datetime.now().isoformat()
+                                }
+                                
+                                METADATA_DIR.mkdir(parents=True, exist_ok=True)
+                                with open(BLOG_PUBLISH_DATA_FILE, 'w', encoding='utf-8') as f:
+                                    json.dump(publish_data, f, ensure_ascii=False, indent=2)
+                                
+                                st.success(f"✅ 인간화 완료!")
+                                st.success(f"💾 자동 저장 완료: {filename.name}")
+                                st.success(f"💾 블로그 발행용 데이터 자동 저장 완료! (제목: {blog_title[:30] if blog_title else '제목 없음'}...)")
+                                st.info(f"📁 저장 위치:\n- HTML 파일: `{filename}`\n- 발행 데이터: `{BLOG_PUBLISH_DATA_FILE.name}`")
+                                st.info("👉 이제 **7번 모듈 (블로그 발행)**에서 발행할 수 있습니다!")
+                            except Exception as e:
+                                st.warning(f"⚠️ 블로그 발행용 데이터 저장 실패: {e}")
+                                st.success(f"✅ 인간화 완료 및 자동 저장: {filename.name}")
+                            
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ 인간화 실패: {str(e)}")
@@ -190,6 +243,9 @@ with tab1:
                         
                         # 자동 저장
                         from datetime import datetime
+                        import json
+                        from bs4 import BeautifulSoup
+                        
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
                         
@@ -197,7 +253,55 @@ with tab1:
                         with open(filename, 'w', encoding='utf-8') as f:
                             f.write(humanized_html)
                         
-                        st.success(f"✅ 인간화 완료 및 자동 저장: {filename.name}")
+                        # ✅ 블로그 주제와 본문 텍스트 추출하여 7번 모듈용으로 저장
+                        try:
+                            soup = BeautifulSoup(humanized_html, 'html.parser')
+                            
+                            # 제목 추출 (title 태그 또는 h1 태그)
+                            blog_title = ""
+                            title_tag = soup.find('title')
+                            if title_tag:
+                                blog_title = title_tag.get_text(strip=True)
+                            else:
+                                h1_tag = soup.find('h1')
+                                if h1_tag:
+                                    blog_title = h1_tag.get_text(strip=True)
+                            
+                            # 본문 텍스트 추출 (이미지 제외)
+                            body_content = soup.find('body')
+                            if body_content:
+                                # 이미지 태그 제거
+                                for img in body_content.find_all('img'):
+                                    img.decompose()
+                                # 텍스트만 추출
+                                blog_content = body_content.get_text(separator='\n', strip=True)
+                            else:
+                                # body가 없으면 전체에서 추출
+                                for img in soup.find_all('img'):
+                                    img.decompose()
+                                blog_content = soup.get_text(separator='\n', strip=True)
+                            
+                            # 발행용 데이터 저장
+                            publish_data = {
+                                'blog_title': blog_title or "블로그 제목",
+                                'blog_content': blog_content,
+                                'html_file': str(filename),
+                                'created_at': datetime.now().isoformat()
+                            }
+                            
+                            METADATA_DIR.mkdir(parents=True, exist_ok=True)
+                            with open(BLOG_PUBLISH_DATA_FILE, 'w', encoding='utf-8') as f:
+                                json.dump(publish_data, f, ensure_ascii=False, indent=2)
+                            
+                            st.success(f"✅ 인간화 완료!")
+                            st.success(f"💾 자동 저장 완료: {filename.name}")
+                            st.success(f"💾 블로그 발행용 데이터 자동 저장 완료! (제목: {blog_title[:30] if blog_title else '제목 없음'}...)")
+                            st.info(f"📁 저장 위치:\n- HTML 파일: `{filename}`\n- 발행 데이터: `{BLOG_PUBLISH_DATA_FILE.name}`")
+                            st.info("👉 이제 **7번 모듈 (블로그 발행)**에서 발행할 수 있습니다!")
+                        except Exception as e:
+                            st.warning(f"⚠️ 블로그 발행용 데이터 저장 실패: {e}")
+                            st.success(f"✅ 인간화 완료 및 자동 저장: {filename.name}")
+                        
                         st.rerun()
 
                     except Exception as e:
@@ -222,16 +326,65 @@ with tab1:
  
         with col_save1:
             if st.button("💾 저장", use_container_width=True):
-                # 저장 로직 (간단한 구현)
+                # 저장 로직
                 from datetime import datetime
+                import json
+                from bs4 import BeautifulSoup
+                
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
- 
+
                 GENERATED_BLOGS_DIR.mkdir(parents=True, exist_ok=True)
                 with open(filename, 'w', encoding='utf-8') as f:
                     f.write(st.session_state.humanized_html)
- 
-                st.success(f"✅ 저장 완료: {filename.name}")
+                
+                # ✅ 블로그 주제와 본문 텍스트 추출하여 7번 모듈용으로 저장
+                try:
+                    soup = BeautifulSoup(st.session_state.humanized_html, 'html.parser')
+                    
+                    # 제목 추출 (title 태그 또는 h1 태그)
+                    blog_title = ""
+                    title_tag = soup.find('title')
+                    if title_tag:
+                        blog_title = title_tag.get_text(strip=True)
+                    else:
+                        h1_tag = soup.find('h1')
+                        if h1_tag:
+                            blog_title = h1_tag.get_text(strip=True)
+                    
+                    # 본문 텍스트 추출 (이미지 제외)
+                    body_content = soup.find('body')
+                    if body_content:
+                        # 이미지 태그 제거
+                        for img in body_content.find_all('img'):
+                            img.decompose()
+                        # 텍스트만 추출
+                        blog_content = body_content.get_text(separator='\n', strip=True)
+                    else:
+                        # body가 없으면 전체에서 추출
+                        for img in soup.find_all('img'):
+                            img.decompose()
+                        blog_content = soup.get_text(separator='\n', strip=True)
+                    
+                    # 발행용 데이터 저장
+                    publish_data = {
+                        'blog_title': blog_title or "블로그 제목",
+                        'blog_content': blog_content,
+                        'html_file': str(filename),
+                        'created_at': datetime.now().isoformat()
+                    }
+                    
+                    METADATA_DIR.mkdir(parents=True, exist_ok=True)
+                    with open(BLOG_PUBLISH_DATA_FILE, 'w', encoding='utf-8') as f:
+                        json.dump(publish_data, f, ensure_ascii=False, indent=2)
+                    
+                    st.success(f"✅ 저장 완료: {filename.name}")
+                    st.success(f"💾 블로그 발행용 데이터 저장 완료! (제목: {blog_title[:30] if blog_title else '제목 없음'}...)")
+                    st.info(f"📁 저장 위치:\n- HTML 파일: `{filename}`\n- 발행 데이터: `{BLOG_PUBLISH_DATA_FILE.name}`")
+                    st.info("👉 이제 **7번 모듈 (블로그 발행)**에서 발행할 수 있습니다!")
+                except Exception as e:
+                    st.warning(f"⚠️ 블로그 발행용 데이터 저장 실패: {e}")
+                    st.success(f"✅ 저장 완료: {filename.name}")
  
 # 탭 2: Before/After 비교
 with tab2:

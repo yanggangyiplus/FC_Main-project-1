@@ -76,6 +76,10 @@ NAVER_BLOG_URL=https://blog.naver.com/your_id
 MAX_PUBLISH_RETRIES=3
 ```
 
+**참고**: 
+- 블로그 URL: `https://blog.naver.com/{blog_id}`
+- 글쓰기 URL: `https://blog.naver.com/{blog_id}/postwrite` (자동으로 `/postwrite`가 추가됨)
+
 ## 네이버 블로그 에디터 구조
 
 ### 주의사항
