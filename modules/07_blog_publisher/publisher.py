@@ -7,6 +7,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 from typing import List, Dict, Any, Optional
 import time
@@ -23,7 +24,8 @@ from config.settings import (
     HEADLESS_MODE, MAX_PUBLISH_RETRIES,
     BLOG_IMAGE_MAPPING_FILE, METADATA_DIR, TEMP_DIR,
     GENERATED_BLOGS_DIR, HUMANIZER_INPUT_FILE, BLOG_PUBLISH_DATA_FILE,
-    NAVER_BLOG_CATEGORIES
+    NAVER_BLOG_CATEGORIES, CHROME_BINARY_PATH, CHROMEDRIVER_PATH,
+    IMAGES_DIR
 )
 from config.logger import get_logger
 
@@ -49,19 +51,25 @@ class NaverBlogPublisher:
     def _init_driver(self):
         """웹드라이버 초기화"""
         options = webdriver.ChromeOptions()
+        # 로컬 크롬 실행 파일 경로를 명시해 OS별 경로 이슈를 방지
+        if CHROME_BINARY_PATH:
+            options.binary_location = CHROME_BINARY_PATH
         if self.headless:
             options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36')
 
-        # ChromeDriverManager가 잘못된 파일을 반환하는 버그 수정
-        driver_path = ChromeDriverManager().install()
-        
-        # THIRD_PARTY_NOTICES 파일이 반환된 경우 실제 chromedriver로 수정
-        if "THIRD_PARTY_NOTICES" in driver_path:
-            driver_path = driver_path.replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver")
-            logger.warning(f"ChromeDriver 경로 수정: {driver_path}")
+        # ChromeDriver 경로: 환경 변수 우선, 없으면 webdriver_manager로 다운로드
+        driver_path = CHROMEDRIVER_PATH
+        if driver_path:
+            logger.info(f"환경 지정 ChromeDriver 사용: {driver_path}")
+        else:
+            driver_path = ChromeDriverManager().install()
+            # THIRD_PARTY_NOTICES 파일이 반환된 경우 실제 chromedriver로 수정
+            if "THIRD_PARTY_NOTICES" in driver_path:
+                driver_path = driver_path.replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver")
+                logger.warning(f"ChromeDriver 경로 수정: {driver_path}")
         
         service = Service(driver_path)
         self.driver = webdriver.Chrome(service=service, options=options)
@@ -98,13 +106,54 @@ class NaverBlogPublisher:
 
             time.sleep(3)
 
+            # 새 기기 등록 팝업이 뜨면 자동으로 '등록' 버튼 클릭
+            # (버튼 id: new.save)
+            try:
+                new_device_btn = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable((By.ID, "new.save"))
+                )
+                logger.info("새 기기 등록 화면 감지 - 등록 버튼 클릭")
+                new_device_btn.click()
+                time.sleep(2)
+            except TimeoutException:
+                logger.info("새 기기 등록 화면 없음")
+            except Exception as e:
+                logger.warning(f"새 기기 등록 처리 중 예외: {e}")
+
             # 로그인 성공 확인
-            if "nid.naver.com" not in self.driver.current_url:
-                logger.info("네이버 로그인 성공")
-                return True
-            else:
+            if "nid.naver.com" in self.driver.current_url:
                 logger.error("네이버 로그인 실패")
                 return False
+
+            # 로그인 직후 블로그 메인으로 이동해 가입/본인확인/등록 화면 여부를 확인
+            # (가입/본인확인이 필요하면 자동 발행 불가하며, 등록 화면은 자동 클릭 시도)
+            blog_url = NAVER_BLOG_URL or f"https://blog.naver.com/{NAVER_ID}"
+            self.driver.get(blog_url)
+            time.sleep(2)
+
+            current_url = self.driver.current_url
+            if "join.naver.com" in current_url or "phone" in current_url:
+                logger.error("로그인 후 가입/본인확인 화면으로 이동됨 - 계정 본인 인증 또는 블로그 개설을 먼저 완료해야 합니다.")
+                return False
+
+            # 블로그 등록 화면 자동 처리: '등록' 또는 '등록하기' 버튼 클릭 시도
+            try:
+                if "register" in current_url.lower() or "registerblog" in current_url:
+                    logger.info("블로그 등록 화면 감지 - 등록 버튼 클릭 시도")
+                register_btn = WebDriverWait(self.driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[contains(., '등록') or contains(., '등록하기')]"))
+                )
+                register_btn.click()
+                time.sleep(2)
+                current_url = self.driver.current_url
+                logger.info(f"블로그 등록 버튼 클릭 후 이동 URL: {current_url}")
+            except TimeoutException:
+                logger.info("블로그 등록 버튼을 찾지 못했음 - 이미 등록된 계정으로 판단")
+            except Exception as e:
+                logger.warning(f"블로그 등록 버튼 처리 중 예외 발생: {e}")
+
+            logger.info("네이버 로그인 및 블로그 메인 진입 성공")
+            return True
 
         except Exception as e:
             logger.error(f"로그인 중 오류: {e}")
@@ -127,7 +176,7 @@ class NaverBlogPublisher:
                 with open(mapping_file, 'r', encoding='utf-8') as f:
                     mapping_data = json.load(f)
                 logger.info(f"이미지 매핑 정보 로드 완료: {mapping_file.name} ({len(mapping_data.get('images', []))}개 이미지)")
-                return mapping_data
+                return self._normalize_image_paths(mapping_data, category or mapping_data.get('category'))
             
             # 2. 카테고리별 파일 우선 확인
             if category:
@@ -142,7 +191,7 @@ class NaverBlogPublisher:
                         with open(latest_mapping_file, 'r', encoding='utf-8') as f:
                             mapping_data = json.load(f)
                         logger.info(f"이미지 매핑 정보 로드 완료 (카테고리: {category}): {latest_mapping_file.name} ({len(mapping_data.get('images', []))}개 이미지)")
-                        return mapping_data
+                        return self._normalize_image_paths(mapping_data, category)
                 
                 # 카테고리 디렉토리에서 최신 파일 찾기
                 if category_dir.exists():
@@ -155,7 +204,7 @@ class NaverBlogPublisher:
                         with open(mapping_files[0], 'r', encoding='utf-8') as f:
                             mapping_data = json.load(f)
                         logger.info(f"이미지 매핑 정보 로드 완료 (카테고리 최신 파일): {mapping_files[0].name} ({len(mapping_data.get('images', []))}개 이미지)")
-                        return mapping_data
+                        return self._normalize_image_paths(mapping_data, category)
             
             # 3. 최신 매핑 파일 찾기
             if BLOG_IMAGE_MAPPING_FILE.exists():
@@ -180,7 +229,7 @@ class NaverBlogPublisher:
                 with open(mapping_file, 'r', encoding='utf-8') as f:
                     mapping_data = json.load(f)
                 logger.info(f"이미지 매핑 정보 로드 완료: {mapping_file.name} ({len(mapping_data.get('images', []))}개 이미지)")
-                return mapping_data
+                return self._normalize_image_paths(mapping_data, category)
             else:
                 logger.warning(f"매핑 파일이 존재하지 않습니다: {mapping_file}")
                 return None
@@ -188,6 +237,69 @@ class NaverBlogPublisher:
         except Exception as e:
             logger.error(f"이미지 매핑 정보 로드 실패: {e}")
             return None
+
+    def _resolve_image_path(self, img_info: Dict[str, Any], category: Optional[str] = None) -> Optional[Path]:
+        """
+        이미지 파일 경로를 실제 존재하는 경로로 보정.
+        테스트용 기본 폴더(data/images/test)를 우선 확인하여 업로드 실패를 방지한다.
+        """
+        try:
+            local_path = img_info.get('local_path')
+            url_path = img_info.get('url')
+            filename = None
+
+            if local_path:
+                path_obj = Path(local_path)
+                if path_obj.exists():
+                    return path_obj
+                filename = path_obj.name
+
+            if not filename and url_path:
+                filename = Path(url_path).name
+
+            if not filename:
+                return None
+
+            candidates = []
+            if category:
+                candidates.append(IMAGES_DIR / category / filename)
+            if img_info.get('category'):
+                candidates.append(IMAGES_DIR / img_info['category'] / filename)
+            candidates.append(IMAGES_DIR / "test" / filename)
+            candidates.append(IMAGES_DIR / filename)
+
+            for candidate in candidates:
+                if candidate.exists():
+                    return candidate
+
+            return None
+        except Exception as e:
+            logger.warning(f"이미지 경로 보정 실패: {e}")
+            return None
+
+    def _normalize_image_paths(self, mapping_data: Dict[str, Any], category: Optional[str] = None) -> Dict[str, Any]:
+        """
+        매핑된 이미지들의 경로를 실제 파일 위치로 정규화.
+        로컬 경로가 깨진 경우에도 data/images/test 폴더를 fallback으로 사용한다.
+        """
+        if not mapping_data:
+            return mapping_data
+
+        resolved_category = category or mapping_data.get('category')
+        images = mapping_data.get('images', [])
+
+        for img in images:
+            resolved_path = self._resolve_image_path(img, category=resolved_category)
+            if resolved_path:
+                if str(resolved_path) != img.get('local_path', ''):
+                    logger.info(f"이미지 경로 보정: {img.get('local_path', '')} -> {resolved_path}")
+                img['local_path'] = str(resolved_path)
+                img.setdefault('url', str(resolved_path))
+            else:
+                logger.warning(f"이미지 파일을 찾을 수 없습니다: {img}")
+
+        mapping_data['images'] = images
+        return mapping_data
 
     def _extract_images_from_html(self, html: str) -> List[Dict[str, Any]]:
         """

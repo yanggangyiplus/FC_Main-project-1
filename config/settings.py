@@ -45,6 +45,11 @@ NAVER_ID = os.getenv("NAVER_ID")
 NAVER_PASSWORD = os.getenv("NAVER_PASSWORD")
 NAVER_BLOG_URL = os.getenv("NAVER_BLOG_URL")
 
+# 브라우저 실행 및 드라이버 경로 (옵션)
+# 환경 변수를 통해 직접 지정하면 네트워크가 불안정해도 안정적으로 동작
+CHROME_BINARY_PATH = os.getenv("CHROME_BINARY_PATH", r"C:\Program Files\Google\Chrome\Application\chrome.exe")
+CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH", r"C:\Users\class\.wdm\drivers\chromedriver\win64\143.0.7499.42\chromedriver-win32/chromedriver.exe")
+
 # 구글 드라이브
 GOOGLE_DRIVE_CREDENTIALS_PATH = os.getenv("GOOGLE_DRIVE_CREDENTIALS_PATH", "./config/google_credentials.json")
 GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")

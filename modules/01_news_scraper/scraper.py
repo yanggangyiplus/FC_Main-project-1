@@ -18,7 +18,7 @@ from pathlib import Path
 
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from config.settings import HEADLESS_MODE, SCRAPING_DELAY, SCRAPED_NEWS_DIR
+from config.settings import HEADLESS_MODE, SCRAPING_DELAY, SCRAPED_NEWS_DIR, CHROME_BINARY_PATH, CHROMEDRIVER_PATH
 from config.logger import get_logger
 
 logger = get_logger(__name__)
@@ -140,6 +140,9 @@ class NaverNewsScraper:
     def _init_driver(self):
         """웹드라이버 초기화"""
         options = webdriver.ChromeOptions()
+        # 로컬 크롬 실행 파일 경로를 명시해 OS별 경로 이슈를 방지
+        if CHROME_BINARY_PATH:
+            options.binary_location = CHROME_BINARY_PATH
         if self.headless:
             options.add_argument('--headless')
         options.add_argument('--no-sandbox')
@@ -148,13 +151,16 @@ class NaverNewsScraper:
         options.add_argument('--window-size=1920,1080')
         options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36')
 
-        # ChromeDriverManager가 잘못된 파일을 반환하는 버그 수정
-        driver_path = ChromeDriverManager().install()
-        
-        # THIRD_PARTY_NOTICES 파일이 반환된 경우 실제 chromedriver로 수정
-        if "THIRD_PARTY_NOTICES" in driver_path:
-            driver_path = driver_path.replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver")
-            logger.warning(f"ChromeDriver 경로 수정: {driver_path}")
+        # ChromeDriver 경로: 환경 변수 우선, 없으면 webdriver_manager로 다운로드
+        driver_path = CHROMEDRIVER_PATH
+        if driver_path:
+            logger.info(f"환경 지정 ChromeDriver 사용: {driver_path}")
+        else:
+            driver_path = ChromeDriverManager().install()
+            # THIRD_PARTY_NOTICES 파일이 반환된 경우 실제 chromedriver로 수정
+            if "THIRD_PARTY_NOTICES" in driver_path:
+                driver_path = driver_path.replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver")
+                logger.warning(f"ChromeDriver 경로 수정: {driver_path}")
         
         service = Service(driver_path)
         self.driver = webdriver.Chrome(service=service, options=options)
