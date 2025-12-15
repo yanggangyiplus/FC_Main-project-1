@@ -91,6 +91,11 @@ NAVER_BLOG_CATEGORIES = {
         "name": "정치",
         "category_no": 19,
         "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=19" if NAVER_BLOG_URL else None
+    },
+    "test": {
+        "name": "테스트",
+        "category_no": 20,
+        "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=20" if NAVER_BLOG_URL else None
     }
 }
 

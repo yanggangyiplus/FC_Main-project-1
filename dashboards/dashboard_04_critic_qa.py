@@ -100,13 +100,14 @@ with st.sidebar:
 CATEGORY_MAP = {
     "politics": "정치 (Politics)",
     "economy": "경제 (Economy)",
-    "it_science": "IT/과학 (IT & Science)"
+    "it_science": "IT/과학 (IT & Science)",
+    "test": "테스트 (Test)"
 }
 
 # 카테고리 선택
 selected_category = st.selectbox(
     "📂 카테고리 선택",
-    options=["전체", "politics", "economy", "it_science"],
+    options=["전체", "politics", "economy", "it_science", "test"],
     format_func=lambda x: "전체" if x == "전체" else CATEGORY_MAP.get(x, x),
     index=0
 )

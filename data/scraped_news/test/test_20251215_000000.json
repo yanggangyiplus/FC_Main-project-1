@@ -1,0 +1,38 @@
+{
+  "category": "test",
+  "scraped_at": "2025-12-15T00:00:00.000000",
+  "topics": [
+    {
+      "topic_title": "AI Auto BlogGenerator TEST용 글입니다.",
+      "topic_summary": "AI Auto BlogGenerator TEST용 글입니다. -주제 요약",
+      "related_articles_count": 3,
+      "articles": [
+        {
+          "title": "AI Auto BlogGenerator TEST용 글입니다. -기사 제목1",
+          "url": "https://test.example.com/article1",
+          "published_at": "2025-12-15T00:00:00",
+          "content": "AI Auto BlogGenerator TEST용 글입니다. -기사 내용1",
+          "reaction_count": 0,
+          "comment_count": 0
+        },
+        {
+          "title": "AI Auto BlogGenerator TEST용 글입니다. -기사 제목2",
+          "url": "https://test.example.com/article2",
+          "published_at": "2025-12-15T00:00:00",
+          "content": "AI Auto BlogGenerator TEST용 글입니다. -기사 내용2",
+          "reaction_count": 0,
+          "comment_count": 0
+        },
+        {
+          "title": "AI Auto BlogGenerator TEST용 글입니다. -기사 제목3",
+          "url": "https://test.example.com/article3",
+          "published_at": "2025-12-15T00:00:00",
+          "content": "AI Auto BlogGenerator TEST용 글입니다. -기사 내용3",
+          "reaction_count": 0,
+          "comment_count": 0
+        }
+      ]
+    }
+  ]
+}
+

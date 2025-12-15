@@ -145,9 +145,9 @@ with col1:
                 
                 # 기사 리스트
                 for j, article in enumerate(topic.articles, 1):
-                    col_a, col_b = st.columns([3, 1])
-
-                    with col_a:
+                col_a, col_b = st.columns([3, 1])
+ 
+                with col_a:
                         st.markdown(f"**{j}. {article.title}**")
                         st.caption(f"📅 {article.published_at[:19]}")
                         st.markdown(f"[기사 링크]({article.url})")
@@ -171,7 +171,7 @@ with col1:
                                         key=f"full_{i}_{j}"
                                     )
  
-                    with col_b:
+                with col_b:
                         st.metric("👍 반응", article.reaction_count)
                         st.metric("💬 댓글", article.comment_count)
                     
@@ -223,7 +223,7 @@ category_filter = st.selectbox(
         "it_science": "IT/과학 (IT & Science)"
     }.get(x, x)
 )
-
+ 
 if SCRAPED_NEWS_DIR.exists():
     # 카테고리별 또는 전체 파일 검색
     if category_filter == "전체":
@@ -243,7 +243,7 @@ if SCRAPED_NEWS_DIR.exists():
                 if f.name.startswith(category_filter):
                     json_files.append(f)
             json_files = sorted(json_files, reverse=True)
-
+ 
     if json_files:
         selected_file = st.selectbox(
             "파일 선택",
