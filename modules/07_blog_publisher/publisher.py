@@ -881,8 +881,23 @@ class NaverBlogPublisher:
                         
                         logger.info("HTML에서 텍스트 추출 중... (마커는 이미 포함되어 있음)")
                         
+                        # #region agent log - A: HTML 원본 샘플
+                        import json
+                        try:
+                            with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
+                                f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'A','location':'publisher.py:882','message':'HTML body 샘플 (마커 확인)','data':{'html_sample':str(body)[:1000]},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
+                        except: pass
+                        # #endregion
+                        
                         # 텍스트 추출
                         text_content = body.get_text(separator='\n', strip=True)
+                        
+                        # #region agent log - B: 텍스트 추출 후 마커 확인
+                        try:
+                            with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
+                                f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'B','location':'publisher.py:885','message':'텍스트 추출 완료','data':{'text_sample':text_content[:800],'divider_count':text_content.count('###DIVIDER'),'img_count':text_content.count('###IMG')},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
+                        except: pass
+                        # #endregion
                         
                         # 디버깅: 마커 포함 여부 확인
                         divider_in_text = text_content.count('###DIVIDER')
@@ -991,12 +1006,37 @@ class NaverBlogPublisher:
                         for i, line in enumerate(lines):
                             # 보이지 않는 특수문자 제거 (zero-width space, BOM 등)
                             import unicodedata
+                            
+                            # #region agent log - D: unicodedata 필터링 전후 비교
+                            if '###' in line or 'DIVIDER' in line or 'IMG' in line:
+                                try:
+                                    with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
+                                        f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'D','location':'publisher.py:1007','message':'마커 의심 라인 처리','data':{'line_num':i,'original_line':line,'has_###':'###' in line,'has_DIVIDER':'DIVIDER' in line,'has_IMG':'IMG' in line},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
+                                except: pass
+                            # #endregion
+                            
                             line_stripped = ''.join(char for char in line if unicodedata.category(char) not in ['Cc', 'Cf', 'Zs', 'Zl', 'Zp'] or char in [' ', '\t'])
                             line_stripped = line_stripped.strip()
+                            
+                            # #region agent log - D: 필터링 후 결과
+                            if '###' in line or 'DIVIDER' in line or 'IMG' in line:
+                                try:
+                                    with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
+                                        f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'D','location':'publisher.py:1010','message':'필터링 후 결과','data':{'line_num':i,'filtered_line':line_stripped,'still_has_###':'###' in line_stripped},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
+                                except: pass
+                            # #endregion
                             
                             if line_stripped:  # 빈 줄이 아니면
                                 # 마커인지 확인 (정규표현식으로 더 정확하게)
                                 marker_match = re.match(r'^###(DIVIDER|IMG)(\d+)?###$', line_stripped)
+                                
+                                # #region agent log - E: 정규표현식 매칭 결과
+                                if '###' in line_stripped or 'DIVIDER' in line_stripped or 'IMG' in line_stripped:
+                                    try:
+                                        with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
+                                            f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'E','location':'publisher.py:1014','message':'정규표현식 매칭 시도','data':{'line_num':i,'line_stripped':line_stripped,'match_result':bool(marker_match),'pattern':r'^###(DIVIDER|IMG)(\d+)?###$'},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
+                                    except: pass
+                                # #endregion
                                 
                                 if marker_match:
                                     logger.info(f"✅ 마커 발견: '{line_stripped}' (원본: '{line}')")
