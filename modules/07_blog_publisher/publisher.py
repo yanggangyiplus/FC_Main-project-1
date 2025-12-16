@@ -504,6 +504,36 @@ class NaverBlogPublisher:
                 logger.warning("이미지 매핑 정보를 찾을 수 없습니다. 이미지 없이 진행합니다.")
         
         logger.info(f"블로그 발행 시작: '{title}' (본문 길이: {len(content) if content else 0}, 이미지 {len(images)}개)")
+        
+        # #region agent log - PUBLISH_START: publish 메소드 진입 확인
+        debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
+        try:
+            import os
+            os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
+            with open(debug_log_path, 'a', encoding='utf-8') as f:
+                log_entry = json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'pre-fix',
+                    'hypothesisId': 'PUBLISH_START',
+                    'location': 'publisher.py:506',
+                    'message': 'publish 메소드 시작',
+                    'data': {
+                        'title': title[:50] if title else '',
+                        'content_length': len(content) if content else 0,
+                        'content_is_html': bool(html),
+                        'images_count': len(images),
+                        'category': category
+                    },
+                    'timestamp': int(time.time() * 1000)
+                }, ensure_ascii=False)
+                f.write(log_entry + '\n')
+                f.flush()
+            print(f"[DEBUG] publish 시작 - 제목: {title[:30]}, 본문길이: {len(content) if content else 0}")
+        except Exception as e:
+            print(f"[DEBUG ERROR] 로그 작성 실패: {e}")
+            import traceback
+            traceback.print_exc()
+        # #endregion
 
         if self.driver is None:
             self._init_driver()
@@ -652,11 +682,32 @@ class NaverBlogPublisher:
             결과 딕셔너리
         """
         # #region agent log - START: 함수 진입 확인
+        debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
         try:
-            with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
-                f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'START','location':'publisher.py:654','message':'_attempt_publish 함수 시작','data':{'title':title[:50],'content_length':len(content),'images_count':len(images),'category':category},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
+            import os
+            os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
+            with open(debug_log_path, 'a', encoding='utf-8') as f:
+                log_entry = json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'pre-fix',
+                    'hypothesisId': 'START',
+                    'location': 'publisher.py:654',
+                    'message': '_attempt_publish 함수 시작',
+                    'data': {
+                        'title': title[:50] if title else '',
+                        'content_length': len(content),
+                        'images_count': len(images),
+                        'category': category
+                    },
+                    'timestamp': int(time.time() * 1000)
+                }, ensure_ascii=False)
+                f.write(log_entry + '\n')
+                f.flush()
+            print(f"[DEBUG] _attempt_publish 시작 - 제목: {title[:30]}, 본문길이: {len(content)}")
         except Exception as e:
-            logger.error(f"로그 작성 실패: {e}")
+            print(f"[DEBUG ERROR] 로그 작성 실패: {e}")
+            import traceback
+            traceback.print_exc()
         # #endregion
         
         try:
@@ -866,11 +917,29 @@ class NaverBlogPublisher:
                         logger.warning(f"가운데 정렬 설정 실패 (계속 진행): {e}")
                     
                     # #region agent log - HTML체크: is_html 값 확인
+                    debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
                     try:
-                        with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
-                            f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'HTML체크','location':'publisher.py:868','message':'is_html 체크','data':{'is_html':is_html,'content_type':type(content).__name__,'content_starts_with':'<!DOCTYPE' if content.startswith('<!DOCTYPE') else content[:50]},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
+                        with open(debug_log_path, 'a', encoding='utf-8') as f:
+                            log_entry = json.dumps({
+                                'sessionId': 'debug-session',
+                                'runId': 'pre-fix',
+                                'hypothesisId': 'HTML체크',
+                                'location': 'publisher.py:868',
+                                'message': 'is_html 체크',
+                                'data': {
+                                    'is_html': is_html,
+                                    'content_type': type(content).__name__,
+                                    'content_starts_with': '<!DOCTYPE' if content.startswith('<!DOCTYPE') else content[:50]
+                                },
+                                'timestamp': int(time.time() * 1000)
+                            }, ensure_ascii=False)
+                            f.write(log_entry + '\n')
+                            f.flush()
+                        print(f"[DEBUG] is_html={is_html}, content 시작: {content[:50]}")
                     except Exception as e:
-                        logger.error(f"로그 작성 실패: {e}")
+                        print(f"[DEBUG ERROR] 로그 작성 실패: {e}")
+                        import traceback
+                        traceback.print_exc()
                     # #endregion
                     
                     if is_html:
@@ -898,11 +967,23 @@ class NaverBlogPublisher:
                         logger.info("HTML에서 텍스트 추출 중... (마커는 이미 포함되어 있음)")
                         
                         # #region agent log - A: HTML 원본 샘플
-                        import json
+                        debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
                         try:
-                            with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
-                                f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'A','location':'publisher.py:882','message':'HTML body 샘플 (마커 확인)','data':{'html_sample':str(body)[:1000]},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
-                        except: pass
+                            with open(debug_log_path, 'a', encoding='utf-8') as f:
+                                log_entry = json.dumps({
+                                    'sessionId': 'debug-session',
+                                    'runId': 'pre-fix',
+                                    'hypothesisId': 'A',
+                                    'location': 'publisher.py:882',
+                                    'message': 'HTML body 샘플 (마커 확인)',
+                                    'data': {'html_sample': str(body)[:1000]},
+                                    'timestamp': int(time.time() * 1000)
+                                }, ensure_ascii=False)
+                                f.write(log_entry + '\n')
+                                f.flush()
+                            print(f"[DEBUG] HTML body 샘플: {str(body)[:100]}")
+                        except Exception as e:
+                            print(f"[DEBUG ERROR] A 로그 작성 실패: {e}")
                         # #endregion
                         
                         # 텍스트 추출
@@ -910,9 +991,25 @@ class NaverBlogPublisher:
                         
                         # #region agent log - B: 텍스트 추출 후 마커 확인
                         try:
-                            with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
-                                f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'B','location':'publisher.py:885','message':'텍스트 추출 완료','data':{'text_sample':text_content[:800],'divider_count':text_content.count('###DIVIDER'),'img_count':text_content.count('###IMG')},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
-                        except: pass
+                            with open(debug_log_path, 'a', encoding='utf-8') as f:
+                                log_entry = json.dumps({
+                                    'sessionId': 'debug-session',
+                                    'runId': 'pre-fix',
+                                    'hypothesisId': 'B',
+                                    'location': 'publisher.py:885',
+                                    'message': '텍스트 추출 완료',
+                                    'data': {
+                                        'text_sample': text_content[:800],
+                                        'divider_count': text_content.count('###DIVIDER'),
+                                        'img_count': text_content.count('###IMG')
+                                    },
+                                    'timestamp': int(time.time() * 1000)
+                                }, ensure_ascii=False)
+                                f.write(log_entry + '\n')
+                                f.flush()
+                            print(f"[DEBUG] 텍스트 추출 완료 - DIVIDER={text_content.count('###DIVIDER')}, IMG={text_content.count('###IMG')}")
+                        except Exception as e:
+                            print(f"[DEBUG ERROR] B 로그 작성 실패: {e}")
                         # #endregion
                         
                         # 디버깅: 마커 포함 여부 확인
@@ -1019,6 +1116,7 @@ class NaverBlogPublisher:
                             "button[data-log='dot.horizt']"
                         ]
                         
+                        debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
                         for i, line in enumerate(lines):
                             # 보이지 않는 특수문자 제거 (zero-width space, BOM 등)
                             import unicodedata
@@ -1026,9 +1124,27 @@ class NaverBlogPublisher:
                             # #region agent log - D: unicodedata 필터링 전후 비교
                             if '###' in line or 'DIVIDER' in line or 'IMG' in line:
                                 try:
-                                    with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
-                                        f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'D','location':'publisher.py:1007','message':'마커 의심 라인 처리','data':{'line_num':i,'original_line':line,'has_###':'###' in line,'has_DIVIDER':'DIVIDER' in line,'has_IMG':'IMG' in line},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
-                                except: pass
+                                    with open(debug_log_path, 'a', encoding='utf-8') as f:
+                                        log_entry = json.dumps({
+                                            'sessionId': 'debug-session',
+                                            'runId': 'pre-fix',
+                                            'hypothesisId': 'D',
+                                            'location': 'publisher.py:1007',
+                                            'message': '마커 의심 라인 처리',
+                                            'data': {
+                                                'line_num': i,
+                                                'original_line': line,
+                                                'has_###': '###' in line,
+                                                'has_DIVIDER': 'DIVIDER' in line,
+                                                'has_IMG': 'IMG' in line
+                                            },
+                                            'timestamp': int(time.time() * 1000)
+                                        }, ensure_ascii=False)
+                                        f.write(log_entry + '\n')
+                                        f.flush()
+                                    print(f"[DEBUG] 마커 의심 라인 {i}: {line[:50]}")
+                                except Exception as e:
+                                    print(f"[DEBUG ERROR] D1 로그 작성 실패: {e}")
                             # #endregion
                             
                             line_stripped = ''.join(char for char in line if unicodedata.category(char) not in ['Cc', 'Cf', 'Zs', 'Zl', 'Zp'] or char in [' ', '\t'])
@@ -1037,9 +1153,25 @@ class NaverBlogPublisher:
                             # #region agent log - D: 필터링 후 결과
                             if '###' in line or 'DIVIDER' in line or 'IMG' in line:
                                 try:
-                                    with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
-                                        f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'D','location':'publisher.py:1010','message':'필터링 후 결과','data':{'line_num':i,'filtered_line':line_stripped,'still_has_###':'###' in line_stripped},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
-                                except: pass
+                                    with open(debug_log_path, 'a', encoding='utf-8') as f:
+                                        log_entry = json.dumps({
+                                            'sessionId': 'debug-session',
+                                            'runId': 'pre-fix',
+                                            'hypothesisId': 'D',
+                                            'location': 'publisher.py:1010',
+                                            'message': '필터링 후 결과',
+                                            'data': {
+                                                'line_num': i,
+                                                'filtered_line': line_stripped,
+                                                'still_has_###': '###' in line_stripped
+                                            },
+                                            'timestamp': int(time.time() * 1000)
+                                        }, ensure_ascii=False)
+                                        f.write(log_entry + '\n')
+                                        f.flush()
+                                    print(f"[DEBUG] 필터링 후 {i}: {line_stripped}")
+                                except Exception as e:
+                                    print(f"[DEBUG ERROR] D2 로그 작성 실패: {e}")
                             # #endregion
                             
                             if line_stripped:  # 빈 줄이 아니면
@@ -1049,9 +1181,26 @@ class NaverBlogPublisher:
                                 # #region agent log - E: 정규표현식 매칭 결과
                                 if '###' in line_stripped or 'DIVIDER' in line_stripped or 'IMG' in line_stripped:
                                     try:
-                                        with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
-                                            f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'E','location':'publisher.py:1014','message':'정규표현식 매칭 시도','data':{'line_num':i,'line_stripped':line_stripped,'match_result':bool(marker_match),'pattern':r'^###(DIVIDER|IMG)(\d+)?###$'},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
-                                    except: pass
+                                        with open(debug_log_path, 'a', encoding='utf-8') as f:
+                                            log_entry = json.dumps({
+                                                'sessionId': 'debug-session',
+                                                'runId': 'pre-fix',
+                                                'hypothesisId': 'E',
+                                                'location': 'publisher.py:1014',
+                                                'message': '정규표현식 매칭 시도',
+                                                'data': {
+                                                    'line_num': i,
+                                                    'line_stripped': line_stripped,
+                                                    'match_result': bool(marker_match),
+                                                    'pattern': r'^###(DIVIDER|IMG)(\d+)?###$'
+                                                },
+                                                'timestamp': int(time.time() * 1000)
+                                            }, ensure_ascii=False)
+                                            f.write(log_entry + '\n')
+                                            f.flush()
+                                        print(f"[DEBUG] 정규표현식 매칭 {i}: {line_stripped} -> {bool(marker_match)}")
+                                    except Exception as e:
+                                        print(f"[DEBUG ERROR] E 로그 작성 실패: {e}")
                                 # #endregion
                                 
                                 if marker_match:
