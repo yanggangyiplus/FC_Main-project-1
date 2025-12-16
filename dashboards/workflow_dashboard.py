@@ -17,7 +17,8 @@ scraper_module = importlib.import_module("modules.01_news_scraper.scraper")
 rag_module = importlib.import_module("modules.02_rag_builder.rag_builder")
 blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_generator")
 critic_module = importlib.import_module("modules.04_critic_qa.critic")
-image_gen_module = importlib.import_module("modules.05_image_generator.image_generator")
+google_imagen_module = importlib.import_module("modules.05_image_generator.google_imagen_generator")
+pixabay_module = importlib.import_module("modules.05_image_generator.pixabay_generator")
 humanizer_module = importlib.import_module("modules.06_humanizer.humanizer")
 publisher_module = importlib.import_module("modules.07_blog_publisher.publisher")
 
@@ -26,7 +27,8 @@ RAGBuilder = rag_module.RAGBuilder
 BlogGenerator = blog_gen_module.BlogGenerator
 TopicManager = blog_gen_module.TopicManager
 BlogCritic = critic_module.BlogCritic
-ImageGenerator = image_gen_module.ImageGenerator
+GoogleImagenGenerator = google_imagen_module.GoogleImagenGenerator
+PixabayGenerator = pixabay_module.PixabayGenerator
 Humanizer = humanizer_module.Humanizer
 NaverBlogPublisher = publisher_module.NaverBlogPublisher
 
@@ -103,10 +105,11 @@ with st.sidebar:
     blog_model = st.selectbox(
         "생성 모델",
         options=[
+            "gemini-2.0-flash-exp",
+            "gemini-1.5-pro",
             "lm-studio (로컬)",
             "gpt-4o-mini",
             "gpt-4o",
-            "gpt-3.5-turbo",
             "claude-3-5-sonnet-20241022"
         ],
         index=0,
@@ -117,6 +120,8 @@ with st.sidebar:
     critic_model = st.selectbox(
         "평가 모델",
         options=[
+            "gemini-2.0-flash-exp",
+            "gemini-1.5-pro",
             "lm-studio (로컬)",
             "gpt-4o-mini",
             "gpt-4o",
@@ -130,6 +135,8 @@ with st.sidebar:
     humanizer_model = st.selectbox(
         "인간화 모델",
         options=[
+            "gemini-2.0-flash-exp",
+            "gemini-1.5-pro",
             "lm-studio (로컬)",
             "gpt-4o-mini",
             "gpt-4o",
@@ -142,10 +149,11 @@ with st.sidebar:
     st.subheader("🎨 이미지 생성 모델")
     image_model = st.selectbox(
         "이미지 모델",
-        options=["huggingface", "dall-e-3", "z-image-turbo"],
-        index=0,
+        options=["google-imagen", "pixabay"],
+        index=0,  # 기본값: google-imagen
         key="workflow_image_model"
     )
+    st.caption("google-imagen: AI 이미지 생성 | pixabay: 무료 사진 검색")
     
     temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1, key="workflow_temperature")
     n_articles = st.slider("참조 기사 수", 1, 20, 10, key="workflow_n_articles")
@@ -485,34 +493,80 @@ if start_workflow:
                             image_prompts_data = json.load(f)
                         
                         placeholders = image_prompts_data.get('placeholders', [])
-                        st.info(f"이미지 {len(placeholders)}개 생성 예정")
-                        
-                        # 이미지 생성기 초기화 (카테고리 포함)
-                        image_generator = ImageGenerator(model=image_model, use_google_drive=False, category=category)
+                        st.info(f"이미지 {len(placeholders)}개 생성 예정 (모델: {image_model})")
                         
                         generated_images = []
-                        for i, placeholder in enumerate(placeholders):
-                            st.info(f"이미지 {i+1}/{len(placeholders)} 생성 중: {placeholder.get('alt', '')[:50]}...")
+                        
+                        # ========================================
+                        # 이미지 모델에 따라 다른 생성기 사용
+                        # ========================================
+                        if image_model == "google-imagen":
+                            # Google Imagen API 사용
+                            st.info("🎨 Google Imagen API로 AI 이미지 생성 중...")
+                            imagen_generator = GoogleImagenGenerator(category=category)
                             
-                            try:
-                                result = image_generator.generate_single_image(
-                                    prompt=placeholder.get('alt', ''),
-                                    index=i
-                                )
+                            # 블로그 내용 읽기
+                            blog_content = ""
+                            if st.session_state.workflow_blog_file and Path(st.session_state.workflow_blog_file).exists():
+                                with open(st.session_state.workflow_blog_file, 'r', encoding='utf-8') as f:
+                                    blog_content = f.read()
+                            
+                            for i, placeholder in enumerate(placeholders):
+                                st.info(f"이미지 {i+1}/{len(placeholders)} 생성 중...")
                                 
-                                if result.get('success'):
-                                    generated_images.append({
-                                        'index': i,
-                                        'local_path': result.get('local_path'),
-                                        'url': result.get('url'),
-                                        'alt': placeholder.get('alt', ''),
-                                        'model': image_model
-                                    })
-                                    st.success(f"✅ 이미지 {i+1} 생성 완료")
-                                else:
-                                    st.warning(f"⚠️ 이미지 {i+1} 생성 실패: {result.get('error', '알 수 없는 오류')}")
-                            except Exception as e:
-                                st.error(f"❌ 이미지 {i+1} 생성 중 오류: {e}")
+                                try:
+                                    # 블로그 기반 프롬프트 생성 후 이미지 생성
+                                    prompt = imagen_generator.generate_prompt_from_blog(
+                                        blog_topic=st.session_state.workflow_topic,
+                                        blog_content=blog_content,
+                                        image_index=i
+                                    )
+                                    
+                                    result = imagen_generator.generate_image(prompt=prompt, index=i)
+                                    
+                                    if result.get('success'):
+                                        generated_images.append({
+                                            'index': i,
+                                            'local_path': result.get('path'),
+                                            'path': result.get('path'),
+                                            'prompt': result.get('prompt', prompt),
+                                            'alt': placeholder.get('alt', ''),
+                                            'model': 'google-imagen'
+                                        })
+                                        st.success(f"✅ 이미지 {i+1} 생성 완료")
+                                    else:
+                                        st.warning(f"⚠️ 이미지 {i+1} 생성 실패: {result.get('error', '알 수 없는 오류')}")
+                                except Exception as e:
+                                    st.error(f"❌ 이미지 {i+1} 생성 중 오류: {e}")
+                        
+                        elif image_model == "pixabay":
+                            # Pixabay API 사용
+                            st.info("📷 Pixabay API로 무료 이미지 검색 중...")
+                            pixabay_generator = PixabayGenerator(category=category)
+                            
+                            for i, placeholder in enumerate(placeholders):
+                                st.info(f"이미지 {i+1}/{len(placeholders)} 검색 중: {placeholder.get('alt', '')[:50]}...")
+                                
+                                try:
+                                    result = pixabay_generator.generate_single_image(
+                                        prompt=placeholder.get('alt', ''),
+                                        index=i
+                                    )
+                                    
+                                    if result.get('success'):
+                                        generated_images.append({
+                                            'index': i,
+                                            'local_path': result.get('local_path'),
+                                            'path': result.get('local_path'),
+                                            'url': result.get('url'),
+                                            'alt': placeholder.get('alt', ''),
+                                            'model': 'pixabay'
+                                        })
+                                        st.success(f"✅ 이미지 {i+1} 검색 완료")
+                                    else:
+                                        st.warning(f"⚠️ 이미지 {i+1} 검색 실패: {result.get('error', '알 수 없는 오류')}")
+                                except Exception as e:
+                                    st.error(f"❌ 이미지 {i+1} 검색 중 오류: {e}")
                         
                         if generated_images:
                             # 카테고리별 이미지 매핑 저장
@@ -526,6 +580,7 @@ if start_workflow:
                                 "evaluation_score": st.session_state.workflow_final_result.get('score', 0),
                                 "category": category,
                                 "blog_category": blog_category,
+                                "image_model": image_model,
                                 "images": generated_images
                             }
                             
@@ -536,15 +591,11 @@ if start_workflow:
                             # 최신 매핑 파일 경로 저장
                             category_latest_mapping_file = category_metadata_dir / "blog_image_mapping.json"
                             with open(category_latest_mapping_file, 'w', encoding='utf-8') as f:
-                                json.dump({
-                                    "latest_mapping_file": str(category_mapping_file),
-                                    "blog_id": blog_id,
-                                    "category": category
-                                }, f, ensure_ascii=False, indent=2)
+                                json.dump(mapping_data, f, ensure_ascii=False, indent=2)
                             
                             st.session_state.workflow_images = generated_images
                             st.session_state.step5_done = True
-                            st.success(f"✅ 이미지 생성 완료: {len(generated_images)}개")
+                            st.success(f"✅ 이미지 생성 완료: {len(generated_images)}개 ({image_model})")
                         else:
                             st.warning("⚠️ 생성된 이미지가 없습니다.")
                     else:
@@ -667,12 +718,23 @@ if start_workflow:
                                     mapping_data = json.load(f)
                                 images_data = {'images': mapping_data.get('images', [])}
                     
-                    # 발행 실행
+                    # 발행 실행 - HTML 콘텐츠 직접 전달 (publish_test.py와 동일한 방식)
                     publisher = NaverBlogPublisher(headless=False)
                     
+                    # HTML 콘텐츠 가져오기 (텍스트가 아닌 HTML!)
+                    html_content = st.session_state.get('workflow_humanized_html', '')
+                    if not html_content:
+                        # humanized_html이 없으면 원본 블로그 HTML 사용
+                        html_content = st.session_state.get('workflow_blog_html', '')
+                    
+                    # 제목 추출
+                    blog_title = publish_data.get('blog_title') if publish_data else st.session_state.workflow_topic
+                    
+                    st.info(f"📤 발행 중... (제목: {blog_title[:50]}...)")
+                    
                     result = publisher.publish(
-                        title=publish_data.get('blog_title') if publish_data else st.session_state.workflow_topic,
-                        content=publish_data.get('blog_content') if publish_data else "",
+                        title=blog_title,
+                        content=html_content,  # ← HTML 콘텐츠 직접 전달!
                         images=images_data.get('images') if images_data else [],
                         category=blog_category,
                         use_base64=True

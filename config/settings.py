@@ -40,6 +40,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")  # Gemini API
 STABILITY_API_KEY = os.getenv("STABILITY_API_KEY")
+PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")  # Pixabay 무료 스톡 이미지
 
 # 네이버 계정
 NAVER_ID = os.getenv("NAVER_ID")
@@ -81,22 +82,22 @@ MAX_REGENERATION_ATTEMPTS = 3  # 블로그 재생성 최대 시도 횟수
 # 블로그 발행 설정
 MAX_PUBLISH_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
 
-# 네이버 블로그 카테고리 설정
+# 네이버 블로그 카테고리 설정 (실제 네이버 블로그 categoryNo에 맞춤)
 NAVER_BLOG_CATEGORIES = {
     "it_tech": {
-        "name": "IT/기술",
-        "category_no": 17,
-        "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=17" if NAVER_BLOG_URL else None
+        "name": "IT/과학",
+        "category_no": 8,  # 실제 네이버 블로그 카테고리 번호
+        "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=8" if NAVER_BLOG_URL else None
     },
     "economy": {
         "name": "경제",
-        "category_no": 18,
-        "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=18" if NAVER_BLOG_URL else None
+        "category_no": 7,  # 실제 네이버 블로그 카테고리 번호
+        "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=7" if NAVER_BLOG_URL else None
     },
     "politics": {
         "name": "정치",
-        "category_no": 19,
-        "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=19" if NAVER_BLOG_URL else None
+        "category_no": 1,  # 실제 네이버 블로그 카테고리 번호
+        "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=1" if NAVER_BLOG_URL else None
     },
     "test": {
         "name": "테스트",

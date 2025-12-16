@@ -1,7 +1,8 @@
 """
-이미지 생성기 대시보드
+이미지 검색 대시보드 (Pixabay)
 - 4번 모듈에서 저장된 이미지 설명 자동 불러오기
-- 1개씩 순차적으로 이미지 생성
+- Pixabay API로 관련 이미지 검색 및 다운로드
+- LLM으로 블로그 주제에서 영어 키워드 자동 추출
 """
 import streamlit as st
 import sys
@@ -14,20 +15,21 @@ import hashlib
 sys.path.append(str(Path(__file__).parent.parent))
  
 import importlib
-# 숫자로 시작하는 모듈 이름은 동적 import 사용
-image_gen_module = importlib.import_module("modules.05_image_generator.image_generator")
+# Pixabay 이미지 검색기 import
+pixabay_module = importlib.import_module("modules.05_image_generator.pixabay_generator")
 blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_generator")
-ImageGenerator = image_gen_module.ImageGenerator
+PixabayGenerator = pixabay_module.PixabayGenerator
 BlogGenerator = blog_gen_module.BlogGenerator
-from config.settings import IMAGES_DIR, IMAGE_MODEL, IMAGE_SIZE, IMAGE_PROMPTS_FILE, GENERATED_BLOGS_DIR, BLOG_IMAGE_MAPPING_FILE, METADATA_DIR, NEWS_CATEGORIES
+from config.settings import IMAGES_DIR, IMAGE_PROMPTS_FILE, GENERATED_BLOGS_DIR, BLOG_IMAGE_MAPPING_FILE, METADATA_DIR, NEWS_CATEGORIES, PIXABAY_API_KEY
  
 st.set_page_config(
-    page_title="이미지 생성기 대시보드",
-    page_icon="🎨",
+    page_title="Pixabay 이미지 검색",
+    page_icon="📸",
     layout="wide"
 )
  
-st.title("🎨 이미지 생성기 대시보드")
+st.title("📸 Pixabay 이미지 검색 대시보드")
+st.markdown("무료 스톡 이미지를 블로그 주제에 맞게 검색하고 다운로드합니다.")
 st.markdown("---")
 
 # 카테고리 매핑
@@ -50,154 +52,92 @@ st.markdown("---")
  
 # 사이드바
 with st.sidebar:
-    st.header("⚙️ 설정")
- 
-    # 이미지 생성 모델 선택
-    model_options = {
-        "🆓 Hugging Face (무료, 기본)": "huggingface",
-        "🚀 Z-Image-Turbo (로컬, GPU 필요)": "z-image-turbo",
-        "💰 DALL-E 3 (유료)": "dall-e-3",
-    }
+    st.header("⚙️ Pixabay 설정")
     
-    selected_model_display = st.selectbox(
-        "이미지 생성 모델",
-        options=list(model_options.keys()),
-        index=0,  # Hugging Face가 기본
-        help="Hugging Face는 무료로 사용 가능합니다 (API 키 선택)"
-    )
-    selected_model = model_options[selected_model_display]
-    
-    # 구글 드라이브 사용 여부 (기본적으로 비활성화, 라이브러리 충돌 가능성 때문)
-    use_google_drive = st.checkbox("구글 드라이브 업로드", value=False, 
-                                     help="⚠️ 구글 드라이브 기능은 현재 불안정할 수 있습니다. 로컬 저장을 권장합니다.")
- 
-    st.markdown("---")
-    
-    # 이미지 사이즈 선택
-    st.subheader("📐 이미지 사이즈")
-    
-    # 모델별 지원 사이즈
-    if selected_model == "z-image-turbo":
-        size_options = {
-            "🧪 TEST (작고 낮은 해상도)": "512x512",
-            "⚖️ 중간 품질": "768x768",
-            "✨ 고품질": "1024x1024"
-        }
-        default_index = 2  # 고품질이 기본
-    elif selected_model == "dall-e-3":
-        size_options = {
-            "🧪 TEST (작고 낮은 해상도)": "1024x1024",
-            "⚖️ 중간 품질": "1024x1792",  # 세로형
-            "✨ 고품질": "1792x1024"  # 가로형
-        }
-        default_index = 0  # DALL-E는 1024x1024가 기본
-    else:  # huggingface
-        size_options = {
-            "🧪 TEST (작고 낮은 해상도)": "256x256",
-            "⚖️ 중간 품질": "512x512",
-            "✨ 고품질": "768x768"
-        }
-        default_index = 1  # 중간 품질이 기본
-    
-    selected_size_display = st.selectbox(
-        "해상도 선택",
-        options=list(size_options.keys()),
-        index=default_index,
-        help="TEST는 빠른 테스트용, 중간 품질은 균형잡힌 선택, 고품질은 최고 해상도입니다."
-    )
-    selected_image_size = size_options[selected_size_display]
-    
-    st.caption(f"선택된 사이즈: {selected_image_size}")
-    
-    # 모델 정보
-    st.markdown("---")
-    st.markdown("**모델 정보**")
-    if selected_model == "huggingface":
-        from config.settings import HUGGINGFACE_MODEL, HUGGINGFACE_API_KEY
-        st.code(HUGGINGFACE_MODEL, language=None)
-        
-        # Z-Image-Turbo 모델 특별 안내
-        if "z-image" in HUGGINGFACE_MODEL.lower() or "tongyi" in HUGGINGFACE_MODEL.lower():
-            st.warning("""
-            ⚠️ **Z-Image-Turbo는 Hugging Face Inference API를 지원하지 않습니다!**
-            
-            이 모델은 로컬 실행 전용입니다 (diffusers 라이브러리 + GPU 필요).
-            현재 설정으로는 작동하지 않습니다.
-            
-            💡 **해결 방법:**
-            - `.env` 파일에서 다른 모델로 변경:
-              `HUGGINGFACE_MODEL=runwayml/stable-diffusion-v1-5`
-            - 또는 "Z-Image-Turbo (로컬)" 모델 선택
-            - 또는 DALL-E 3 사용 (유료)
-            """)
-        
-        if HUGGINGFACE_API_KEY:
-            st.success("✅ API 키 설정됨")
-        else:
-            st.info("ℹ️ API 키 없이 무료 사용 (제한적)")
-    elif selected_model == "z-image-turbo":
-        from config.settings import HUGGINGFACE_MODEL
-        st.code(HUGGINGFACE_MODEL, language=None)
-        
-        # GPU 확인
-        try:
-            import torch
-            if torch.cuda.is_available():
-                st.success(f"✅ GPU 사용 가능: {torch.cuda.get_device_name(0)}")
-                st.info(f"GPU 메모리: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
-            else:
-                st.warning("⚠️ GPU를 사용할 수 없습니다. CPU 모드로 실행됩니다 (매우 느림).")
-        except ImportError:
-            st.error("❌ torch가 설치되지 않았습니다.")
-        
-        # 패키지 확인
-        try:
-            from diffusers import ZImagePipeline
-            st.success("✅ diffusers 라이브러리 설치됨")
-        except ImportError:
-            st.error("""
-            ❌ **필요한 패키지가 설치되지 않았습니다!**
-            
-            다음 명령어를 실행하세요:
-            ```bash
-            pip install git+https://github.com/huggingface/diffusers
-            pip install torch torchvision
-            ```
-            """)
-        
+    # API 키 상태 확인
+    if PIXABAY_API_KEY:
+        st.success("✅ Pixabay API 키 설정됨")
+    else:
+        st.error("❌ PIXABAY_API_KEY 필요")
         st.info("""
-        🚀 **Z-Image-Turbo 모델**
-        - ⚡️ 빠른 추론 속도 (8 NFE)
-        - 🎨 고품질 이미지 생성
-        - 🌏 영어, 한국어, 중국어 모두 지원
-        - 📸 사실적인 이미지 생성에 최적화
-        - 💻 로컬 실행 (GPU 권장)
+        **API 키 발급 방법:**
+        1. https://pixabay.com/api/docs/ 접속
+        2. 회원가입 후 API 키 발급
+        3. `.env` 파일에 추가:
+           `PIXABAY_API_KEY=your-key`
         """)
-    elif selected_model == "dall-e-3":
-        st.code("DALL-E 3", language=None)
-        from config.settings import OPENAI_API_KEY
-        if OPENAI_API_KEY:
-            st.success("✅ OpenAI API 키 설정됨")
-        else:
-            st.error("❌ OPENAI_API_KEY 필요")
- 
+    
     st.markdown("---")
- 
-    # 안내
+    
+    # 이미지 타입 선택
+    st.subheader("🖼️ 이미지 타입")
+    image_type_options = {
+        "📷 사진 (Photo)": "photo",
+        "🎨 일러스트 (Illustration)": "illustration",
+        "🔷 벡터 (Vector)": "vector",
+        "🌐 전체 (All)": "all"
+    }
+    selected_image_type_display = st.selectbox(
+        "이미지 타입",
+        options=list(image_type_options.keys()),
+        index=0,  # 사진이 기본
+        help="블로그에는 사진(Photo)을 추천합니다."
+    )
+    selected_image_type = image_type_options[selected_image_type_display]
+    
+    st.markdown("---")
+    
+    # LLM 키워드 추출 사용 여부
+    st.subheader("🤖 키워드 추출")
+    use_llm_keywords = st.checkbox(
+        "LLM으로 영어 키워드 자동 추출",
+        value=True,
+        help="Gemini API로 블로그 주제에서 최적의 영어 검색 키워드를 추출합니다."
+    )
+    
+    st.markdown("---")
+    
+    # Pixabay 카테고리 필터
+    st.subheader("📂 Pixabay 카테고리")
+    pixabay_categories = ["자동 선택"] + PixabayGenerator.PIXABAY_CATEGORIES
+    selected_pixabay_category = st.selectbox(
+        "카테고리 필터",
+        options=pixabay_categories,
+        index=0,
+        help="특정 카테고리로 검색 결과를 필터링합니다."
+    )
+    if selected_pixabay_category == "자동 선택":
+        selected_pixabay_category = None
+    
+    st.markdown("---")
+    
+    # Pixabay 정보
+    st.info("""
+    📸 **Pixabay 장점**
+    - ✅ 무료 사용 (하루 5,000건)
+    - ✅ 상업적 사용 가능
+    - ✅ 저작권 걱정 없음
+    - ✅ 고품질 스톡 이미지
+    - ✅ 빠른 검색 속도
+    """)
+    
+    st.markdown("---")
+    
+    # 사용 팁
     st.info("""
     💡 **사용 팁**
-    - 명확하고 구체적인 프롬프트 사용
-    - 영어로 작성하면 더 좋은 결과
-    - 생성에 시간이 걸릴 수 있음
+    - LLM 키워드 추출 사용 권장
+    - 미리보기에서 이미지 확인
+    - 사진(Photo) 타입 추천
     """)
  
 # 탭 생성
-tab0, tab1, tab2 = st.tabs(["📥 블로그 이미지 생성", "🎨 개별 이미지 생성", "📁 생성된 이미지"])
+tab0, tab1, tab2 = st.tabs(["📥 블로그 이미지 검색", "🔍 개별 이미지 검색", "📁 다운로드한 이미지"])
  
-# 탭 0: 블로그 이미지 생성 (4번 모듈에서 저장된 이미지 설명 불러오기)
+# 탭 0: 블로그 이미지 검색 (4번 모듈에서 저장된 이미지 설명 불러오기)
 with tab0:
-    st.header("📥 블로그 이미지 생성")
-    st.info("💡 4번 모듈(품질 평가)에서 검증 통과 후 저장된 이미지 설명을 불러와 이미지를 생성합니다.")
+    st.header("📥 블로그 이미지 검색")
+    st.info("💡 4번 모듈(품질 평가)에서 검증 통과 후 저장된 이미지 설명을 불러와 Pixabay에서 관련 이미지를 검색합니다.")
     
     # 저장된 이미지 설명 확인 (카테고리별)
     prompts_data = None
@@ -310,12 +250,12 @@ with tab0:
             # 이미지 생성 섹션
             st.subheader("🚀 이미지 생성")
             
-            # 순차 생성 또는 전체 생성 선택
+            # 순차 검색 또는 자동 검색 선택
             gen_mode = st.radio(
-                "생성 방식",
-                ["🔄 1개씩 순차 생성 (권장)", "⚡ 전체 한번에 생성"],
+                "검색 방식",
+                ["🔄 1개씩 순차 검색 (권장)", "⚡ 전체 자동 검색"],
                 horizontal=True,
-                help="순차 생성은 각 이미지를 확인하면서 진행할 수 있습니다."
+                help="순차 검색은 각 이미지를 미리보고 선택할 수 있습니다. 자동 검색은 인기순 첫 번째 이미지를 자동 선택합니다."
             )
             
             # 세션 상태 초기화
@@ -327,48 +267,128 @@ with tab0:
             st.markdown("---")
             
             if "순차" in gen_mode:
-                # 순차 생성 모드
+                # 순차 검색 모드
                 current_idx = st.session_state.current_image_index
                 
                 if current_idx < len(placeholders):
                     current_ph = placeholders[current_idx]
+                    blog_topic = prompts_data.get('blog_topic', '')
                     
                     st.markdown(f"### 🎯 현재 이미지: {current_idx + 1}/{len(placeholders)}")
-                    st.markdown(f"**프롬프트:** {current_ph['alt']}")
+                    st.markdown(f"**이미지 설명:** {current_ph['alt']}")
                     
-                    col_gen1, col_gen2 = st.columns([1, 1])
+                    # 키워드 미리보기
+                    if use_llm_keywords and 'preview_keywords' not in st.session_state:
+                        st.session_state.preview_keywords = {}
                     
-                    with col_gen1:
-                        if st.button(f"🎨 이미지 {current_idx + 1} 생성", type="primary", use_container_width=True):
-                            with st.spinner(f"이미지 {current_idx + 1} 생성 중... (30초~1분 소요)"):
+                    col_preview, col_search = st.columns([2, 1])
+                    
+                    with col_preview:
+                        # 미리보기 검색 (5개 후보 표시)
+                        if st.button(f"🔍 이미지 미리보기 검색", use_container_width=True):
+                            with st.spinner("Pixabay에서 관련 이미지 검색 중..."):
                                 try:
                                     current_category = selected_category if selected_category != "전체" else ""
-                                    generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size, category=current_category)
-                                    result = generator.generate_single_image(current_ph['alt'], index=current_idx)
+                                    generator = PixabayGenerator(
+                                        category=current_category,
+                                        image_type=selected_image_type,
+                                        per_page=6,
+                                        use_llm=use_llm_keywords
+                                    )
                                     
-                                    if result.get('local_path'):
-                                        st.session_state.generated_images.append(result)
-                                        st.success(f"✅ 이미지 {current_idx + 1} 생성 완료!")
-                                        
-                                        # 생성된 이미지 표시
-                                        img = Image.open(result['local_path'])
-                                        st.image(img)
-                                        
-                                        # 다음 이미지로 진행
-                                        st.session_state.current_image_index += 1
-                                        st.rerun()
-                                    else:
-                                        st.error(f"❌ 이미지 생성 실패")
-                                        
+                                    # 키워드 추출
+                                    keywords = generator._extract_keywords(current_ph['alt'], blog_topic)
+                                    st.session_state.preview_keywords[current_idx] = keywords
+                                    
+                                    # 미리보기 검색
+                                    previews = generator.search_multiple_images(
+                                        keywords, 
+                                        count=6,
+                                        pixabay_category=selected_pixabay_category
+                                    )
+                                    st.session_state[f'previews_{current_idx}'] = previews
+                                    st.rerun()
+                                    
                                 except Exception as e:
-                                    st.error(f"❌ 오류: {e}")
+                                    st.error(f"❌ 검색 오류: {e}")
                     
-                    with col_gen2:
+                    with col_search:
                         if st.button("⏭️ 건너뛰기", use_container_width=True):
                             st.session_state.current_image_index += 1
                             st.rerun()
+                    
+                    # 추출된 키워드 표시
+                    if current_idx in st.session_state.get('preview_keywords', {}):
+                        st.info(f"🔑 검색 키워드: `{st.session_state.preview_keywords[current_idx]}`")
+                    
+                    # 미리보기 이미지 표시
+                    if f'previews_{current_idx}' in st.session_state:
+                        previews = st.session_state[f'previews_{current_idx}']
+                        
+                        if previews:
+                            st.markdown("#### 📷 검색 결과 (클릭하여 선택)")
+                            
+                            # 3열로 미리보기 표시
+                            cols = st.columns(3)
+                            for i, preview in enumerate(previews[:6]):
+                                with cols[i % 3]:
+                                    st.image(preview['preview_url'], use_container_width=True)
+                                    st.caption(f"👍 {preview['likes']} | 📥 {preview['downloads']}")
+                                    st.caption(f"🏷️ {preview['tags'][:40]}...")
+                                    
+                                    if st.button(f"✅ 선택", key=f"select_{current_idx}_{i}", use_container_width=True):
+                                        # 이미지 다운로드
+                                        with st.spinner("이미지 다운로드 중..."):
+                                            try:
+                                                current_category = selected_category if selected_category != "전체" else ""
+                                                generator = PixabayGenerator(category=current_category, image_type=selected_image_type)
+                                                
+                                                # 이미지 다운로드
+                                                image_url = preview['large_url'] or preview['webformat_url']
+                                                local_path = generator._download_image(image_url, current_idx)
+                                                
+                                                result = {
+                                                    "index": current_idx,
+                                                    "alt": current_ph['alt'],
+                                                    "local_path": str(local_path),
+                                                    "url": image_url,
+                                                    "pixabay_id": preview['id'],
+                                                    "pixabay_page_url": preview['page_url'],
+                                                    "photographer": preview['user'],
+                                                    "tags": preview['tags'],
+                                                    "category": current_category
+                                                }
+                                                
+                                                st.session_state.generated_images.append(result)
+                                                st.success(f"✅ 이미지 {current_idx + 1} 다운로드 완료!")
+                                                
+                                                # 다음 이미지로
+                                                st.session_state.current_image_index += 1
+                                                st.rerun()
+                                                
+                                            except Exception as e:
+                                                st.error(f"❌ 다운로드 오류: {e}")
+                        else:
+                            st.warning("검색 결과가 없습니다. 다른 키워드로 시도해보세요.")
+                    
+                    # 직접 검색 옵션
+                    st.markdown("---")
+                    with st.expander("🔧 직접 키워드 입력"):
+                        custom_keywords = st.text_input("검색 키워드 (영어)", key=f"custom_{current_idx}")
+                        if st.button("🔍 검색", key=f"custom_search_{current_idx}"):
+                            if custom_keywords:
+                                with st.spinner("검색 중..."):
+                                    try:
+                                        current_category = selected_category if selected_category != "전체" else ""
+                                        generator = PixabayGenerator(category=current_category, image_type=selected_image_type, per_page=6)
+                                        previews = generator.search_multiple_images(custom_keywords, count=6, pixabay_category=selected_pixabay_category)
+                                        st.session_state[f'previews_{current_idx}'] = previews
+                                        st.session_state.preview_keywords[current_idx] = custom_keywords
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"❌ 검색 오류: {e}")
                 else:
-                    st.success(f"🎉 모든 이미지 생성 완료! ({len(st.session_state.generated_images)}/{len(placeholders)})")
+                    st.success(f"🎉 모든 이미지 검색 완료! ({len(st.session_state.generated_images)}/{len(placeholders)})")
                     
                     # ✅ 블로그-이미지 매핑 정보 저장 (7번 모듈에서 사용)
                     if st.session_state.generated_images:
@@ -388,22 +408,26 @@ with tab0:
                                 category_metadata_dir = METADATA_DIR
                             
                             mapping_data = {
-                                "blog_id": blog_id,  # 블로그 고유 식별자
+                                "blog_id": blog_id,
                                 "blog_topic": blog_topic,
                                 "html_file": html_file,
                                 "created_at": datetime.now().isoformat(),
                                 "evaluation_score": prompts_data.get('evaluation_score', 0),
                                 "category": data_category,
+                                "source": "pixabay",
                                 "images": [
                                     {
                                         "index": img.get('index', i),
                                         "local_path": img.get('local_path', ''),
                                         "url": img.get('url', ''),
                                         "alt": img.get('alt', ''),
-                                        "model": img.get('model', selected_model)
+                                        "pixabay_id": img.get('pixabay_id'),
+                                        "photographer": img.get('photographer', ''),
+                                        "pixabay_page_url": img.get('pixabay_page_url', ''),
+                                        "tags": img.get('tags', '')
                                     }
                                     for i, img in enumerate(st.session_state.generated_images)
-                                    if img.get('local_path')  # 성공한 이미지만 저장
+                                    if img.get('local_path')
                                 ]
                             }
                             
@@ -433,6 +457,7 @@ with tab0:
                             st.success(f"💾 블로그-이미지 매핑 정보 저장 완료! ({len(mapping_data['images'])}개 이미지)")
                             st.caption(f"📁 파일: blog_image_mapping_{blog_id}.json")
                             st.caption(f"🔑 블로그 ID: {blog_id}")
+                            st.caption(f"📸 이미지 출처: Pixabay")
                             st.info("💡 이제 **7번 모듈**에서 이 매핑 정보를 사용하여 이미지를 블로그에 삽입할 수 있습니다.")
                         except Exception as e:
                             st.warning(f"⚠️ 매핑 정보 저장 실패: {e}")
@@ -461,24 +486,36 @@ with tab0:
                 st.caption(f"진행: {st.session_state.current_image_index}/{len(placeholders)}")
                 
             else:
-                # 전체 한번에 생성
-                if st.button("🚀 전체 이미지 생성", type="primary", use_container_width=True):
+                # 전체 자동 검색 (인기순 첫 번째 이미지 자동 선택)
+                blog_topic = prompts_data.get('blog_topic', '')
+                
+                st.info("🤖 각 이미지 설명에 대해 Pixabay에서 가장 인기 있는 이미지를 자동으로 선택합니다.")
+                
+                if st.button("🚀 전체 이미지 자동 검색", type="primary", use_container_width=True):
                     progress_bar = st.progress(0)
                     status_text = st.empty()
                     
                     results = []
                     
                     for i, ph in enumerate(placeholders):
-                        status_text.text(f"이미지 {i+1}/{len(placeholders)} 생성 중...")
+                        status_text.text(f"이미지 {i+1}/{len(placeholders)} 검색 중...")
                         
                         try:
                             current_category = selected_category if selected_category != "전체" else ""
-                            generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size, category=current_category)
+                            generator = PixabayGenerator(
+                                category=current_category,
+                                image_type=selected_image_type,
+                                per_page=5,
+                                use_llm=use_llm_keywords
+                            )
+                            
+                            # 이미지 검색 및 다운로드
                             result = generator.generate_single_image(ph['alt'], index=i)
+                            result['source'] = 'pixabay'
                             results.append(result)
                             
                             if result.get('local_path'):
-                                st.success(f"✅ 이미지 {i+1} 생성 완료")
+                                st.success(f"✅ 이미지 {i+1} 검색 완료: {result.get('photographer', 'Unknown')}")
                             else:
                                 st.warning(f"⚠️ 이미지 {i+1} 실패")
                                 
@@ -493,33 +530,35 @@ with tab0:
                     
                     # 성공한 이미지 수 확인
                     success_count = len([r for r in results if r.get('local_path')])
-                    st.success(f"🎉 {success_count}/{len(placeholders)}개 이미지 생성 완료!")
+                    st.success(f"🎉 {success_count}/{len(placeholders)}개 이미지 검색 완료!")
                     
                     # ✅ 블로그-이미지 매핑 정보 저장 (7번 모듈에서 사용)
                     if success_count > 0:
                         try:
-                            blog_topic = prompts_data.get('blog_topic', '')
                             html_file = prompts_data.get('html_file', '')
                             
                             # 블로그 식별자 생성 (주제 + 생성 시간 기반)
                             blog_id = hashlib.md5(f"{blog_topic}_{prompts_data.get('created_at', '')}".encode()).hexdigest()[:8]
                             
                             mapping_data = {
-                                "blog_id": blog_id,  # 블로그 고유 식별자
+                                "blog_id": blog_id,
                                 "blog_topic": blog_topic,
                                 "html_file": html_file,
                                 "created_at": datetime.now().isoformat(),
                                 "evaluation_score": prompts_data.get('evaluation_score', 0),
+                                "source": "pixabay",
                                 "images": [
                                     {
                                         "index": img.get('index', i),
                                         "local_path": img.get('local_path', ''),
                                         "url": img.get('url', ''),
                                         "alt": img.get('alt', ''),
-                                        "model": img.get('model', selected_model)
+                                        "pixabay_id": img.get('pixabay_id'),
+                                        "photographer": img.get('photographer', ''),
+                                        "pixabay_page_url": img.get('pixabay_page_url', '')
                                     }
                                     for i, img in enumerate(results)
-                                    if img.get('local_path')  # 성공한 이미지만 저장
+                                    if img.get('local_path')
                                 ]
                             }
                             
@@ -529,7 +568,7 @@ with tab0:
                             with open(mapping_file, 'w', encoding='utf-8') as f:
                                 json.dump(mapping_data, f, ensure_ascii=False, indent=2)
                             
-                            # 최신 매핑 파일 경로도 저장 (7번 모듈에서 쉽게 찾을 수 있도록)
+                            # 최신 매핑 파일 경로도 저장
                             with open(BLOG_IMAGE_MAPPING_FILE, 'w', encoding='utf-8') as f:
                                 json.dump({"latest_mapping_file": str(mapping_file), "blog_id": blog_id}, f, ensure_ascii=False, indent=2)
                             
@@ -582,143 +621,116 @@ with tab0:
            - 1개씩 순차 생성 또는 전체 생성
         """)
  
-# 탭 1: 개별 이미지 생성
+# 탭 1: 개별 이미지 검색
 with tab1:
-    st.header("🎨 이미지 생성")
- 
-    # 생성 방법 선택
-    gen_method = st.radio(
-        "생성 방법",
-        ["단일 이미지", "플레이스홀더 배치"],
-        horizontal=True
-    )
- 
-    if gen_method == "단일 이미지":
-        # 단일 이미지 생성
-        prompt = st.text_area(
-            "이미지 설명 (프롬프트)",
-            placeholder="예: A futuristic AI robot looking at a city skyline, digital art style",
-            height=100
+    st.header("🔍 개별 이미지 검색")
+    st.info("키워드를 입력하여 Pixabay에서 이미지를 검색합니다.")
+    
+    # 검색어 입력
+    col_search1, col_search2 = st.columns([3, 1])
+    
+    with col_search1:
+        search_query = st.text_input(
+            "검색어 (영어 권장)",
+            placeholder="예: rocket launch, space exploration, AI technology",
+            help="영어 키워드로 검색하면 더 많은 결과를 얻을 수 있습니다."
         )
- 
-        if st.button("🎨 생성", type="primary"):
-            if prompt:
-                with st.spinner("이미지 생성 중... (30초~1분 소요)"):
-                    try:
-                        current_category = selected_category if selected_category != "전체" else ""
-                        generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size, category=current_category)
-                        result = generator.generate_single_image(prompt, index=0)
- 
-                        st.session_state.single_image_result = result
-                        st.success("✅ 이미지 생성 완료!")
-                        st.rerun()
- 
-                    except Exception as e:
-                        st.error(f"❌ 생성 실패: {str(e)}")
-            else:
-                st.warning("프롬프트를 입력하세요.")
- 
-        # 생성된 이미지 표시
-        if st.session_state.get('single_image_result'):
-            result = st.session_state.single_image_result
- 
-            st.markdown("---")
-            st.subheader("🖼️ 생성된 이미지")
- 
-            col_img1, col_img2 = st.columns([2, 1])
- 
-            with col_img1:
-                # 로컬 이미지 표시
-                if result.get('local_path') and Path(result['local_path']).exists():
-                    img = Image.open(result['local_path'])
-                    st.image(img)
-                else:
-                    st.error("이미지 파일을 찾을 수 없습니다.")
- 
-            with col_img2:
-                st.markdown(f"**프롬프트:** {result['alt']}")
-                st.markdown(f"**로컬 경로:** `{result['local_path']}`")
- 
-                if result.get('url'):
-                    st.markdown(f"**URL:** [{result['url']}]({result['url']})")
- 
-                if result.get('original_dalle_url'):
-                    st.markdown(f"**원본 DALL-E URL:** [링크]({result['original_dalle_url']})")
- 
-    else:
-        # 플레이스홀더 배치로 여러 이미지 생성
-        st.markdown("플레이스홀더 정보를 입력하세요 (JSON 형식)")
- 
-        placeholder_input = st.text_area(
-            "플레이스홀더 JSON",
-            value="""[
-  {
-    "index": 0,
-    "alt": "A futuristic AI robot in a modern city",
-    "tag": "<img src='PLACEHOLDER' alt='...'>"
-  },
-  {
-    "index": 1,
-    "alt": "Business team analyzing data on screens",
-    "tag": "<img src='PLACEHOLDER' alt='...'>"
-  }
-]""",
-            height=200
-        )
- 
-        if st.button("🎨 모두 생성", type="primary"):
-            try:
-                import json
-                placeholders = json.loads(placeholder_input)
- 
-                with st.spinner(f"{len(placeholders)}개 이미지 생성 중..."):
+    
+    with col_search2:
+        search_count = st.number_input("검색 개수", min_value=3, max_value=20, value=9)
+    
+    if st.button("🔍 검색", type="primary", use_container_width=True):
+        if search_query:
+            with st.spinner("Pixabay에서 이미지 검색 중..."):
+                try:
                     current_category = selected_category if selected_category != "전체" else ""
-                    generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size, category=current_category)
-                    results = generator.generate_images(placeholders, category=current_category)
- 
-                    st.session_state.batch_results = results
-                    st.success(f"✅ {len(results)}개 이미지 생성 완료!")
+                    generator = PixabayGenerator(
+                        category=current_category,
+                        image_type=selected_image_type,
+                        per_page=search_count
+                    )
+                    
+                    results = generator.search_multiple_images(
+                        search_query,
+                        count=search_count,
+                        pixabay_category=selected_pixabay_category
+                    )
+                    
+                    st.session_state.search_results = results
+                    st.session_state.search_query = search_query
+                    st.success(f"✅ {len(results)}개 이미지 검색 완료!")
                     st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"❌ 검색 실패: {e}")
+        else:
+            st.warning("검색어를 입력하세요.")
+    
+    # 검색 결과 표시
+    if st.session_state.get('search_results'):
+        results = st.session_state.search_results
+        query = st.session_state.get('search_query', '')
+        
+        st.markdown("---")
+        st.subheader(f"📷 검색 결과: '{query}' ({len(results)}개)")
+        
+        # 3열 그리드로 표시
+        cols = st.columns(3)
+        for i, result in enumerate(results):
+            with cols[i % 3]:
+                # 이미지 미리보기
+                st.image(result['preview_url'], use_container_width=True)
+                
+                # 메타데이터
+                st.caption(f"👍 {result['likes']} | 📥 {result['downloads']} | 👁️ {result['views']}")
+                st.caption(f"📸 {result['user']}")
+                st.caption(f"🏷️ {result['tags'][:50]}...")
+                
+                # 다운로드 버튼
+                if st.button(f"⬇️ 다운로드", key=f"dl_{i}", use_container_width=True):
+                    with st.spinner("다운로드 중..."):
+                        try:
+                            current_category = selected_category if selected_category != "전체" else ""
+                            generator = PixabayGenerator(category=current_category, image_type=selected_image_type)
+                            
+                            image_url = result['large_url'] or result['webformat_url']
+                            local_path = generator._download_image(image_url, i)
+                            
+                            st.success(f"✅ 다운로드 완료!")
+                            st.caption(f"📁 {local_path}")
+                            
+                            # 다운로드한 이미지 표시
+                            img = Image.open(local_path)
+                            st.image(img, use_container_width=True)
+                            
+                        except Exception as e:
+                            st.error(f"❌ 다운로드 실패: {e}")
+                
+                # Pixabay 페이지 링크
+                st.markdown(f"[🔗 Pixabay에서 보기]({result['page_url']})")
  
-            except json.JSONDecodeError:
-                st.error("❌ JSON 형식이 올바르지 않습니다.")
-            except Exception as e:
-                st.error(f"❌ 생성 실패: {str(e)}")
- 
-        # 배치 생성 결과
-        if st.session_state.get('batch_results'):
-            results = st.session_state.batch_results
- 
-            st.markdown("---")
-            st.subheader(f"🖼️ 생성된 이미지 ({len(results)}개)")
- 
-            for result in results:
-                with st.expander(f"이미지 {result['index'] + 1}", expanded=True):
-                    col_batch1, col_batch2 = st.columns([2, 1])
- 
-                    with col_batch1:
-                        if result.get('local_path') and Path(result['local_path']).exists():
-                            img = Image.open(result['local_path'])
-                            st.image(img)
-                        else:
-                            st.error(f"생성 실패: {result.get('error', '알 수 없는 오류')}")
- 
-                    with col_batch2:
-                        st.markdown(f"**인덱스:** {result['index']}")
-                        st.markdown(f"**프롬프트:** {result['alt']}")
- 
-                        if result.get('url'):
-                            st.markdown(f"**URL:** [{result['url']}]({result['url']})")
- 
-# 탭 2: 생성된 이미지
+# 탭 2: 다운로드한 이미지
 with tab2:
-    st.header("📁 생성된 이미지")
+    st.header("📁 다운로드한 이미지")
+    
+    # 카테고리별 이미지 표시
+    if selected_category != "전체":
+        display_dir = IMAGES_DIR / selected_category
+    else:
+        display_dir = IMAGES_DIR
  
-    if IMAGES_DIR.exists():
-        image_files = sorted(list(IMAGES_DIR.glob("*.png")), reverse=True)
+    if display_dir.exists():
+        # PNG와 JPG 모두 포함
+        image_files = sorted(
+            list(display_dir.glob("*.png")) + 
+            list(display_dir.glob("*.jpg")) + 
+            list(display_dir.glob("*.jpeg")),
+            key=lambda x: x.stat().st_mtime,
+            reverse=True
+        )
  
         if image_files:
-            st.info(f"총 {len(image_files)}개 이미지")
+            st.info(f"📷 총 {len(image_files)}개 이미지 (Pixabay)")
  
             # 그리드 표시
             cols_per_row = 3
@@ -731,18 +743,25 @@ with tab2:
                         img_file = image_files[idx]
  
                         with cols[j]:
-                            img = Image.open(img_file)
-                            st.image(img)
-                            st.caption(img_file.name)
+                            try:
+                                img = Image.open(img_file)
+                                st.image(img, use_container_width=True)
+                                st.caption(img_file.name)
  
-                            # 파일 정보
-                            file_size = img_file.stat().st_size / 1024
-                            st.text(f"{file_size:.1f} KB")
+                                # 파일 정보
+                                file_size = img_file.stat().st_size / 1024
+                                st.text(f"📦 {file_size:.1f} KB")
+                                
+                                # Pixabay 이미지인지 확인
+                                if "pixabay" in img_file.name.lower():
+                                    st.caption("📸 Pixabay")
+                            except Exception as e:
+                                st.error(f"이미지 로드 실패: {e}")
         else:
-            st.info("생성된 이미지가 없습니다.")
+            st.info("다운로드한 이미지가 없습니다.")
     else:
         st.info("이미지 디렉토리가 존재하지 않습니다.")
  
 # 푸터
 st.markdown("---")
-st.caption("이미지 생성기 대시보드 v1.0 | Auto blog")
+st.caption("📸 Pixabay 이미지 검색 대시보드 v2.0 | 무료 스톡 이미지 | Auto blog")

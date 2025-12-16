@@ -60,8 +60,8 @@ with st.sidebar:
         "LLM 모델",
         options=[
             "gemini-2.0-flash-exp (Gemini 최신)",
+            "gemini-2.0-flash-exp",
             "gemini-1.5-pro",
-            "gemini-1.5-flash",
             "lm-studio (로컬)",
             "gpt-4o-mini",
             "gpt-4o",

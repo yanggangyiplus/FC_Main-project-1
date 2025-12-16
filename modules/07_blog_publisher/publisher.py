@@ -60,16 +60,32 @@ class NaverBlogPublisher:
         logger.info(f"NaverBlogPublisher 초기화 (헤드리스: {headless})")
 
     def _init_driver(self):
-        """웹드라이버 초기화"""
+        """웹드라이버 초기화 (기존 Chrome 프로필 사용)"""
         options = webdriver.ChromeOptions()
+        
+        # ========================================
+        # 셀레니움 전용 Chrome 프로필 사용 (로그인 세션 유지)
+        # ========================================
+        # 프로젝트 폴더 내 chrome_profile 사용
+        import os
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        chrome_profile_path = os.path.join(project_root, "chrome_profile")
+        
+        if os.path.exists(chrome_profile_path):
+            options.add_argument(f'--user-data-dir={chrome_profile_path}')
+            logger.info(f"Chrome 프로필 사용: {chrome_profile_path}")
+        else:
+            logger.warning(f"Chrome 프로필 없음: {chrome_profile_path} - 새 세션으로 시작")
+        
         # 로컬 크롬 실행 파일 경로를 명시해 OS별 경로 이슈를 방지
         if CHROME_BINARY_PATH:
             options.binary_location = CHROME_BINARY_PATH
         if self.headless:
-            options.add_argument('--headless')
+            options.add_argument('--headless=new')  # 새로운 headless 모드 사용
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36')
+        options.add_argument('--disable-blink-features=AutomationControlled')  # 자동화 감지 방지
+        options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
         # ChromeDriver 경로: 환경 변수 우선, 없으면 webdriver_manager로 다운로드
         driver_path = CHROMEDRIVER_PATH
@@ -88,14 +104,37 @@ class NaverBlogPublisher:
 
     def login_naver(self) -> bool:
         """
-        네이버 로그인
+        네이버 로그인 (Chrome 프로필에 이미 로그인되어 있으면 건너뜀)
 
         Returns:
             로그인 성공 여부
         """
-        logger.info("네이버 로그인 시작")
+        logger.info("네이버 로그인 확인 중...")
 
         try:
+            # ========================================
+            # 먼저 이미 로그인되어 있는지 확인
+            # ========================================
+            self.driver.get("https://blog.naver.com")
+            time.sleep(2)
+            
+            # 로그인 상태 확인 (로그인된 경우 특정 요소 존재)
+            try:
+                # 로그인된 경우: 프로필 영역 또는 글쓰기 버튼 존재
+                logged_in = self.driver.find_elements(By.CSS_SELECTOR, 
+                    ".area_user, .btn_write, a[href*='postwrite'], .gnb_my")
+                
+                if logged_in:
+                    logger.info("✅ Chrome 프로필에서 이미 로그인됨 - 로그인 과정 건너뜀")
+                    return True
+            except:
+                pass
+            
+            logger.info("로그인 필요 - 로그인 진행")
+            
+            # ========================================
+            # 기존 로그인 로직
+            # ========================================
             self.driver.get("https://nid.naver.com/nidlogin.login")
             time.sleep(2)
 
@@ -519,7 +558,7 @@ class NaverBlogPublisher:
         content: Optional[str] = None,
         category: Optional[str] = None,
         mapping_file: Optional[Path] = None,
-        max_retries: int = MAX_PUBLISH_RETRIES,
+        max_retries: int = 1,  # 1번만 시도 (재시도 없음)
         use_base64: bool = True
     ) -> Dict[str, Any]:
         """
@@ -777,6 +816,751 @@ strong, b {{ font-weight: bold; }}
             logger.error(f"클립보드 복사 실패: {e}")
             return False
 
+    # ========================================
+    # 네이버 스마트에디터 전용 메서드들
+    # ========================================
+    
+    def _parse_blog_for_naver(self, html: str, images: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        블로그 HTML을 네이버 에디터용 순차 요소 리스트로 파싱
+        - 새 HTML 템플릿 (post-content div 중첩 구조) 지원
+        
+        Args:
+            html: 블로그 HTML
+            images: 이미지 정보 리스트
+        
+        Returns:
+            순차 요소 리스트 [{"type": "title/subtitle/paragraph/image/list", "content": "...", ...}, ...]
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # post-content div가 있으면 그 안의 요소 사용, 없으면 body 사용
+        content_div = soup.find('div', class_='post-content')
+        post_title_div = soup.find('div', class_='post-title')
+        body = content_div or soup.find('body') or soup
+        
+        elements = []
+        image_index = 0
+        
+        # post-title div에서 제목 추출 (새 템플릿)
+        if post_title_div:
+            title_text = post_title_div.get_text(strip=True)
+            if title_text:
+                elements.append({
+                    "type": "title",
+                    "content": title_text
+                })
+        
+        def process_element(element):
+            """요소 처리 헬퍼 함수"""
+            nonlocal image_index
+            
+            if not hasattr(element, 'name') or element.name is None:
+                return
+            
+            # h1: 제목 (네이버 에디터의 제목 영역에 입력)
+            if element.name == 'h1':
+                text = element.get_text(strip=True)
+                if text:
+                    elements.append({
+                        "type": "title",
+                        "content": text
+                    })
+            
+            # h2: 소제목 (네이버 에디터의 소제목 서식 적용)
+            elif element.name == 'h2':
+                text = element.get_text(strip=True)
+                if text:
+                    elements.append({
+                        "type": "subtitle",
+                        "content": text
+                    })
+            
+            # h3: 소제목2 또는 굵은 텍스트
+            elif element.name == 'h3':
+                text = element.get_text(strip=True)
+                if text:
+                    elements.append({
+                        "type": "subtitle2",
+                        "content": text
+                    })
+            
+            # p: 본문 텍스트
+            elif element.name == 'p':
+                text = element.get_text(strip=True)
+                if text:
+                    elements.append({
+                        "type": "paragraph",
+                        "content": text
+                    })
+            
+            # img: 이미지 (구분선 + 사진 업로드)
+            elif element.name == 'img':
+                src = element.get('src', '')
+                alt = element.get('alt', '')
+                
+                # 이미지 경로 찾기
+                local_path = None
+                if image_index < len(images):
+                    local_path = images[image_index].get('local_path') or images[image_index].get('path')
+                elif src and Path(src).exists():
+                    local_path = src
+                
+                elements.append({
+                    "type": "image",
+                    "content": alt,
+                    "local_path": local_path,
+                    "image_index": image_index
+                })
+                image_index += 1
+            
+            # ul/ol: 리스트
+            elif element.name in ['ul', 'ol']:
+                items = []
+                for li in element.find_all('li', recursive=False):
+                    text = li.get_text(strip=True)
+                    if text:
+                        items.append(text)
+                
+                if items:
+                    elements.append({
+                        "type": "list",
+                        "content": items,
+                        "ordered": element.name == 'ol'
+                    })
+            
+            # table: 테이블 (새 템플릿)
+            elif element.name == 'table':
+                # 테이블 데이터 추출
+                table_data = []
+                for row in element.find_all('tr'):
+                    row_data = []
+                    for cell in row.find_all(['th', 'td']):
+                        row_data.append(cell.get_text(strip=True))
+                    if row_data:
+                        table_data.append(row_data)
+                
+                if table_data:
+                    elements.append({
+                        "type": "table",
+                        "content": table_data
+                    })
+            
+            # blockquote: 인용구
+            elif element.name == 'blockquote':
+                text = element.get_text(strip=True)
+                if text:
+                    elements.append({
+                        "type": "quote",
+                        "content": text
+                    })
+            
+            # div: 내부 요소 재귀 처리
+            elif element.name == 'div':
+                # source 클래스는 출처로 처리
+                div_classes = element.get('class', [])
+                if 'source' in div_classes:
+                    text = element.get_text(strip=True)
+                    if text:
+                        elements.append({
+                            "type": "source",
+                            "content": text
+                        })
+                # post-header, post-content 등은 스킵 (이미 처리됨)
+                elif 'post-header' not in div_classes and 'post-content' not in div_classes:
+                    # 다른 div 내부 요소 재귀 처리
+                    for child in element.children:
+                        process_element(child)
+        
+        # body 또는 content_div 내의 모든 직접 자식 요소를 순서대로 처리
+        for element in body.children:
+            process_element(element)
+        
+        logger.info(f"블로그 HTML 파싱 완료: {len(elements)}개 요소")
+        for i, elem in enumerate(elements[:10]):  # 처음 10개만 로그
+            logger.debug(f"  [{i}] {elem['type']}: {str(elem.get('content', ''))[:50]}...")
+        
+        return elements
+
+    def _click_title_area(self) -> bool:
+        """
+        네이버 에디터 제목 영역 클릭
+        <span class="se-placeholder __se_placeholder se-ff-nanumgothic se-fs32">제목</span>
+        
+        Returns:
+            성공 여부
+        """
+        from selenium.webdriver.common.action_chains import ActionChains
+        
+        try:
+            # 방법 1: 제목 placeholder 찾기
+            title_selectors = [
+                "span.se-placeholder.se-fs32",
+                "span.__se_placeholder.se-fs32",
+                "span[class*='se-fs32'][class*='placeholder']"
+            ]
+            
+            for selector in title_selectors:
+                try:
+                    elem = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    if elem and elem.is_displayed():
+                        # 부모 p 요소 찾아서 클릭
+                        parent = elem.find_element(By.XPATH, "./ancestor::p[contains(@class, 'se-text-paragraph')]")
+                        
+                        # 스크롤하여 요소 보이게
+                        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", parent)
+                        time.sleep(0.2)
+                        
+                        # 클릭
+                        ActionChains(self.driver).move_to_element(parent).click().perform()
+                        time.sleep(0.3)
+                        
+                        logger.info(f"제목 영역 클릭 완료 (selector: {selector})")
+                        return True
+                except Exception as e:
+                    logger.debug(f"제목 selector {selector} 시도 실패: {e}")
+                    continue
+            
+            # 방법 2: 제목 영역 직접 찾기
+            try:
+                title_area = self.driver.find_element(By.CSS_SELECTOR, "div.se-title-text p.se-text-paragraph")
+                if title_area:
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", title_area)
+                    time.sleep(0.2)
+                    ActionChains(self.driver).move_to_element(title_area).click().perform()
+                    time.sleep(0.3)
+                    logger.info("제목 영역 클릭 완료 (div.se-title-text)")
+                    return True
+            except Exception as e:
+                logger.debug(f"제목 div 직접 찾기 실패: {e}")
+            
+            # 방법 3: JavaScript로 클릭
+            try:
+                result = self.driver.execute_script("""
+                    var titleP = document.querySelector('div.se-title-text p.se-text-paragraph');
+                    if (!titleP) {
+                        var placeholder = document.querySelector('span.se-placeholder.se-fs32');
+                        if (placeholder) {
+                            titleP = placeholder.closest('p.se-text-paragraph');
+                        }
+                    }
+                    
+                    if (titleP) {
+                        titleP.scrollIntoView({block: 'center'});
+                        titleP.click();
+                        titleP.focus();
+                        return 'success';
+                    }
+                    return 'not_found';
+                """)
+                
+                if result == 'success':
+                    time.sleep(0.3)
+                    logger.info("제목 영역 클릭 완료 (JavaScript)")
+                    return True
+            except Exception as e:
+                logger.debug(f"JavaScript 제목 클릭 실패: {e}")
+                
+        except Exception as e:
+            logger.warning(f"제목 영역 클릭 실패: {e}")
+        
+        logger.error("제목 영역을 찾을 수 없습니다")
+        return False
+
+    def _click_content_area(self) -> bool:
+        """
+        네이버 에디터 본문 영역 클릭
+        <span class="se-placeholder __se_placeholder se-ff-system se-fs15">글감과 함께...</span>
+        
+        Returns:
+            성공 여부
+        """
+        try:
+            # 본문 placeholder 찾기
+            content_selectors = [
+                "span.se-placeholder.se-fs15",
+                "span.__se_placeholder.se-fs15",
+                "span[class*='se-fs15'][class*='placeholder']"
+            ]
+            
+            for selector in content_selectors:
+                try:
+                    elem = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    if elem and elem.is_displayed():
+                        parent = elem.find_element(By.XPATH, "./ancestor::p[contains(@class, 'se-text-paragraph')]")
+                        self.driver.execute_script("arguments[0].click(); arguments[0].focus();", parent)
+                        time.sleep(0.3)
+                        logger.info("본문 영역 클릭 완료")
+                        return True
+                except:
+                    continue
+            
+            # 대안: Tab으로 이동
+            from selenium.webdriver.common.action_chains import ActionChains
+            ActionChains(self.driver).send_keys(Keys.TAB).perform()
+            time.sleep(0.3)
+            logger.info("본문 영역으로 Tab 이동")
+            return True
+            
+        except Exception as e:
+            logger.warning(f"본문 영역 클릭 실패: {e}")
+        return False
+
+    def _apply_subtitle_format(self) -> bool:
+        """
+        네이버 에디터 소제목 서식 적용
+        <span class="se-toolbar-option-label" aria-hidden="true">소제목</span>
+        
+        Returns:
+            성공 여부
+        """
+        try:
+            # 소제목 버튼 찾기 (텍스트로 검색)
+            subtitle_btn = self.driver.find_element(
+                By.XPATH, 
+                "//span[@class='se-toolbar-option-label' and contains(text(), '소제목')]"
+            )
+            if subtitle_btn:
+                self.driver.execute_script("arguments[0].click();", subtitle_btn)
+                time.sleep(0.3)
+                logger.info("소제목 서식 적용 완료")
+                return True
+        except Exception as e:
+            logger.warning(f"소제목 서식 적용 실패: {e}")
+        return False
+
+    def _apply_quote_format(self) -> bool:
+        """
+        네이버 에디터 인용구 서식 적용
+        <span class="se-toolbar-option-label" aria-hidden="true">인용구</span>
+        
+        Returns:
+            성공 여부
+        """
+        try:
+            quote_btn = self.driver.find_element(
+                By.XPATH,
+                "//span[@class='se-toolbar-option-label' and contains(text(), '인용구')]"
+            )
+            if quote_btn:
+                self.driver.execute_script("arguments[0].click();", quote_btn)
+                time.sleep(0.3)
+                logger.info("인용구 서식 적용 완료")
+                return True
+        except Exception as e:
+            logger.warning(f"인용구 서식 적용 실패: {e}")
+        return False
+
+    def _insert_divider(self) -> bool:
+        """
+        네이버 에디터 구분선 삽입
+        <span class="se-toolbar-icon"></span> (구분선 버튼)
+        
+        Returns:
+            성공 여부
+        """
+        try:
+            # 구분선 버튼 찾기 (data-name 또는 title 속성으로)
+            divider_selectors = [
+                "button[data-name='horizontalLine']",
+                "button[data-name='hr']",
+                "button[title*='구분선']",
+                "button[title*='줄']",
+                "button[aria-label*='구분선']"
+            ]
+            
+            for selector in divider_selectors:
+                try:
+                    btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    if btn and btn.is_displayed():
+                        self.driver.execute_script("arguments[0].click();", btn)
+                        time.sleep(0.5)
+                        logger.info("구분선 삽입 완료")
+                        return True
+                except:
+                    continue
+            
+            logger.warning("구분선 버튼을 찾지 못함")
+            return False
+            
+        except Exception as e:
+            logger.warning(f"구분선 삽입 실패: {e}")
+        return False
+
+    def _upload_image(self, local_path: str) -> bool:
+        """
+        네이버 에디터 이미지 업로드
+        <span class="se-toolbar-icon"></span> (사진 버튼)
+        
+        Args:
+            local_path: 이미지 파일 경로
+        
+        Returns:
+            성공 여부
+        """
+        try:
+            if not local_path or not Path(local_path).exists():
+                logger.warning(f"이미지 파일이 없습니다: {local_path}")
+                return False
+            
+            # 사진 버튼 찾기
+            image_btn_selectors = [
+                "button[data-name='image']",
+                "button[title*='사진']",
+                "button[title*='이미지']",
+                "button[aria-label*='사진']",
+                "button[aria-label*='이미지']"
+            ]
+            
+            image_btn = None
+            for selector in image_btn_selectors:
+                try:
+                    btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    if btn and btn.is_displayed():
+                        image_btn = btn
+                        break
+                except:
+                    continue
+            
+            if not image_btn:
+                # span.se-toolbar-icon 중 이미지 버튼 찾기
+                icons = self.driver.find_elements(By.CSS_SELECTOR, "button span.se-toolbar-icon")
+                for icon in icons:
+                    parent = icon.find_element(By.XPATH, "./..")
+                    if parent.get_attribute("data-name") == "image":
+                        image_btn = parent
+                        break
+            
+            if image_btn:
+                self.driver.execute_script("arguments[0].click();", image_btn)
+                time.sleep(1)
+                
+                # 파일 입력 찾기
+                file_input = self.driver.find_element(By.CSS_SELECTOR, "input[type='file']")
+                if file_input:
+                    file_input.send_keys(str(local_path))
+                    time.sleep(2)  # 업로드 대기
+                    
+                    # ESC 키로 파일 탐색창 닫기
+                    from selenium.webdriver.common.action_chains import ActionChains
+                    from selenium.webdriver.common.keys import Keys
+                    ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                    time.sleep(0.5)
+                    
+                    # 이미지 업로드 완료 확인
+                    WebDriverWait(self.driver, 10).until(
+                        lambda d: len(d.find_elements(By.CSS_SELECTOR, "img.se-image-resource")) > 0
+                    )
+                    logger.info(f"이미지 업로드 완료: {Path(local_path).name}")
+                    return True
+            
+            logger.warning("이미지 버튼을 찾지 못함")
+            return False
+            
+        except Exception as e:
+            logger.warning(f"이미지 업로드 실패: {e}")
+        return False
+
+    def _input_text(self, text: str) -> bool:
+        """
+        현재 위치에 텍스트 입력 (클립보드 붙여넣기)
+        
+        Args:
+            text: 입력할 텍스트
+        
+        Returns:
+            성공 여부
+        """
+        try:
+            import pyperclip
+            from selenium.webdriver.common.action_chains import ActionChains
+            
+            # 클립보드에 텍스트 복사
+            pyperclip.copy(text)
+            time.sleep(0.1)
+            logger.debug(f"클립보드에 복사: {text[:50]}...")
+            
+            # Ctrl+V로 붙여넣기
+            ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
+            time.sleep(0.3)
+            
+            logger.info(f"텍스트 입력 완료: {text[:30]}...")
+            return True
+        except Exception as e:
+            logger.error(f"텍스트 입력 실패: {e}")
+        return False
+
+    def _press_enter(self, count: int = 1):
+        """Enter 키 입력"""
+        from selenium.webdriver.common.action_chains import ActionChains
+        for _ in range(count):
+            ActionChains(self.driver).send_keys(Keys.RETURN).perform()
+            time.sleep(0.2)
+
+    def _publish_with_new_method(self, html: str, images: List[Dict[str, Any]], title: str = None) -> Dict[str, Any]:
+        """
+        새로운 방식으로 블로그 발행 (제목, 본문, 이미지 입력 + 발행 버튼 클릭)
+        
+        Args:
+            html: 블로그 HTML
+            images: 이미지 정보 리스트
+            title: 블로그 제목
+        
+        Returns:
+            발행 결과 딕셔너리 {"success": bool, "url": str, "error": str}
+        """
+        try:
+            # 1. 제목, 본문, 이미지 입력
+            content_success = self.publish_with_naver_editor(html, images, title)
+            
+            if not content_success:
+                return {"success": False, "error": "콘텐츠 입력 실패", "url": None}
+            
+            # 2. 발행 버튼 클릭
+            logger.info("발행 버튼 클릭 중...")
+            try:
+                # 첫 번째 발행 버튼 찾기
+                publish_btn = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "button.publish_btn__m9KHH, button[data-click-area='tpb.publish']"))
+                )
+                publish_btn.click()
+                logger.info("첫 번째 발행 버튼 클릭 완료")
+                time.sleep(3)
+                
+                # 확인 발행 버튼 클릭 (있는 경우)
+                try:
+                    confirm_btn = WebDriverWait(self.driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, "button.confirm_btn__WEaBq, button.confirm_btn__Dv9iP, button[data-testid='seOnePublishBtn'], button[data-click-area='tpc.confirm']"))
+                    )
+                    confirm_btn.click()
+                    logger.info("확인 발행 버튼 클릭 완료")
+                    time.sleep(3)
+                except:
+                    logger.info("확인 발행 버튼 없음 (정상)")
+                
+            except Exception as e:
+                logger.error(f"발행 버튼 클릭 실패: {e}")
+                return {"success": False, "error": f"발행 버튼 클릭 실패: {e}", "url": None}
+            
+            # 3. 발행 완료 확인 (URL 변경 감지)
+            logger.info("발행 완료 확인 중...")
+            try:
+                # 발행 후 URL 변경 대기 (최대 30초, 2초 간격으로 폴링)
+                max_wait = 30
+                check_interval = 2
+                elapsed = 0
+                button_retry_done = False  # 25초 후 버튼 재클릭 플래그
+                
+                while elapsed < max_wait:
+                    time.sleep(check_interval)
+                    elapsed += check_interval
+                    current_url = self.driver.current_url
+                    
+                    # 블로그 글 URL 확인 (postwrite가 아닌 경우 성공)
+                    if "postwrite" not in current_url and "blog.naver.com" in current_url:
+                        logger.info(f"발행 성공! URL: {current_url}")
+                        return {"success": True, "url": current_url, "error": None}
+                    
+                    # 25초 후에도 URL 변경 없으면 발행 버튼 다시 클릭
+                    if elapsed >= 25 and not button_retry_done:
+                        logger.info("25초 경과 - 발행 버튼 재클릭 시도")
+                        try:
+                            # 확인 발행 버튼 먼저 시도
+                            confirm_btn = self.driver.find_element(By.CSS_SELECTOR, "button.confirm_btn__WEaBq, button.confirm_btn__Dv9iP, button[data-testid='seOnePublishBtn'], button[data-click-area='tpc.confirm']")
+                            confirm_btn.click()
+                            logger.info("확인 발행 버튼 재클릭 완료")
+                        except:
+                            try:
+                                # 첫 번째 발행 버튼 시도
+                                publish_btn = self.driver.find_element(By.CSS_SELECTOR, "button.publish_btn__m9KHH, button.confirm_btn__WEaBq, button[data-testid='seOnePublishBtn'], button[data-click-area='tpb.publish']")
+                                publish_btn.click()
+                                logger.info("발행 버튼 재클릭 완료")
+                            except:
+                                logger.warning("발행 버튼 재클릭 실패")
+                        button_retry_done = True
+                        continue
+                    
+                    logger.info(f"발행 완료 대기 중... ({elapsed}초)")
+                
+                # 30초 후에도 URL이 변경되지 않음
+                current_url = self.driver.current_url
+                if "postwrite" in current_url:
+                    logger.warning(f"발행 완료 확인 실패 - URL이 변경되지 않음: {current_url}")
+                    return {"success": False, "url": current_url, "error": "발행 완료 확인 실패 (URL이 변경되지 않음)"}
+                else:
+                    logger.info(f"발행 완료: {current_url}")
+                    return {"success": True, "url": current_url, "error": None}
+                    
+            except Exception as e:
+                logger.warning(f"URL 확인 실패: {e}")
+                return {"success": False, "url": None, "error": f"URL 확인 실패: {e}"}
+                
+        except Exception as e:
+            logger.error(f"새로운 방식 발행 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"success": False, "error": str(e), "url": None}
+
+    def publish_with_naver_editor(self, html: str, images: List[Dict[str, Any]], title: str = None) -> bool:
+        """
+        네이버 스마트에디터를 사용하여 블로그 발행
+        - HTML을 파싱하여 각 요소를 순차적으로 입력
+        - 소제목, 인용구 등 서식 적용
+        - 이미지 위치에 구분선 + 사진 업로드
+        
+        Args:
+            html: 블로그 HTML
+            images: 이미지 정보 리스트
+            title: 블로그 제목 (None이면 HTML에서 추출)
+        
+        Returns:
+            발행 성공 여부
+        """
+        try:
+            from selenium.webdriver.common.action_chains import ActionChains
+            
+            # HTML 파싱
+            elements = self._parse_blog_for_naver(html, images)
+            
+            if not elements:
+                logger.error("파싱된 요소가 없습니다.")
+                return False
+            
+            # 1. 제목 입력
+            title_elem = next((e for e in elements if e['type'] == 'title'), None)
+            actual_title = title or (title_elem['content'] if title_elem else "블로그 제목")
+            
+            logger.info(f"제목 입력 시작: {actual_title[:50]}...")
+            title_input_success = False
+            
+            # 방법 1: 제목 영역 클릭 후 입력
+            if self._click_title_area():
+                time.sleep(0.3)
+                if self._input_text(actual_title):
+                    title_input_success = True
+                    logger.info(f"제목 입력 성공 (방법 1): {actual_title[:30]}...")
+                    time.sleep(0.5)
+            
+            # 방법 2: JavaScript로 직접 입력
+            if not title_input_success:
+                try:
+                    escaped_title = actual_title.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", " ")
+                    result = self.driver.execute_script(f"""
+                        // 제목 영역 찾기
+                        var titleP = document.querySelector('div.se-title-text p.se-text-paragraph');
+                        if (!titleP) {{
+                            var placeholder = document.querySelector('span.se-placeholder.se-fs32');
+                            if (placeholder) {{
+                                titleP = placeholder.closest('p.se-text-paragraph');
+                            }}
+                        }}
+                        
+                        if (titleP) {{
+                            // 기존 내용 제거하고 새 텍스트 입력
+                            var placeholder = titleP.querySelector('span.se-placeholder');
+                            if (placeholder) placeholder.style.display = 'none';
+                            
+                            // 텍스트 span 추가
+                            var textSpan = document.createElement('span');
+                            textSpan.textContent = '{escaped_title}';
+                            titleP.appendChild(textSpan);
+                            
+                            // 이벤트 발생
+                            titleP.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            titleP.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                            
+                            return 'success';
+                        }}
+                        return 'not_found';
+                    """)
+                    
+                    if result == 'success':
+                        title_input_success = True
+                        logger.info(f"제목 입력 성공 (JavaScript): {actual_title[:30]}...")
+                        time.sleep(0.5)
+                    else:
+                        logger.warning("JavaScript로 제목 영역을 찾지 못함")
+                except Exception as e:
+                    logger.error(f"JavaScript 제목 입력 실패: {e}")
+            
+            if not title_input_success:
+                logger.error("제목 입력 실패 - 모든 방법 시도 완료")
+            
+            # 2. 본문 영역으로 이동
+            logger.info("본문 입력 시작...")
+            self._click_content_area()
+            
+            # 3. 각 요소 순차 입력
+            for i, elem in enumerate(elements):
+                elem_type = elem['type']
+                content = elem.get('content', '')
+                
+                # 제목은 이미 입력했으므로 건너뜀
+                if elem_type == 'title':
+                    continue
+                
+                logger.info(f"[{i+1}/{len(elements)}] {elem_type}: {str(content)[:30]}...")
+                
+                if elem_type == 'subtitle':
+                    # 소제목: 서식 적용 후 텍스트 입력
+                    self._apply_subtitle_format()
+                    self._input_text(content)
+                    self._press_enter()
+                
+                elif elem_type == 'subtitle2':
+                    # 소제목2: 굵게 처리하거나 소제목으로
+                    self._input_text(f"■ {content}")
+                    self._press_enter()
+                
+                elif elem_type == 'paragraph':
+                    # 본문 텍스트
+                    self._input_text(content)
+                    self._press_enter()
+                
+                elif elem_type == 'quote':
+                    # 인용구: 서식 적용 후 텍스트 입력
+                    self._apply_quote_format()
+                    self._input_text(content)
+                    self._press_enter()
+                
+                elif elem_type == 'list':
+                    # 리스트: 각 항목을 줄바꿈으로 입력
+                    items = content if isinstance(content, list) else [content]
+                    for item in items:
+                        self._input_text(f"• {item}")
+                        self._press_enter()
+                
+                elif elem_type == 'image':
+                    # 이미지: 구분선 삽입 → 사진 업로드
+                    local_path = elem.get('local_path')
+                    
+                    # 구분선 삽입 (선택사항)
+                    # self._insert_divider()
+                    # self._press_enter()
+                    
+                    # 이미지 업로드
+                    if local_path:
+                        self._upload_image(local_path)
+                        self._press_enter()
+                    else:
+                        logger.warning(f"이미지 파일 경로가 없습니다 (index: {elem.get('image_index')})")
+                
+                elif elem_type == 'source':
+                    # 출처
+                    self._input_text(f"[출처] {content}")
+                    self._press_enter()
+                
+                time.sleep(0.3)  # 각 요소 입력 후 잠시 대기
+            
+            logger.info("블로그 내용 입력 완료")
+            return True
+            
+        except Exception as e:
+            logger.error(f"네이버 에디터 발행 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def _split_html_into_sections(self, html: str) -> List[Dict[str, Any]]:
         """
         HTML을 섹션(텍스트/이미지)으로 분리
@@ -888,26 +1672,30 @@ strong, b {{ font-weight: bold; }}
             # 내용 영역에 포커스 설정
             content_focused = False
             
-            # 방법 1: Tab 키로 제목에서 내용으로 이동
+            # 방법 1: 내용 placeholder 클릭 (네이버 스마트에디터 최신)
+            # <span class="se-placeholder __se_placeholder se-ff-nanumgothic se-fs15">글감과 함께...</span>
             try:
-                ActionChains(self.driver).send_keys(Keys.TAB).perform()
-                time.sleep(0.5)
-                content_focused = True
-                logger.info("Tab 키로 내용 영역 이동")
+                content_placeholder = self.driver.find_element(
+                    By.CSS_SELECTOR, 
+                    "span.se-placeholder.se-fs15, span.__se_placeholder.se-fs15"
+                )
+                if content_placeholder:
+                    self.driver.execute_script("arguments[0].click();", content_placeholder)
+                    time.sleep(0.5)
+                    content_focused = True
+                    logger.info("내용 placeholder 클릭으로 포커스 설정 (방법 1)")
             except Exception as e:
-                logger.warning(f"Tab 키 이동 실패: {e}")
+                logger.warning(f"내용 placeholder 클릭 실패: {e}")
             
-            # 방법 2: 내용 placeholder 클릭
+            # 방법 2: Tab 키로 제목에서 내용으로 이동
             if not content_focused:
                 try:
-                    content_placeholder = self.driver.find_element(By.CSS_SELECTOR, "span.se-placeholder.se-fs15")
-                    if content_placeholder:
-                        self.driver.execute_script("arguments[0].click();", content_placeholder)
-                        time.sleep(0.5)
-                        content_focused = True
-                        logger.info("내용 placeholder 클릭으로 포커스 설정")
+                    ActionChains(self.driver).send_keys(Keys.TAB).perform()
+                    time.sleep(0.5)
+                    content_focused = True
+                    logger.info("Tab 키로 내용 영역 이동 (방법 2)")
                 except Exception as e:
-                    logger.warning(f"내용 placeholder 클릭 실패: {e}")
+                    logger.warning(f"Tab 키 이동 실패: {e}")
             
             # 방법 3: JavaScript로 내용 영역 찾아서 클릭
             if not content_focused:
@@ -1017,6 +1805,7 @@ strong, b {{ font-weight: bold; }}
     def _insert_image_at_cursor(self, local_path: str, img_info: Dict[str, Any]) -> bool:
         """
         현재 커서 위치에 이미지 삽입
+        - 사진 아이콘(se-toolbar-icon) 클릭 → 파일 선택 → 업로드
         
         Args:
             local_path: 이미지 파일 경로
@@ -1028,61 +1817,106 @@ strong, b {{ font-weight: bold; }}
         try:
             image_inserted = False
             
-            # 방법 1: 이미지 삽입 버튼 클릭 후 파일 업로드
+            # 방법 0: 먼저 file input을 찾아서 직접 경로 설정 (탐색창 안 열림)
             try:
-                image_btn_selectors = [
-                    "button[data-name='image']",
-                    "button.se-toolbar-button-image",
-                    ".se-toolbar-button-image",
-                    "button[aria-label*='이미지']",
-                    "button[title*='이미지']"
+                file_input_selectors = [
+                    "input[type='file'][accept*='image']",
+                    "input[type='file']",
+                    "input[accept*='image']"
                 ]
                 
-                image_btn = None
-                for selector in image_btn_selectors:
+                file_input = None
+                for selector in file_input_selectors:
                     try:
-                        image_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
-                        if image_btn and image_btn.is_displayed():
+                        file_input = self.driver.find_element(By.CSS_SELECTOR, selector)
+                        if file_input:
                             break
                     except:
                         continue
                 
-                if image_btn:
-                    self.driver.execute_script("arguments[0].click();", image_btn)
-                    time.sleep(1)
+                if file_input:
+                    # 직접 파일 경로 설정 (탐색창 열리지 않음)
+                    file_input.send_keys(str(local_path))
+                    time.sleep(3)  # 업로드 대기
                     
-                    file_input_selectors = [
-                        "input[type='file'][accept*='image']",
-                        "input[type='file']",
-                        "input[accept*='image']"
+                    try:
+                        WebDriverWait(self.driver, 10).until(
+                            lambda d: d.execute_script("""
+                                return document.querySelectorAll('img.se-image-resource, img.se-module-image').length > 0;
+                            """)
+                        )
+                        image_inserted = True
+                        logger.info(f"이미지 {img_info.get('index', 0)} 삽입 완료 (직접 업로드)")
+                    except:
+                        logger.warning(f"이미지 {img_info.get('index', 0)} 직접 업로드 확인 실패")
+            except Exception as e:
+                logger.warning(f"이미지 직접 업로드 실패: {e}")
+            
+            # 방법 1: 이미지 삽입 버튼 클릭 후 파일 업로드 (방법 0 실패 시)
+            if not image_inserted:
+                try:
+                    # 네이버 스마트에디터 이미지 버튼 셀렉터 (우선순위순)
+                    image_btn_selectors = [
+                        "button[data-name='image']",
+                        "button.se-toolbar-button-image",
+                        ".se-toolbar-button-image",
+                        "button[aria-label*='이미지']",
+                        "button[title*='이미지']",
+                        "button[title*='사진']"
                     ]
                     
-                    file_input = None
-                    for selector in file_input_selectors:
+                    image_btn = None
+                    for selector in image_btn_selectors:
                         try:
-                            file_input = self.driver.find_element(By.CSS_SELECTOR, selector)
-                            if file_input:
+                            image_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                            if image_btn and image_btn.is_displayed():
                                 break
                         except:
                             continue
                     
-                    if file_input:
-                        file_input.send_keys(str(local_path))
-                        time.sleep(2)
+                    if image_btn:
+                        self.driver.execute_script("arguments[0].click();", image_btn)
+                        time.sleep(1)
                         
-                        try:
-                            WebDriverWait(self.driver, 10).until(
-                                lambda d: d.execute_script("""
-                                    return document.querySelectorAll('img.se-image-resource, img.se-module-image').length > 0;
-                                """)
-                            )
-                            image_inserted = True
-                            logger.info(f"이미지 {img_info.get('index', 0)} 삽입 완료")
-                        except:
-                            logger.warning(f"이미지 {img_info.get('index', 0)} 삽입 확인 실패")
-            
-            except Exception as e:
-                logger.warning(f"이미지 삽입 방법 1 실패: {e}")
+                        file_input = None
+                        for selector in file_input_selectors:
+                            try:
+                                file_input = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                if file_input:
+                                    break
+                            except:
+                                continue
+                        
+                        if file_input:
+                            file_input.send_keys(str(local_path))
+                            time.sleep(3)  # 업로드 대기
+                            
+                            # pyautogui로 ESC 키 전송 (OS 수준 탐색창 닫기)
+                            try:
+                                import pyautogui
+                                pyautogui.press('escape')
+                                time.sleep(0.5)
+                                logger.info("pyautogui로 ESC 키 전송 완료")
+                            except ImportError:
+                                # pyautogui 없으면 Selenium으로 시도
+                                from selenium.webdriver.common.action_chains import ActionChains
+                                from selenium.webdriver.common.keys import Keys
+                                ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                                time.sleep(0.5)
+                            
+                            try:
+                                WebDriverWait(self.driver, 10).until(
+                                    lambda d: d.execute_script("""
+                                        return document.querySelectorAll('img.se-image-resource, img.se-module-image').length > 0;
+                                    """)
+                                )
+                                image_inserted = True
+                                logger.info(f"이미지 {img_info.get('index', 0)} 삽입 완료")
+                            except:
+                                logger.warning(f"이미지 {img_info.get('index', 0)} 삽입 확인 실패")
+                
+                except Exception as e:
+                    logger.warning(f"이미지 삽입 방법 1 실패: {e}")
             
             # 방법 2: 드래그 앤 드롭 (방법 1 실패 시)
             if not image_inserted:
@@ -1090,7 +1924,19 @@ strong, b {{ font-weight: bold; }}
                     file_inputs = self.driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
                     if file_inputs:
                         file_inputs[-1].send_keys(str(local_path))
-                        time.sleep(2)
+                        time.sleep(3)
+                        
+                        # pyautogui로 ESC 키 전송
+                        try:
+                            import pyautogui
+                            pyautogui.press('escape')
+                            time.sleep(0.5)
+                        except ImportError:
+                            from selenium.webdriver.common.action_chains import ActionChains
+                            from selenium.webdriver.common.keys import Keys
+                            ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                            time.sleep(0.5)
+                        
                         image_inserted = True
                         logger.info(f"이미지 {img_info.get('index', 0)} 삽입 완료 (방법 2)")
                 except Exception as e:
@@ -1162,60 +2008,169 @@ strong, b {{ font-weight: bold; }}
             except:
                 logger.info("도움말 창 없음 (정상)")
 
-            # 1. 제목 입력
-            logger.info(f"제목 입력 중: {title[:50]}...")
+            # ========================================
+            # 새로운 방식: 네이버 스마트에디터 직접 제어
+            # HTML을 파싱하여 각 요소를 순차적으로 입력
+            # ========================================
+            
+            # HTML 여부 확인 (HTML 태그가 있는지)
+            is_html = bool(re.search(r'<(h[1-6]|p|div|img|ul|ol)', content))
+            use_new_method = False  # 새로운 방식 사용 여부
+            
+            if is_html:
+                logger.info("HTML 콘텐츠 감지 - 네이버 에디터 직접 제어 모드")
+                
+                # 네이버 에디터로 발행 (제목, 본문, 이미지 + 발행 버튼 클릭까지)
+                result = self._publish_with_new_method(content, images, title)
+                
+                if result.get('success'):
+                    # 새로운 방식으로 발행 성공 - 바로 반환
+                    logger.info("네이버 에디터 직접 제어로 발행 완료!")
+                    return result
+                else:
+                    logger.warning(f"네이버 에디터 직접 제어 실패: {result.get('error')}, 기존 방식으로 폴백")
+                    use_new_method = False
+            
+            # ========================================
+            # 기존 방식 vs 새로운 방식 분기
+            # ========================================
+            if use_new_method:
+                # 새로운 방식으로 이미 제목/본문 입력 완료 - 발행 버튼으로 바로 이동
+                logger.info("새로운 방식 성공 - 기존 로직 건너뛰고 발행 버튼으로 이동")
+                # 발행 버튼 클릭으로 점프 (아래 기존 로직 건너뛰기)
+                pass
+            
+            # ========================================
+            # 기존 방식: 제목/본문 입력 (폴백)
+            # 새로운 방식이 실패한 경우에만 여기에 도달
+            # ========================================
+            logger.info(f"제목 입력 중 (기존 방식): {title[:50]}...")
             title_input_success = False
             
-            # 방법 1: 제목 컨테이너를 직접 찾아서 입력
+            # 방법 0: 제목 placeholder의 부모 요소(p.se-text-paragraph) 클릭 후 입력
+            # <span class="se-placeholder __se_placeholder se-ff-nanumgothic se-fs32">제목</span>
             try:
-                # 제목 영역의 contenteditable 요소 찾기 (se-component-content 내부)
-                title_selectors = [
-                    "div.se-title-text p.se-text-paragraph",  # 제목 텍스트 영역
-                    "div.se-component.se-title p.se-text-paragraph",  # 제목 컴포넌트
-                    "div[class*='title'] p.se-text-paragraph",  # 제목 관련
-                ]
-                
-                title_element = None
-                for selector in title_selectors:
-                    try:
-                        title_element = WebDriverWait(self.driver, 3).until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-                        )
-                        if title_element:
-                            logger.info(f"제목 요소 발견: {selector}")
-                            break
-                    except:
-                        continue
-                
-                if title_element:
-                    # 제목 영역 클릭
-                    ActionChains(self.driver).move_to_element(title_element).click().perform()
-                    time.sleep(0.5)
+                # 제목 placeholder 찾기
+                title_placeholder = self.driver.find_element(
+                    By.CSS_SELECTOR, 
+                    "span.se-placeholder.se-fs32, span.se-fs32.se-placeholder"
+                )
+                if title_placeholder:
+                    # placeholder의 부모 p 요소 찾기
+                    title_paragraph = title_placeholder.find_element(By.XPATH, "./ancestor::p[contains(@class, 'se-text-paragraph')]")
                     
-                    # 클립보드로 제목 입력
-                    try:
-                        import pyperclip
-                        pyperclip.copy(title)
-                        time.sleep(0.2)
-                        
-                        # Ctrl+A로 전체 선택 후 Ctrl+V로 붙여넣기
-                        ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).perform()
-                        time.sleep(0.2)
-                        ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
-                        time.sleep(0.5)
-                        
-                        title_input_success = True
-                        logger.info(f"제목 입력 완료 (클립보드): {title}")
-                    except ImportError:
-                        # pyperclip이 없으면 send_keys로 직접 입력
-                        title_element.send_keys(Keys.CONTROL + 'a')
-                        time.sleep(0.2)
-                        title_element.send_keys(title)
-                        time.sleep(0.5)
-                        title_input_success = True
-                        logger.info(f"제목 입력 완료 (send_keys): {title}")
+                    # 부모 p 요소 클릭 (포커스 설정)
+                    self.driver.execute_script("arguments[0].click(); arguments[0].focus();", title_paragraph)
+                    time.sleep(0.5)
+                    logger.info("제목 영역 클릭 완료 (부모 p 요소)")
+                    
+                    # 제목 입력 (클립보드 붙여넣기)
+                    import pyperclip
+                    pyperclip.copy(title)
+                    time.sleep(0.2)
+                    
+                    # 활성 요소에 붙여넣기
+                    ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
+                    time.sleep(0.5)
+                    title_input_success = True
+                    logger.info(f"제목 입력 완료 (placeholder 부모 클릭): {title}")
             except Exception as e:
-                logger.warning(f"방법 1 제목 입력 실패: {e}")
+                logger.warning(f"방법 0 제목 placeholder 클릭 실패: {e}")
+            
+            # 방법 0-1: JavaScript로 제목 영역 직접 찾아서 클릭 및 입력
+            if not title_input_success:
+                try:
+                    escaped_title = title.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", " ")
+                    result = self.driver.execute_script(f"""
+                        // 제목 placeholder 찾기 (se-fs32 클래스)
+                        var placeholder = document.querySelector('span.se-placeholder.se-fs32');
+                        if (!placeholder) {{
+                            placeholder = document.querySelector('span[class*="se-fs32"][class*="placeholder"]');
+                        }}
+                        
+                        if (placeholder) {{
+                            // placeholder의 부모 p 요소
+                            var titleP = placeholder.closest('p.se-text-paragraph');
+                            if (titleP) {{
+                                titleP.click();
+                                titleP.focus();
+                                
+                                // placeholder 숨기기
+                                placeholder.style.display = 'none';
+                                
+                                // 텍스트 노드 추가
+                                titleP.innerHTML = '<span>{escaped_title}</span>';
+                                
+                                // 이벤트 발생
+                                titleP.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                titleP.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                                
+                                return 'success';
+                            }}
+                        }}
+                        return 'not_found';
+                    """)
+                    
+                    if result == 'success':
+                        title_input_success = True
+                        logger.info(f"제목 입력 완료 (JavaScript DOM): {title}")
+                        time.sleep(0.5)
+                    else:
+                        logger.warning("JavaScript로 제목 요소를 찾지 못함")
+                except Exception as e:
+                    logger.warning(f"방법 0-1 JavaScript 제목 입력 실패: {e}")
+            
+            # 방법 1: 제목 컨테이너를 직접 찾아서 입력
+            if not title_input_success:
+                try:
+                    # 제목 영역의 contenteditable 요소 찾기 (se-component-content 내부)
+                    title_selectors = [
+                        "div.se-title-text p.se-text-paragraph",  # 제목 텍스트 영역
+                        "div.se-component.se-title p.se-text-paragraph",  # 제목 컴포넌트
+                        "div[class*='title'] p.se-text-paragraph",  # 제목 관련
+                    ]
+                    
+                    title_element = None
+                    for selector in title_selectors:
+                        try:
+                            title_element = WebDriverWait(self.driver, 3).until(
+                                EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                            )
+                            if title_element:
+                                logger.info(f"제목 요소 발견: {selector}")
+                                break
+                        except:
+                            continue
+                    
+                    if title_element:
+                        # 제목 영역 클릭
+                        ActionChains(self.driver).move_to_element(title_element).click().perform()
+                        time.sleep(0.5)
+                        
+                        # 클립보드로 제목 입력
+                        try:
+                            import pyperclip
+                            pyperclip.copy(title)
+                            time.sleep(0.2)
+                            
+                            # Ctrl+A로 전체 선택 후 Ctrl+V로 붙여넣기
+                            ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).perform()
+                            time.sleep(0.2)
+                            ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
+                            time.sleep(0.5)
+                            
+                            title_input_success = True
+                            logger.info(f"제목 입력 완료 (클립보드): {title}")
+                        except ImportError:
+                            # pyperclip이 없으면 send_keys로 직접 입력
+                            title_element.send_keys(Keys.CONTROL + 'a')
+                            time.sleep(0.2)
+                            title_element.send_keys(title)
+                            time.sleep(0.5)
+                            title_input_success = True
+                            logger.info(f"제목 입력 완료 (send_keys): {title}")
+                except Exception as e:
+                    logger.warning(f"방법 1 제목 입력 실패: {e}")
             
             # 방법 2: JavaScript로 직접 입력
             if not title_input_success:
@@ -1696,6 +2651,12 @@ strong, b {{ font-weight: bold; }}
                                             file_input.send_keys(str(local_path))
                                             time.sleep(2)  # 업로드 대기
                                             
+                                            # ESC 키로 파일 탐색창 닫기
+                                            from selenium.webdriver.common.action_chains import ActionChains
+                                            from selenium.webdriver.common.keys import Keys
+                                            ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                                            time.sleep(0.5)
+                                            
                                             # 업로드 완료 대기 (이미지가 에디터에 삽입될 때까지)
                                             try:
                                                 WebDriverWait(self.driver, 10).until(
@@ -1752,6 +2713,12 @@ strong, b {{ font-weight: bold; }}
                                                 # 가장 최근에 생성된 input 사용
                                                 file_inputs[-1].send_keys(str(local_path))
                                                 time.sleep(2)
+                                                
+                                                # ESC 키로 파일 탐색창 닫기
+                                                from selenium.webdriver.common.keys import Keys
+                                                ActionChains(self.driver).send_keys(Keys.ESCAPE).perform()
+                                                time.sleep(0.5)
+                                                
                                                 image_inserted = True
                                                 logger.info(f"이미지 {img_info.get('index', 0)} 업로드 완료 (방법 2)")
                                         
@@ -1851,6 +2818,7 @@ strong, b {{ font-weight: bold; }}
             max_wait = 30  # 최대 30초 대기
             wait_interval = 2
             waited = 0
+            button_retry_done = False  # 25초 후 버튼 재클릭 플래그
             
             while waited < max_wait:
                 try:
@@ -1879,6 +2847,24 @@ strong, b {{ font-weight: bold; }}
                             }
                 except:
                     pass
+                
+                # 25초 후에도 발행 확인 안되면 발행 버튼 다시 클릭
+                if waited >= 25 and not button_retry_done:
+                    logger.info("25초 경과 - 발행 버튼 재클릭 시도")
+                    try:
+                        # 확인 발행 버튼 먼저 시도
+                        confirm_btn = self.driver.find_element(By.CSS_SELECTOR, "button.confirm_btn__WEaBq, button[data-testid='seOnePublishBtn'], button.confirm_btn__Dv9iP")
+                        confirm_btn.click()
+                        logger.info("확인 발행 버튼 재클릭 완료")
+                    except:
+                        try:
+                            # 첫 번째 발행 버튼 시도
+                            publish_btn = self.driver.find_element(By.CSS_SELECTOR, "button.publish_btn__m9KHH, button[data-testid='seOnePublishBtn']")
+                            publish_btn.click()
+                            logger.info("발행 버튼 재클릭 완료")
+                        except:
+                            logger.warning("발행 버튼 재클릭 실패")
+                    button_retry_done = True
                 
                 time.sleep(wait_interval)
                 waited += wait_interval

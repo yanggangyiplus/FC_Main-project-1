@@ -239,8 +239,8 @@ class BlogGenerator:
             if ChatGoogleGenerativeAI is None:
                 raise ValueError("langchain-google-genai 패키지가 설치되지 않았습니다. pip install langchain-google-genai")
             
-            # Gemini 모델명 결정
-            gemini_model = self.model_name if "gemini" in self.model_name.lower() else "gemini-1.5-flash"
+            # Gemini 모델명 결정 (gemini-2.0-flash-exp 사용)
+            gemini_model = self.model_name if "gemini" in self.model_name.lower() else "gemini-2.0-flash-exp"
             logger.info(f"Gemini 모델 사용: {gemini_model}")
             
             return ChatGoogleGenerativeAI(
@@ -332,15 +332,41 @@ class BlogGenerator:
             raise
 
     def get_default_prompt(self) -> str:
-        """기본 프롬프트 템플릿 반환"""
-        return """너는 전문 블로거야. 매일 카테고리별 관련된 이슈를 블로그 글로 정리 및 작성해서 올리지.
+        """기본 프롬프트 템플릿 반환 - SEO 최적화 버전"""
+        return """**[역할 정의]**
+당신은 Google SEO 전문가이자 독자 친화적인 콘텐츠를 작성하는 인기 블로거입니다. 당신의 목표는 사용자가 요청한 주제에 대해 검색 엔진 최적화(SEO) 기준을 완벽하게 만족시키면서도, 독자가 끝까지 읽고 공유하고 싶게 만드는 '인간적인' 어조의 블로그 글을 **HTML 형식으로 작성**하는 것입니다.
 
-내가 첨부한 기사들의 **주제, 제목, 본문**을 읽고 **하나의 통합된 블로그 글**로 작성해줘.
+**[핵심 목표]**
+HTML 출력 필수, 1500~2500자 분량, H1-H2-H3 구조 준수, AI 이미지 생성을 위한 상세한 영어 ALT 속성 포함.
 
-⚠️ 중요: 기사를 그대로 나열하지 말고, 모든 기사의 핵심 내용을 종합하여 하나의 흐름 있는 글로 작성해줘.
+**[입력 변수]**
+1. **주제 키워드:** 아래 제공된 기사들의 핵심 주제
+2. **타겟 독자:** 해당 분야에 관심 있는 일반인, 전문가
+3. **글의 톤앤매너:** 전문적이지만 친근하게
 
-## 📋 블로그 글 구조 (필수)
+**[출력 형식 및 구조 가이드라인]**
+1. **최종 출력 형식:** **반드시 전체 내용을 HTML 마크업으로 작성해야 합니다.**
+2. **분량:** 본문은 **1500자에서 2500자 사이**의 분량이 되도록 작성하십시오.
+3. **구조 및 SEO:**
+   * **제목:** `<h1>` 태그로 최종 제목을 작성. 핵심 키워드를 포함하고 클릭률(CTR)을 높이는 매력적인 제목 1개. 20자 이내.
+   * **메타 정보:** `<title>` 태그와 별도의 **`<meta name="description" content="...">` 태그**에 메타 설명을 포함해야 합니다. (150자 이내)
+   * **목차:** 글 초반에 `<ul>` 또는 `<ol>` 태그를 사용하여 목차(개요)를 명시.
+   * **본문 구조:** **H1 → H2 → H3** 태그 구조를 정확히 준수하며, **총 5~7개의 소주제(H2 기준)**로 논리적으로 구성합니다.
+   * **키워드 배치:** 핵심 키워드와 관련 의미론적 키워드(LSI)를 자연스럽게 포함하고, 중요한 키워드나 문장은 `<strong>` 태그로 강조.
+4. **가독성 및 문체:**
+   * **문체:** **자연스러운 블로그 문체** (친근하면서도 전문적인 어조)를 유지합니다.
+   * **여백:** 한 문단은 `<p>` 태그를 사용하여 2~4줄 이내로 구성하며, 문단 사이에는 충분한 여백을 둡니다.
+5. **인간화 요소:**
+   * **도입부:** 독자의 문제점/궁금증에 공감하는 친근한 질문으로 시작.
+   * **본문 팁:** 최소 2곳 이상에 '내가 직접 경험한 것처럼' 독자에게 **'솔직한 의견이나 특별한 팁'**을 전달하는 섹션을 HTML **`<blockquote>`** 태그를 사용하여 강조.
+   * **결론:** 본문 내용을 요약하고, 독자에게 다음 행동을 유도하는 강력한 **CTA (Call-to-Action)** 문장을 포함.
+6. **이미지:** 본론 중간에 2-3개 배치 (독립된 줄, 앞뒤 빈 줄)
+   - **중요**: alt 속성에는 AI 이미지 생성을 위한 **구체적이고 상세한 영어 설명**을 작성해줘
+   - 예: "A modern data center with glowing servers and blue lights, digital art style"
+   - 예: "Business professionals analyzing charts on large screens, photorealistic"
+   - alt는 반드시 영어로 작성하고, 이미지 스타일(digital art, photorealistic 등)을 명시해줘
 
+## [블로그 글 구조] (필수)
 아래 구조를 **정확히** 따라서 작성해줘:
 
 ```
@@ -358,13 +384,17 @@ class BlogGenerator:
 <p>논리적인 흐름으로 정보 전달하는 두 번째 문단...</p>
 <p>구체적인 수치, 인용을 포함한 세 번째 문단...</p>
 
+<blockquote>💡 솔직 후기: 직접 경험한 것처럼 독자에게 전하는 팁이나 의견...</blockquote>
+
 <img src="PLACEHOLDER" alt="이미지 생성을 위한 구체적인 영어 설명" class="blog-image">
 
 <p>추가 내용 및 상세 설명...</p>
 
+<blockquote>📌 특급 팁: 독자에게 도움이 되는 실용적인 조언...</blockquote>
+
 <h2>결론</h2>
 <p>내용 요약 및 시사점...</p>
-<p>향후 전망 또는 독자에게 전하는 메시지...</p>
+<p>향후 전망 또는 독자에게 전하는 CTA 메시지...</p>
 
 <h2>출처</h2>
 <ul>
@@ -373,18 +403,7 @@ class BlogGenerator:
 </ul>
 ```
 
-## ✅ 작성 가이드라인
-
-1. **구조**: 제목 → 서론 → 본론 → 결론 → 출처 순서 준수
-2. **이미지**: 본론 중간에 2-3개 배치 (독립된 줄, 앞뒤 빈 줄)
-   - **중요**: alt 속성에는 AI 이미지 생성을 위한 **구체적이고 상세한 영어 설명**을 작성해줘
-   - 예: "A modern data center with glowing servers and blue lights, digital art style"
-   - 예: "Business professionals analyzing charts on large screens, photorealistic"
-   - alt는 반드시 영어로 작성하고, 이미지 스타일(digital art, photorealistic 등)을 명시해줘
-3. **문체**: 자연스러운 블로그 문체 (친근하면서도 전문적)
-4. **길이**: 1500~2500자 분량
-5. **여백**: 문단 사이 적절한 여백 (p 태그 활용)
-6. **SEO**: 키워드를 자연스럽게 배치"""
+⚠️ 중요: 기사를 그대로 나열하지 말고, 모든 기사의 핵심 내용을 종합하여 하나의 흐름 있는 글로 작성해줘."""
 
     def _truncate_context(self, context: str, max_chars: int = None) -> str:
         """
@@ -459,78 +478,37 @@ class BlogGenerator:
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="150자 이내의 메타 설명">
     <title>블로그 제목</title>
     <style>
-        body {{ 
-            font-family: 'Noto Sans KR', sans-serif; 
-            line-height: 1.8; 
-            max-width: 800px; 
-            margin: 0 auto; 
-            padding: 20px;
-            background-color: #1a1a2e;
-            color: #eaeaea;
-        }}
-        h1 {{ 
-            color: #00d4ff; 
-            font-size: 2em; 
-            margin-bottom: 30px; 
-            text-align: center;
-            border-bottom: 3px solid #00d4ff;
-            padding-bottom: 15px;
-        }}
-        h2 {{ 
-            color: #7b68ee; 
-            border-bottom: 2px solid #7b68ee; 
-            padding-bottom: 10px; 
-            margin-top: 40px;
-            margin-bottom: 20px;
-            font-size: 1.5em;
-        }}
-        h3 {{ color: #98d8c8; margin-top: 25px; }}
-        p {{ 
-            color: #d0d0d0; 
-            margin-bottom: 15px; 
-            line-height: 2.0;
-            text-align: justify;
-        }}
-        a {{ color: #00d4ff; text-decoration: none; }}
+        /* 네이버 블로그 스타일 */
+        body {{ font-family: 'Malgun Gothic', 'Dotum', sans-serif; line-height: 1.6; color: #333; margin: 0 auto; max-width: 800px; padding: 20px; }}
+        .post-header {{ border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }}
+        .post-title {{ font-size: 28px; font-weight: bold; margin-bottom: 10px; }}
+        .post-meta {{ color: #888; font-size: 14px; }}
+        .post-content h2 {{ font-size: 22px; color: #222; border-left: 5px solid #03C75A; padding-left: 10px; margin-top: 30px; margin-bottom: 15px; }}
+        .post-content h3 {{ font-size: 18px; color: #333; margin-top: 25px; margin-bottom: 10px; }}
+        .post-content p {{ margin-bottom: 15px; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; }}
+        th, td {{ border: 1px solid #ddd; padding: 10px; text-align: left; }}
+        th {{ background-color: #f5f5f5; font-weight: bold; text-align: center; }}
+        blockquote {{ background-color: #f9f9f9; border-left: 4px solid #03C75A; padding: 15px; margin: 20px 0; font-style: italic; }}
+        .blog-image {{ display: block; width: 100%; max-width: 600px; margin: 20px auto; border-radius: 8px; }}
+        a {{ color: #03C75A; text-decoration: none; }}
         a:hover {{ text-decoration: underline; }}
-        ul {{ 
-            list-style: none; 
-            padding-left: 0; 
-        }}
-        li {{ 
-            color: #d0d0d0; 
-            margin-bottom: 10px; 
-            padding-left: 20px;
-            position: relative;
-        }}
-        li:before {{
-            content: "▪";
-            color: #7b68ee;
-            position: absolute;
-            left: 0;
-        }}
-        .blog-image {{ 
-            display: block; 
-            width: 100%; 
-            max-width: 600px; 
-            margin: 40px auto; 
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }}
-        .source {{ 
-            background-color: #2d2d44; 
-            padding: 15px; 
-            border-radius: 8px; 
-            margin-top: 40px;
-            color: #a0a0a0;
-        }}
-        .source a {{ color: #00d4ff; }}
+        ul {{ padding-left: 20px; }}
+        li {{ margin-bottom: 8px; }}
+        strong {{ color: #222; }}
     </style>
 </head>
 <body>
-    <!-- 블로그 내용 -->
+    <div class="post-header">
+        <div class="post-title">블로그 제목</div>
+    </div>
+    <div class="post-content">
+        <!-- 블로그 내용 -->
+    </div>
 </body>
 </html>
 ```
@@ -541,23 +519,33 @@ class BlogGenerator:
 - 이미지는 총 2~3개를 **본론 섹션 중간**에 배치
 - 이미지는 반드시 **독립된 줄**에 배치 (앞뒤 빈 줄 필수)
 - 본론의 문단들 사이에 자연스럽게 분산 배치
+- **alt 속성에는 AI 이미지 생성을 위한 구체적인 영어 설명 필수**
 
 **배치 예시**:
-   ```html
-<h2>본론</h2>
+```html
+<h2>본론 소제목</h2>
 <p>첫 번째 문단 내용...</p>
 <p>두 번째 문단 내용...</p>
 
-<img src="PLACEHOLDER" alt="" class="blog-image">
+<img src="PLACEHOLDER" alt="Detailed English description for AI image generation, photorealistic style" class="blog-image">
 
 <p>세 번째 문단 내용...</p>
-<p>네 번째 문단 내용...</p>
 
-<img src="PLACEHOLDER" alt="" class="blog-image">
+<blockquote>💡 솔직 후기: 독자에게 전하는 팁이나 경험담...</blockquote>
 
-<p>다섯 번째 문단 내용...</p>
+<table>
+    <thead><tr><th>항목</th><th>설명</th></tr></thead>
+    <tbody><tr><td>내용1</td><td>설명1</td></tr></tbody>
+</table>
+
+<img src="PLACEHOLDER" alt="Another detailed English description, digital art style" class="blog-image">
+
+<p>추가 문단 내용...</p>
+
+<blockquote>📌 특급 팁: 실용적인 조언...</blockquote>
 
 <h2>결론</h2>
+<p>요약 및 CTA...</p>
 ```
 
 ⚠️ 주의: 서론과 결론에는 이미지를 넣지 말고, 본론에만 배치!

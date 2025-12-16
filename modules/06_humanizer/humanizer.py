@@ -3,6 +3,7 @@ Humanizer - 블로그 글 문체 개선
 """
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 from pathlib import Path
 
 import sys
@@ -10,6 +11,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from config.settings import (
     OPENAI_API_KEY, 
     ANTHROPIC_API_KEY, 
+    GOOGLE_API_KEY,
     DEFAULT_LLM_MODEL,
     LM_STUDIO_ENABLED,
     LM_STUDIO_BASE_URL,
@@ -66,7 +68,26 @@ class Humanizer:
                 temperature=0.7,
                 anthropic_api_key=ANTHROPIC_API_KEY
             )
+        elif "gemini" in self.model_name.lower():
+            # Gemini 모델 지원
+            if not GOOGLE_API_KEY:
+                raise ValueError("GOOGLE_API_KEY가 설정되지 않았습니다.")
+            gemini_model = self.model_name if "gemini" in self.model_name.lower() else "gemini-2.0-flash-exp"
+            logger.info(f"Gemini 모델 사용: {gemini_model}")
+            return ChatGoogleGenerativeAI(
+                model=gemini_model,
+                temperature=0.7,  # 창의성 필요
+                google_api_key=GOOGLE_API_KEY
+            )
         else:
+            # 기본값: Gemini 모델 사용
+            if GOOGLE_API_KEY:
+                logger.info("기본 모델로 Gemini 사용")
+                return ChatGoogleGenerativeAI(
+                    model="gemini-2.0-flash-exp",
+                    temperature=0.7,
+                    google_api_key=GOOGLE_API_KEY
+                )
             raise ValueError(f"지원하지 않는 모델: {self.model_name}")
 
     def humanize(self, html: str) -> str:
