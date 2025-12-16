@@ -11,27 +11,12 @@ sentence-transformers==2.3.1
 # LLM 및 LangChain
 langchain==0.1.9
 langchain-openai>=0.1.0
-langchain-anthropic==0.1.4
+langchain-google-genai>=0.0.6
 langgraph==0.0.20
 openai>=1.12.0
-anthropic==0.18.1
 
-# 이미지 생성 및 저장
+# 이미지 처리 (Pixabay 이미지 다운로드)
 Pillow==10.2.0
-
-# Cloudinary (이미지 저장소 - 선택)
-cloudinary==1.38.0
-
-# Hugging Face (무료 이미지 생성 - 기본)
-huggingface-hub>=0.34.0,<2.0
-transformers>=4.40.0
-# Z-Image-Turbo를 사용하려면 최신 diffusers가 필요합니다:
-# pip install git+https://github.com/huggingface/diffusers
-diffusers @ git+https://github.com/huggingface/diffusers@17c0e79dbdf53fb6705e9c09cc1a854b84c39249
-torch==2.9.1
-torchvision==0.24.1
-accelerate>=0.17.0  # Z-Image-Turbo CPU 오프로딩에 필요
-packaging>=20.0  # 버전 비교에 필요
 
 # 구글 드라이브 API (선택)
 google-auth==2.27.0

@@ -15,7 +15,7 @@ sys.path.append(str(Path(__file__).parent.parent))
  
 import importlib
 # 숫자로 시작하는 모듈 이름은 동적 import 사용
-image_gen_module = importlib.import_module("modules.05_image_generator.image_generator")
+image_gen_module = importlib.import_module("modules.06_image_generator.image_generator")
 blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_generator")
 ImageGenerator = image_gen_module.ImageGenerator
 BlogGenerator = blog_gen_module.BlogGenerator

@@ -115,10 +115,16 @@ else:
 QUALITY_THRESHOLD = 75  # 기본값
 ```
 
-### 모델 선택
-- **GPT-4**: 더 엄격하고 정확한 평가
-- **GPT-3.5**: 빠르고 저렴하지만 덜 정확
-- **Claude-3**: 긴 문서 평가에 유리
+## 지원 LLM
+이 모듈은 다음 LLM을 지원합니다:
+- **LM Studio**: 로컬 LLM (무료, 오프라인 사용 가능)
+- **OpenAI API**: gpt-4, gpt-4o, gpt-4o-mini 등 (유료, 고품질)
+- **Google Gemini API**: gemini-pro, gemini-1.5-pro 등 (유료, 긴 컨텍스트 지원)
+
+### 모델 선택 가이드
+- **LM Studio**: 무료이지만 평가 일관성이 떨어질 수 있음
+- **OpenAI (gpt-4o-mini)**: 정확하고 일관된 평가
+- **Gemini**: 긴 블로그 평가에 유리
 
 ## 평가 일관성
 
@@ -139,8 +145,8 @@ QUALITY_THRESHOLD = 75  # 기본값
 ## 다음 모듈과의 연결
 
 ### 통과 시 (score >= threshold)
-- `Module 05: Image Generator` - 이미지 생성
-- `Module 06: Humanizer` - 문체 개선
+- `Module 05: Humanizer` - 문체 개선
+- `Module 06: Image Generator` - 이미지 다운로드
 
 ### 실패 시 (score < threshold)
 - `Module 03: Blog Generator` - 피드백과 함께 재생성

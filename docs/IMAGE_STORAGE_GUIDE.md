@@ -29,7 +29,7 @@ HUGGINGFACE_TOKEN=hf_your_token_here
 
 **3단계: 사용**
 ```python
-from modules.05_image_generator.huggingface_generator import HuggingFaceImageGenerator
+from modules.06_image_generator.huggingface_generator import HuggingFaceImageGenerator
 
 generator = HuggingFaceImageGenerator(
     hf_token=os.getenv("HUGGINGFACE_TOKEN"),
@@ -120,7 +120,7 @@ CLOUDINARY_API_SECRET=your_api_secret
 
 **3단계: 사용**
 ```python
-from modules.05_image_generator.cloudinary_generator import CloudinaryImageGenerator
+from modules.06_image_generator.cloudinary_generator import CloudinaryImageGenerator
 
 generator = CloudinaryImageGenerator(
     cloudinary_cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
@@ -197,7 +197,7 @@ QUICKSTART.md 참고
 ```python
 import os
 from dotenv import load_dotenv
-from modules.05_image_generator.huggingface_generator import HuggingFaceImageGenerator
+from modules.06_image_generator.huggingface_generator import HuggingFaceImageGenerator
 
 load_dotenv()
 

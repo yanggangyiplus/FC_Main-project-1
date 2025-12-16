@@ -83,11 +83,11 @@ with st.sidebar:
     # Critic & QA
     streamlit run dashboards/dashboard_04_critic_qa.py
  
-    # 이미지 생성기
-    streamlit run dashboards/dashboard_05_image_generator.py
- 
     # Humanizer
-    streamlit run dashboards/dashboard_06_humanizer.py
+    streamlit run dashboards/dashboard_05_humanizer.py
+
+    # 이미지 생성기
+    streamlit run dashboards/dashboard_06_image_generator.py
  
     # 블로그 발행기
     streamlit run dashboards/dashboard_07_blog_publisher.py
@@ -208,18 +208,18 @@ with tab_modules:
             "dashboard": "dashboard_04_critic_qa.py"
         },
         {
-            "icon": "🎨",
-            "name": "05. Image Generator",
-            "desc": "DALL-E 이미지 생성",
-            "status": "✅ 정상",
-            "dashboard": "dashboard_05_image_generator.py"
-        },
-        {
             "icon": "✨",
-            "name": "06. Humanizer",
+            "name": "05. Humanizer",
             "desc": "블로그 문체 인간화",
             "status": "✅ 정상",
-            "dashboard": "dashboard_06_humanizer.py"
+            "dashboard": "dashboard_05_humanizer.py"
+        },
+        {
+            "icon": "🎨",
+            "name": "06. Image Generator",
+            "desc": "Pixabay 이미지 다운로드",
+            "status": "✅ 정상",
+            "dashboard": "dashboard_06_image_generator.py"
         },
         {
             "icon": "📤",
@@ -387,8 +387,8 @@ dashboards/
 ├── dashboard_02_rag_builder.py
 ├── dashboard_03_blog_generator.py
 ├── dashboard_04_critic_qa.py
-├── dashboard_05_image_generator.py
-├── dashboard_06_humanizer.py
+├── dashboard_05_humanizer.py
+├── dashboard_06_image_generator.py
 ├── dashboard_07_blog_publisher.py
 ├── dashboard_08_notifier.py
 └── main_dashboard.py  # 현재 페이지

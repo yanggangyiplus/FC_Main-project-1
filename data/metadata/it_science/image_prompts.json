@@ -1,0 +1,24 @@
+{
+  "blog_topic": "[속보] 카카오, 카톡 친구탭 첫 화면 친구목록으로 복원",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/속보_카카오_카톡_친구탭_첫_화면_친구목록으로_복원_20251216_164109_v1.html",
+  "placeholders": [
+    {
+      "index": 0,
+      "alt": "A person using a smartphone with the KakaoTalk application open, showing the friends tab with a list of contacts, modern app interface, realistic style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"A person using a smartphone with the KakaoTalk application open, showing the friends tab with a list of contacts, modern app interface, realistic style\" class=\"blog-image\">"
+    },
+    {
+      "index": 1,
+      "alt": "UI/UX design comparison of KakaoTalk friends tab before and after the update, showing both list and feed views, clean and modern design, infographic style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"UI/UX design comparison of KakaoTalk friends tab before and after the update, showing both list and feed views, clean and modern design, infographic style\" class=\"blog-image\">"
+    },
+    {
+      "index": 2,
+      "alt": "Abstract representation of user feedback influencing app design, digital data streams, dark blue background, futuristic style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Abstract representation of user feedback influencing app design, digital data streams, dark blue background, futuristic style\" class=\"blog-image\">"
+    }
+  ],
+  "created_at": "2025-12-16T16:41:12.202804",
+  "evaluation_score": 90,
+  "category": "it_science"
+}

@@ -313,7 +313,7 @@ class NaverBlogPublisher:
 
     def load_publish_data(self, category: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
-        블로그 발행용 데이터 로드 (6번 모듈에서 저장된 데이터)
+        블로그 발행용 데이터 로드 (5번 모듈에서 저장된 데이터)
 
         Args:
             category: 카테고리 (있으면 카테고리별 파일에서 로드)
@@ -355,17 +355,17 @@ class NaverBlogPublisher:
 
     def load_latest_html(self) -> Optional[str]:
         """
-        최신 HTML 파일 로드 (06번 모듈에서 생성된 파일)
+        최신 HTML 파일 로드 (05번 모듈에서 생성된 파일)
 
         Returns:
             HTML 문자열 또는 None
         """
         try:
-            # 1. humanizer_input.html 확인 (6번 모듈에서 자동 저장)
+            # 1. humanizer_input.html 확인 (5번 모듈에서 자동 저장)
             if HUMANIZER_INPUT_FILE.exists():
                 with open(HUMANIZER_INPUT_FILE, 'r', encoding='utf-8') as f:
                     html = f.read()
-                logger.info(f"6번 모듈 HTML 로드 완료: {HUMANIZER_INPUT_FILE.name}")
+                logger.info(f"5번 모듈 HTML 로드 완료: {HUMANIZER_INPUT_FILE.name}")
                 return html
             
             # 2. generated_blogs 디렉토리에서 최신 파일 찾기
@@ -419,7 +419,7 @@ class NaverBlogPublisher:
                 "attempts": int
             }
         """
-        # 블로그 발행 데이터 자동 로드 (6번 모듈에서 저장된 데이터)
+        # 블로그 발행 데이터 자동 로드 (5번 모듈에서 저장된 데이터)
         # category 파라미터가 있으면 카테고리별 데이터 로드
         # category가 블로그 카테고리(it_tech, economy, politics)이면 뉴스 카테고리로 변환 필요
         data_category = None
@@ -697,78 +697,48 @@ class NaverBlogPublisher:
             except:
                 logger.info("도움말 창 없음 (정상)")
 
-            # 1. 제목 입력
+            # 1. 제목 입력 (Tab 키 + send_keys 방식)
             logger.info(f"제목 입력 중: {title[:50]}...")
             try:
-                # 제목 placeholder 찾기
+                from selenium.webdriver.common.keys import Keys
+                from selenium.webdriver.common.action_chains import ActionChains
+                
+                # 제목 placeholder 찾아서 클릭
                 title_placeholder = WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'se-placeholder') and contains(text(), '제목')]"))
-            )
+                )
                 
-                # 제목 영역 클릭 (부모 p 태그)
-                title_paragraph = title_placeholder.find_element(By.XPATH, "./ancestor::p[contains(@class, 'se-text-paragraph')]")
+                # 제목 영역 클릭
+                ActionChains(self.driver).move_to_element(title_placeholder).click().perform()
+                time.sleep(0.5)
                 
-                # 클립보드에 제목 복사 후 붙여넣기
-                try:
-                    import pyperclip
-                    pyperclip.copy(title)
-                    time.sleep(0.3)
-                    
-                    from selenium.webdriver.common.action_chains import ActionChains
-                    from selenium.webdriver.common.keys import Keys
-                    import platform
-                    
-                    # 제목 영역 클릭
-                    ActionChains(self.driver).move_to_element(title_paragraph).click().perform()
-                    time.sleep(0.5)
-                    
-                    # 붙여넣기
-                    if platform.system() == 'Darwin':
-                        ActionChains(self.driver).key_down(Keys.COMMAND).send_keys('v').key_up(Keys.COMMAND).perform()
-                    else:
-                        ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
-                    time.sleep(0.5)
-                    
-                    logger.info(f"제목 입력 완료 (붙여넣기): {title}")
-                except ImportError:
-                    # pyperclip이 없으면 send_keys로 직접 입력
-                    from selenium.webdriver.common.keys import Keys
-                    title_paragraph.click()
-                    time.sleep(0.3)
-                    title_paragraph.send_keys(Keys.CONTROL + 'a')  # 전체 선택
-                    time.sleep(0.2)
-                    title_paragraph.send_keys(title)  # 제목 입력
-                    time.sleep(0.5)
-                    logger.info(f"제목 입력 완료 (직접 입력): {title}")
+                # 실제 키보드 입력으로 제목 입력
+                actions = ActionChains(self.driver)
+                actions.send_keys(title).perform()
+                time.sleep(0.5)
+                
+                logger.info(f"제목 입력 완료: {title[:50]}...")
             except Exception as e:
                 logger.error(f"제목 입력 실패: {e}")
-                # 대체 방법: JavaScript로 시도
-                try:
-                    escaped_title = title.replace("'", "\\'").replace('"', '\\"').replace("\n", " ").replace("\\", "\\\\")
-                    self.driver.execute_script(f"""
-                        var titlePlaceholder = document.querySelector('span.se-placeholder.se-ff-nanumgothic.se-fs32');
-                        if (titlePlaceholder && titlePlaceholder.textContent.includes('제목')) {{
-                            titlePlaceholder.click();
-                            var parent = titlePlaceholder.closest('p.se-text-paragraph');
-                            if (parent) {{
-                                parent.textContent = '{escaped_title}';
-                                parent.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                parent.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                            }}
-                        }}
-                    """)
-                    time.sleep(1)
-                    logger.info(f"제목 입력 완료 (JavaScript): {title}")
-                except Exception as e2:
-                    logger.error(f"제목 입력 완전 실패: {e2}")
+                raise
 
-            # 2. 내용 입력 (HTML 파싱하여 텍스트와 이미지 순서대로 입력)
+            # 2. 내용 입력 (HTML 파싱하여 텍스트만 추출)
             logger.info(f"내용 입력 중 (길이: {len(content)}자)...")
             
-            # HTML인지 확인 (PLACEHOLDER가 있는지) - 변수 스코프를 위해 먼저 정의
+            # HTML인지 확인 - 완전한 HTML 문서 또는 HTML 태그 포함 여부 체크
             is_html = False
             if content:
-                is_html = 'PLACEHOLDER' in content or '<img' in content or '<h' in content
+                is_html = (
+                    '<!DOCTYPE' in content or 
+                    '<html' in content or 
+                    '<head' in content or
+                    '<body' in content or
+                    'PLACEHOLDER' in content or 
+                    '<img' in content or 
+                    '<h1' in content or
+                    '<h2' in content or
+                    '<p>' in content
+                )
             
             if not content:
                 logger.warning("본문 내용이 없습니다. 건너뜁니다.")
@@ -812,79 +782,432 @@ class NaverBlogPublisher:
                         except Exception as e2:
                             logger.warning(f"내용 p 태그 클릭도 실패: {e2}")
                     
-                    if is_html and images:
-                        # 방법: 이미지 위치 마커를 포함한 텍스트를 붙여넣고, 마커를 찾아 이미지 삽입
-                        logger.info("HTML 파싱하여 이미지 위치 마커 포함 텍스트 입력 후 이미지 삽입...")
+                    # 가운데 정렬 설정 (본문 입력 전)
+                    try:
+                        logger.info("가운데 정렬 설정 중...")
+                        
+                        # 1단계: 정렬 드롭다운 버튼 클릭
+                        align_dropdown_selectors = [
+                            "button.se-align-left-toolbar-button",
+                            "button[data-name='align-drop-down-with-justify']",
+                            "button.se-property-toolbar-drop-down-button[data-log='prt.align']"
+                        ]
+                        
+                        align_dropdown = None
+                        for selector in align_dropdown_selectors:
+                            try:
+                                align_dropdown = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                if align_dropdown and align_dropdown.is_displayed():
+                                    break
+                            except:
+                                continue
+                        
+                        if align_dropdown:
+                            self.driver.execute_script("arguments[0].click();", align_dropdown)
+                            time.sleep(0.5)
+                            logger.info("정렬 드롭다운 버튼 클릭 완료")
+                            
+                            # 2단계: 가운데 정렬 버튼 클릭
+                            center_align_selectors = [
+                                "button.se-toolbar-option-align-center-button",
+                                "button[data-value='center'][data-name='align-drop-down-with-justify']",
+                                "button[data-log='prt.center']"
+                            ]
+                            
+                            center_align = None
+                            for selector in center_align_selectors:
+                                try:
+                                    center_align = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                    if center_align and center_align.is_displayed():
+                                        break
+                                except:
+                                    continue
+                            
+                            if center_align:
+                                self.driver.execute_script("arguments[0].click();", center_align)
+                                time.sleep(0.5)
+                                logger.info("가운데 정렬 설정 완료")
+                                
+                                # 가운데 정렬 후 내용 영역으로 포커스 재설정
+                                time.sleep(0.3)
+                                try:
+                                    # 내용 placeholder 다시 클릭
+                                    content_placeholder = self.driver.find_element(By.CSS_SELECTOR, "span.se-placeholder.se-fs15")
+                                    if content_placeholder:
+                                        self.driver.execute_script("arguments[0].click();", content_placeholder)
+                                        time.sleep(0.3)
+                                        logger.info("가운데 정렬 후 내용 영역 포커스 재설정 완료")
+                                except Exception as refocus_error:
+                                    # 대체 방법: p 태그로 찾기
+                                    try:
+                                        all_paragraphs = self.driver.find_elements(By.CSS_SELECTOR, "p.se-text-paragraph")
+                                        for p in all_paragraphs:
+                                            title_placeholders = p.find_elements(By.CSS_SELECTOR, "span.se-placeholder.se-fs32")
+                                            if not title_placeholders:
+                                                self.driver.execute_script("arguments[0].click();", p)
+                                                time.sleep(0.3)
+                                                logger.info("가운데 정렬 후 내용 p 태그 포커스 재설정 완료")
+                                                break
+                                    except:
+                                        logger.warning("가운데 정렬 후 포커스 재설정 실패")
+                            else:
+                                logger.warning("가운데 정렬 버튼을 찾을 수 없음")
+                        else:
+                            logger.warning("정렬 드롭다운 버튼을 찾을 수 없음")
+                    except Exception as e:
+                        logger.warning(f"가운데 정렬 설정 실패 (계속 진행): {e}")
+                    
+                    if is_html:
+                        # HTML 파싱하여 텍스트만 추출
+                        logger.info("HTML 파싱하여 텍스트 추출 중...")
                         soup = BeautifulSoup(content, 'html.parser')
-                        body = soup.find('body') or soup
                         
-                        # 이미지 매핑 생성 (index 기준)
-                        sorted_images = sorted(images, key=lambda x: x.get('index', 0))
+                        # body 태그 찾기 (없으면 전체 사용)
+                        body = soup.find('body')
+                        if not body:
+                            body = soup
                         
-                        # HTML에서 텍스트 추출 (이미지는 마커로 대체)
-                        temp_body = BeautifulSoup(str(body), 'html.parser')
+                        # 이미지가 있으면 마커로 대체
+                        if images:
+                            # 이미지 매핑 생성 (index 기준)
+                            sorted_images = sorted(images, key=lambda x: x.get('index', 0))
+                            
+                            # PLACEHOLDER 이미지를 마커로 대체
+                            image_index = 0
+                            for img in body.find_all('img', src=lambda x: x and 'PLACEHOLDER' in x):
+                                # 이미지를 독특한 마커로 대체
+                                marker = f"###IMG{image_index + 1}###"
+                                img.replace_with(marker)
+                                image_index += 1
                         
-                        # PLACEHOLDER 이미지를 마커로 대체
-                        image_index = 0
-                        for img in temp_body.find_all('img', src=lambda x: x and 'PLACEHOLDER' in x):
-                            # 이미지를 독특한 마커로 대체
-                            marker = f"###IMG{image_index + 1}###"
-                            img.replace_with(marker)
-                            image_index += 1
+                        # 텍스트 추출 (style, script, head 태그 제거)
+                        for tag in body.find_all(['style', 'script', 'head']):
+                            tag.decompose()
                         
-                        # 텍스트 추출 (이미지 마커 포함)
-                        text_content = temp_body.get_text(separator='\n', strip=True)
+                        # h2 태그를 구분선 마커로 대체 (서론, 본론, 결론 구분용)
+                        h2_tags = body.find_all('h2')
+                        divider_count = 0
+                        for i, h2 in enumerate(h2_tags):
+                            if i == 0:
+                                # 첫 번째 h2(서론)는 그냥 제거
+                                h2.decompose()
+                            else:
+                                # 두 번째 h2부터는 구분선 마커로 대체 (본론, 결론 전)
+                                divider_marker = f"\n\n###DIVIDER{divider_count + 1}###\n\n"
+                                h2.replace_with(divider_marker)
+                                divider_count += 1
                         
-                        # 제목 제거 (h1, h2, h3)
+                        # h1, h3 제목 태그 제거
+                        for tag in body.find_all(['h1', 'h3']):
+                            tag.decompose()
+                        
+                        # 텍스트 추출
+                        text_content = body.get_text(separator='\n', strip=True)
+                        
+                        # 네이버 블로그 포맷팅: 한 문장 당 한 줄 + 문단/이미지 전후 빈 줄
+                        import re
+                        
                         lines = text_content.split('\n')
-                        filtered_lines = []
+                        formatted_lines = []
+                        
                         for line in lines:
-                            # 제목 라인 제거 (이미 제목은 별도로 입력됨)
-                            if line.strip():
-                                filtered_lines.append(line)
-                        text_content = '\n'.join(filtered_lines)
+                            line = line.strip()
+                            if not line:
+                                continue
+                            
+                            # "서론", "본론", "결론" 같은 섹션 제목 제거
+                            if line in ['서론', '본론', '결론', '출처', 'Introduction', 'Body', 'Conclusion']:
+                                continue
+                            
+                            # 구분선 마커인 경우
+                            if line.startswith('###DIVIDER') and line.endswith('###'):
+                                # 구분선 마커 전 빈 줄
+                                if formatted_lines and formatted_lines[-1] != '':
+                                    formatted_lines.append('')
+                                formatted_lines.append(line)
+                                # 구분선 마커 후 빈 줄
+                                formatted_lines.append('')
+                            # 이미지 마커인 경우
+                            elif line.startswith('###IMG') and line.endswith('###'):
+                                # 이미지 마커 전 빈 줄
+                                if formatted_lines and formatted_lines[-1] != '':
+                                    formatted_lines.append('')
+                                formatted_lines.append(line)
+                                # 이미지 마커 후 빈 줄
+                                formatted_lines.append('')
+                            else:
+                                # 일반 텍스트 - 문장 단위로 분리 (. ! ? 뒤에서 분리)
+                                # 문장 끝 패턴: . ! ? 뒤에 공백이나 끝
+                                sentences = re.split(r'([.!?])\s+', line)
+                                
+                                # split 결과를 문장으로 재조합
+                                current_sentence = ''
+                                for i, part in enumerate(sentences):
+                                    if part in ['.', '!', '?']:
+                                        current_sentence += part
+                                        if current_sentence.strip():
+                                            formatted_lines.append(current_sentence.strip())
+                                        current_sentence = ''
+                                    elif part.strip():
+                                        current_sentence += part
+                                
+                                # 마지막 문장 처리 (끝맺음 없이 끝나는 경우)
+                                if current_sentence.strip():
+                                    formatted_lines.append(current_sentence.strip())
+                                
+                                # 이 줄(문단)이 끝났으므로 빈 줄 추가
+                                if formatted_lines and formatted_lines[-1] != '':
+                                    formatted_lines.append('')
                         
-                        logger.info(f"이미지 마커 {image_index}개 포함한 텍스트 생성 완료: {text_content[:100]}...")
+                        # 마지막 연속된 빈 줄 제거 (하나만 남기기)
+                        while len(formatted_lines) > 1 and formatted_lines[-1] == '' and formatted_lines[-2] == '':
+                            formatted_lines.pop()
                         
-                        # 본문 입력 (Tab으로 이미 내용 영역에 있음)
+                        # 맨 마지막 빈 줄 제거
+                        if formatted_lines and formatted_lines[-1] == '':
+                            formatted_lines.pop()
+                        
+                        text_content = '\n'.join(formatted_lines)
+                        
+                        # 구분선 마커 개수 확인
+                        divider_marker_count = len([line for line in formatted_lines if line.startswith('###DIVIDER') and line.endswith('###')])
+                        
+                        logger.info(f"텍스트 생성 완료 - 이미지 마커 {image_index}개, 구분선 마커 {divider_marker_count}개: {text_content[:100]}...")
+                        
+                        # 본문 입력 - send_keys로 직접 입력 (마커 정확도 향상)
                         from selenium.webdriver.common.keys import Keys
                         from selenium.webdriver.common.action_chains import ActionChains
-                        import platform
-                        import pyperclip
                         
-                        # 텍스트를 클립보드에 복사
-                        pyperclip.copy(text_content)
-                        time.sleep(0.3)
+                        logger.info("본문 텍스트를 send_keys로 직접 입력 중 (마커 발견 시 즉시 삽입)...")
                         
-                        # 붙여넣기 (Tab으로 이미 내용 영역에 있음)
-                        try:
-                            if platform.system() == 'Darwin':
-                                ActionChains(self.driver).key_down(Keys.COMMAND).send_keys('v').key_up(Keys.COMMAND).perform()
-                            else:
-                                ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
-                            time.sleep(1)
-                            logger.info("본문 텍스트 붙여넣기 완료 (내용 영역)")
-                        except Exception as e:
-                            logger.warning(f"붙여넣기 실패, 직접 입력 시도: {e}")
-                            # 직접 입력 시도
-                            for line in text_content.split('\n'):
-                                try:
-                                    ActionChains(self.driver).send_keys(line).send_keys(Keys.RETURN).perform()
-                                    time.sleep(0.1)
-                                except:
-                                    pass
+                        # 줄 단위로 입력하면서 마커 발견 시 즉시 처리
+                        lines = text_content.split('\n')
                         
-                        # 붙여넣기 후 실제 에디터 내용 확인
+                        # 구분선/이미지 버튼 선택자 미리 준비
+                        divider_btn_selectors = [
+                            "button.se-insert-horizontal-line-default-toolbar-button",
+                            "button[data-name='horizontal-line']",
+                            "button[data-log='dot.horizt']"
+                        ]
+                        
+                        for i, line in enumerate(lines):
+                            line_stripped = line.strip()
+                            
+                            if line_stripped:  # 빈 줄이 아니면
+                                # 마커인지 확인
+                                if line_stripped.startswith('###') and line_stripped.endswith('###'):
+                                    logger.info(f"마커 발견: {line_stripped}")
+                                    
+                                    # 마커 타입 확인
+                                    if line_stripped.startswith('###D'):
+                                        # 구분선 삽입
+                                        logger.info("구분선 삽입 중...")
+                                        divider_btn = None
+                                        for selector in divider_btn_selectors:
+                                            try:
+                                                divider_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                                if divider_btn and divider_btn.is_displayed():
+                                                    break
+                                            except:
+                                                continue
+                                        
+                                        if divider_btn:
+                                            self.driver.execute_script("arguments[0].click();", divider_btn)
+                                            time.sleep(1)
+                                            logger.info(f"구분선 삽입 완료: {line_stripped}")
+                                        else:
+                                            logger.warning("구분선 버튼을 찾을 수 없음")
+                                    
+                                    elif line_stripped.startswith('###I'):
+                                        # 이미지 삽입
+                                        try:
+                                            img_num = int(line_stripped.replace('###IMG', '').replace('###', ''))
+                                            img_idx = img_num - 1
+                                            
+                                            if img_idx < len(sorted_images):
+                                                img_info = sorted_images[img_idx]
+                                                local_path = img_info.get('local_path', '')
+                                                
+                                                if local_path and Path(local_path).exists():
+                                                    logger.info(f"이미지 {img_num} 삽입 중...")
+                                                    insert_success = self._insert_image_at_cursor(local_path, img_info)
+                                                    time.sleep(1.5)
+                                                    
+                                                    if insert_success:
+                                                        logger.info(f"이미지 {img_num} 삽입 완료: {line_stripped}")
+                                                    else:
+                                                        logger.warning(f"이미지 {img_num} 삽입 실패")
+                                                else:
+                                                    logger.warning(f"이미지 파일 없음: {local_path}")
+                                            else:
+                                                logger.warning(f"이미지 인덱스 범위 초과: {img_idx}")
+                                        except Exception as e:
+                                            logger.warning(f"이미지 번호 추출 실패: {line_stripped}, {e}")
+                                    
+                                    # 마커는 입력하지 않음 (이미 요소 삽입했으므로)
+                                else:
+                                    # 일반 텍스트 입력
+                                    ActionChains(self.driver).send_keys(line).perform()
+                                    time.sleep(0.03)
+                            
+                            # 줄바꿈 (마지막 줄 제외)
+                            if i < len(lines) - 1:
+                                ActionChains(self.driver).send_keys(Keys.RETURN).perform()
+                                time.sleep(0.03)
+                        
                         time.sleep(1)
-                        editor_content = self.driver.execute_script("""
-                            var editor = document.querySelector('p.se-text-paragraph:not(:has(span.se-placeholder.se-fs32)), [contenteditable="true"]:not(:has(span.se-placeholder.se-fs32))');
-                            return editor ? editor.textContent : '';
-                        """)
-                        logger.info(f"에디터 실제 내용 (처음 200자): {editor_content[:200]}")
+                        logger.info(f"본문 입력 완료 (텍스트 + 실시간 구분선/이미지 삽입)")
                         
-                        # 이미지 마커를 찾아 이미지 삽입
-                        logger.info(f"이미지 마커를 찾아 이미지 {len(sorted_images)}개 삽입 시작...")
+                        # 아래 코드는 더 이상 필요 없음 (실시간 처리로 대체)
+                        '''
+                        marker_lines = [line for line in lines if line.startswith('###') and line.endswith('###')]
                         
+                        if marker_lines:
+                            # ### 패턴 처리 (순서대로)
+                            for marker_line in marker_lines:
+                                try:
+                                    logger.info(f"마커 '{marker_line}' 처리 중...")
+                                    
+                                    # 마커 타입 확인: ###D로 시작하면 구분선, ###I로 시작하면 이미지
+                                    marker_type = None
+                                    if marker_line.startswith('###D'):
+                                        marker_type = 'divider'
+                                    elif marker_line.startswith('###I'):
+                                        marker_type = 'image'
+                                        # 이미지 번호 추출 (###IMG1### → 1)
+                                        try:
+                                            img_num = int(marker_line.replace('###IMG', '').replace('###', ''))
+                                            img_idx = img_num - 1
+                                        except:
+                                            logger.warning(f"이미지 번호 추출 실패: {marker_line}")
+                                            continue
+                                    else:
+                                        logger.warning(f"알 수 없는 마커 타입: {marker_line}")
+                                        continue
+                                    
+                                    # ### 패턴으로 마커 찾기 (유연한 패턴 매칭)
+                                    found_info = self.driver.execute_script("""
+                                        var markerPattern = arguments[0];  // ### 시작 패턴
+                                        var allEditors = document.querySelectorAll('p.se-text-paragraph, [contenteditable="true"]');
+                                        
+                                        var foundNode = null;
+                                        var foundOffset = -1;
+                                        var foundEditor = null;
+                                        var markerEndOffset = -1;
+                                        
+                                        // 모든 에디터에서 ### 패턴 찾기
+                                        for (var editorIdx = 0; editorIdx < allEditors.length; editorIdx++) {
+                                            var editor = allEditors[editorIdx];
+                                            var walker = document.createTreeWalker(
+                                                editor,
+                                                NodeFilter.SHOW_TEXT,
+                                                null,
+                                                false
+                                            );
+                                            
+                                            var node;
+                                            while (node = walker.nextNode()) {
+                                                var text = node.textContent;
+                                                
+                                                // ### 패턴 찾기
+                                                var startIndex = text.indexOf('###');
+                                                if (startIndex !== -1) {
+                                                    // ### 이후 내용 확인
+                                                    var afterHash = text.substring(startIndex + 3);
+                                                    
+                                                    // 마커 타입 확인 (D 또는 I로 시작)
+                                                    if (afterHash.charAt(0) === markerPattern.charAt(3)) {
+                                                        // 마커 끝 찾기 (다음 ### 또는 공백/줄바꿈)
+                                                        var endHashIndex = afterHash.indexOf('###');
+                                                        if (endHashIndex !== -1) {
+                                                            foundNode = node;
+                                                            foundOffset = startIndex;
+                                                            markerEndOffset = startIndex + 3 + endHashIndex + 3;
+                                                            foundEditor = editor;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            
+                                            if (foundNode) break;
+                                        }
+                                        
+                                        if (foundNode && foundOffset >= 0 && markerEndOffset > foundOffset) {
+                                            // 마커 선택 및 삭제
+                                            var range = document.createRange();
+                                            range.setStart(foundNode, foundOffset);
+                                            range.setEnd(foundNode, markerEndOffset);
+                                            
+                                            var sel = window.getSelection();
+                                            sel.removeAllRanges();
+                                            sel.addRange(range);
+                                            range.deleteContents();
+                                            
+                                            if (foundEditor) {
+                                                foundEditor.focus();
+                                            }
+                                            
+                                            return {found: true, editor: foundEditor ? true : false};
+                                        }
+                                        return {found: false, editor: false};
+                                    """, marker_line)
+                                    
+                                    if found_info and found_info.get('found'):
+                                        time.sleep(0.5)
+                                        logger.info(f"마커 '{marker_line}' 찾기 성공 (타입: {marker_type})")
+                                        
+                                        if marker_type == 'divider':
+                                            # 구분선 삽입
+                                            divider_btn_selectors = [
+                                                "button.se-insert-horizontal-line-default-toolbar-button",
+                                                "button[data-name='horizontal-line']",
+                                                "button[data-log='dot.horizt']"
+                                            ]
+                                            
+                                            divider_btn = None
+                                            for selector in divider_btn_selectors:
+                                                try:
+                                                    divider_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                                    if divider_btn and divider_btn.is_displayed():
+                                                        break
+                                                except:
+                                                    continue
+                                            
+                                            if divider_btn:
+                                                self.driver.execute_script("arguments[0].click();", divider_btn)
+                                                time.sleep(1)
+                                                logger.info(f"구분선 삽입 완료: {marker_line}")
+                                            else:
+                                                logger.warning(f"구분선 버튼을 찾을 수 없음")
+                                        
+                                        elif marker_type == 'image':
+                                            # 이미지 삽입
+                                            if img_idx < len(sorted_images):
+                                                img_info = sorted_images[img_idx]
+                                                local_path = img_info.get('local_path', '')
+                                                
+                                                if local_path and Path(local_path).exists():
+                                                    insert_success = self._insert_image_at_cursor(local_path, img_info)
+                                                    time.sleep(1.5)
+                                                    
+                                                    if insert_success:
+                                                        logger.info(f"이미지 {img_idx + 1} 삽입 완료: {marker_line}")
+                                                    else:
+                                                        logger.warning(f"이미지 {img_idx + 1} 삽입 실패")
+                                                else:
+                                                    logger.warning(f"이미지 파일 없음: {local_path}")
+                                            else:
+                                                logger.warning(f"이미지 인덱스 범위 초과: {img_idx}")
+                                    else:
+                                        logger.warning(f"마커 '{marker_line}' 찾기 실패")
+                                        
+                                except Exception as e:
+                                    logger.warning(f"마커 '{marker_line}' 처리 중 오류: {e}")
+                            
+                            logger.info(f"### 패턴 마커 처리 완료 (총 {len(marker_lines)}개)")
+                        
+                        # 아래 코드는 이제 사용하지 않음 (실시간 처리로 대체)
                         for img_idx in range(len(sorted_images)):
                             img_info = sorted_images[img_idx]
                             local_path = img_info.get('local_path', '')
@@ -895,51 +1218,42 @@ class NaverBlogPublisher:
                                 try:
                                     logger.info(f"이미지 마커 '{marker}' 찾는 중...")
                                     
-                                    # 에디터 영역에서 이미지 마커 찾기
+                                    # 에디터 영역에서 이미지 마커 찾기 (모든 p 태그 순회)
                                     found = self.driver.execute_script("""
                                         var marker = arguments[0];
-                                        // 내용 영역만 찾기 (제목이 아닌 p 태그)
-                                        var contentParagraphs = document.querySelectorAll('p.se-text-paragraph');
-                                        var editor = null;
                                         
-                                        // 제목이 아닌 내용 영역 찾기
-                                        for (var i = 0; i < contentParagraphs.length; i++) {
-                                            var p = contentParagraphs[i];
-                                            var titlePlaceholder = p.querySelector('span.se-placeholder.se-fs32');
-                                            if (!titlePlaceholder) {
-                                                // 제목이 아닌 영역이면 내용 영역
-                                                editor = p;
-                                                break;
-                                            }
-                                        }
+                                        // 모든 p 태그 및 contenteditable 영역 검색
+                                        var allEditors = document.querySelectorAll('p.se-text-paragraph, [contenteditable="true"]');
                                         
-                                        // 내용 영역을 못 찾으면 contenteditable 사용
-                                        if (!editor) {
-                                            editor = document.querySelector('[contenteditable="true"]');
-                                        }
-                                        
-                                        if (!editor) return false;
-                                        
-                                        // 모든 텍스트 노드에서 마커 찾기
-                                        var walker = document.createTreeWalker(
-                                            editor,
-                                            NodeFilter.SHOW_TEXT,
-                                            null,
-                                            false
-                                        );
-                                        
-                                        var node;
                                         var foundNode = null;
                                         var foundOffset = -1;
+                                        var foundEditor = null;
                                         
-                                        while (node = walker.nextNode()) {
-                                            var text = node.textContent;
-                                            var index = text.indexOf(marker);
-                                            if (index !== -1) {
-                                                foundNode = node;
-                                                foundOffset = index;
-                                                break;
+                                        // 각 에디터에서 마커 찾기
+                                        for (var editorIdx = 0; editorIdx < allEditors.length; editorIdx++) {
+                                            var editor = allEditors[editorIdx];
+                                            
+                                            // 이 에디터의 모든 텍스트 노드에서 마커 찾기
+                                            var walker = document.createTreeWalker(
+                                                editor,
+                                                NodeFilter.SHOW_TEXT,
+                                                null,
+                                                false
+                                            );
+                                            
+                                            var node;
+                                            while (node = walker.nextNode()) {
+                                                var text = node.textContent;
+                                                var index = text.indexOf(marker);
+                                                if (index !== -1) {
+                                                    foundNode = node;
+                                                    foundOffset = index;
+                                                    foundEditor = editor;
+                                                    break;
+                                                }
                                             }
+                                            
+                                            if (foundNode) break;
                                         }
                                         
                                         if (foundNode && foundOffset >= 0) {
@@ -956,7 +1270,9 @@ class NaverBlogPublisher:
                                             range.deleteContents();
                                             
                                             // 포커스 이동
-                                            editor.focus();
+                                            if (foundEditor) {
+                                                foundEditor.focus();
+                                            }
                                             
                                             return true;
                                         }
@@ -968,11 +1284,27 @@ class NaverBlogPublisher:
                                         logger.info(f"이미지 마커 '{marker}' 찾기 성공, 이미지 삽입 중...")
                                         
                                         # 이미지 삽입
-                                        self._insert_image_at_cursor(local_path, img_info)
+                                        insert_success = self._insert_image_at_cursor(local_path, img_info)
                                         time.sleep(1.5)
-                                        logger.info(f"이미지 {img_idx + 1} 삽입 완료")
+                                        
+                                        if insert_success:
+                                            logger.info(f"이미지 {img_idx + 1} 삽입 완료 (마커 위치)")
+                                        else:
+                                            logger.warning(f"이미지 {img_idx + 1} 삽입 실패")
                                     else:
-                                        logger.warning(f"이미지 마커 '{marker}' 찾기 실패, 맨 뒤에 삽입")
+                                        # 마커를 못 찾은 경우 - 에디터 전체 텍스트 확인
+                                        editor_text = self.driver.execute_script("""
+                                            var editors = document.querySelectorAll('p.se-text-paragraph, [contenteditable="true"]');
+                                            var allText = '';
+                                            editors.forEach(function(ed) {
+                                                allText += ed.textContent + '\\n';
+                                            });
+                                            return allText;
+                                        """)
+                                        logger.warning(f"이미지 마커 '{marker}' 찾기 실패")
+                                        logger.info(f"에디터 현재 텍스트 (처음 300자): {editor_text[:300]}")
+                                        logger.info(f"이미지 {img_idx + 1}을 맨 뒤에 삽입 시도...")
+                                        
                                         # 맨 뒤로 커서 이동
                                         self.driver.execute_script("""
                                             var editor = document.querySelector('p.se-text-paragraph:last-child, [contenteditable="true"]');
@@ -989,9 +1321,13 @@ class NaverBlogPublisher:
                                         time.sleep(0.5)
                                         
                                         # 이미지 삽입
-                                        self._insert_image_at_cursor(local_path, img_info)
+                                        insert_success = self._insert_image_at_cursor(local_path, img_info)
                                         time.sleep(1.5)
-                                        logger.info(f"이미지 {img_idx + 1} 맨 뒤에 삽입 완료")
+                                        
+                                        if insert_success:
+                                            logger.info(f"이미지 {img_idx + 1} 맨 뒤에 삽입 완료")
+                                        else:
+                                            logger.error(f"이미지 {img_idx + 1} 삽입 실패")
                                 except Exception as e:
                                     logger.warning(f"이미지 {img_idx + 1} 삽입 중 오류: {e}, 맨 뒤에 삽입 시도")
                                     # 실패 시 맨 뒤에 삽입
@@ -1015,54 +1351,63 @@ class NaverBlogPublisher:
                                         logger.error(f"이미지 {img_idx + 1} 삽입 완전 실패")
                         
                         logger.info(f"본문 입력 완료 (이미지 마커 방식, 이미지 {len(sorted_images)}개 삽입)")
+                        '''
                     else:
-                        # 일반 텍스트 입력 (Tab으로 이미 내용 영역에 있음)
-                        try:
-                            import pyperclip
-                            pyperclip.copy(content)
-                            time.sleep(0.3)
+                        # 일반 텍스트 입력 - 문장 단위 포맷팅 후 send_keys
+                        from selenium.webdriver.common.action_chains import ActionChains
+                        from selenium.webdriver.common.keys import Keys
+                        import re
+                        
+                        logger.info("본문 텍스트를 문장별 줄바꿈으로 포맷팅 후 입력 중...")
+                        
+                        # 텍스트를 문장 단위로 포맷팅
+                        lines = content.split('\n')
+                        formatted_lines = []
+                        
+                        for line in lines:
+                            line = line.strip()
+                            if not line:
+                                continue
                             
-                            from selenium.webdriver.common.action_chains import ActionChains
-                            from selenium.webdriver.common.keys import Keys
-                            import platform
+                            # 문장 단위로 분리 (. ! ? 뒤에서 분리)
+                            sentences = re.split(r'([.!?])\s+', line)
                             
-                            # 붙여넣기 (Tab으로 이미 내용 영역에 있음)
-                            if platform.system() == 'Darwin':
-                                ActionChains(self.driver).key_down(Keys.COMMAND).send_keys('v').key_up(Keys.COMMAND).perform()
-                            else:
-                                ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
-                            time.sleep(1)
-                            logger.info("본문 텍스트 입력 완료 (붙여넣기)")
-                        except ImportError:
-                            # pyperclip이 없으면 send_keys로 직접 입력
-                            from selenium.webdriver.common.keys import Keys
+                            # split 결과를 문장으로 재조합
+                            current_sentence = ''
+                            for i, part in enumerate(sentences):
+                                if part in ['.', '!', '?']:
+                                    current_sentence += part
+                                    if current_sentence.strip():
+                                        formatted_lines.append(current_sentence.strip())
+                                    current_sentence = ''
+                                elif part.strip():
+                                    current_sentence += part
                             
-                            # 포커스 확인
-                            try:
-                                if not content_paragraph.is_displayed():
-                                    self.driver.execute_script("arguments[0].click();", content_paragraph)
-                                    time.sleep(0.3)
-                            except:
-                                pass
+                            # 마지막 문장 처리
+                            if current_sentence.strip():
+                                formatted_lines.append(current_sentence.strip())
                             
-                            # 본문을 줄 단위로 입력
-                            for line in content.split('\n'):
-                                try:
-                                    content_paragraph.send_keys(line)
-                                    content_paragraph.send_keys(Keys.RETURN)
-                                    time.sleep(0.1)
-                                except Exception as e:
-                                    # send_keys 실패 시 JavaScript로 시도
-                                    escaped_line = line.replace("'", "\\'").replace("\n", "\\n")
-                                    self.driver.execute_script("""
-                                        var elem = arguments[0];
-                                        var text = arguments[1];
-                                        elem.textContent += text + '\\n';
-                                        elem.dispatchEvent(new Event('input', { bubbles: true }));
-                                    """, content_paragraph, line)
-                                    time.sleep(0.1)
-                            time.sleep(0.5)
-                            logger.info("본문 텍스트 입력 완료 (직접 입력)")
+                            # 문단 끝에 빈 줄 추가
+                            if formatted_lines and formatted_lines[-1] != '':
+                                formatted_lines.append('')
+                        
+                        # 마지막 빈 줄 제거
+                        if formatted_lines and formatted_lines[-1] == '':
+                            formatted_lines.pop()
+                        
+                        # 입력
+                        for i, line in enumerate(formatted_lines):
+                            if line.strip():  # 빈 줄이 아니면
+                                ActionChains(self.driver).send_keys(line).perform()
+                                time.sleep(0.05)  # 짧은 대기
+                            
+                            # 줄바꿈 (마지막 줄 제외)
+                            if i < len(formatted_lines) - 1:
+                                ActionChains(self.driver).send_keys(Keys.RETURN).perform()
+                                time.sleep(0.05)
+                        
+                        time.sleep(1)
+                        logger.info(f"본문 텍스트 입력 완료 (문장별 줄바꿈, {len([l for l in formatted_lines if l.strip()])}줄)")
                 except Exception as e:
                     logger.error(f"본문 입력 실패: {e}")
             
