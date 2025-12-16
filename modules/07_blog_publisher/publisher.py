@@ -869,49 +869,17 @@ class NaverBlogPublisher:
                         
                         # 이미지 매핑 생성 (나중에 사용할 수 있도록 먼저 정의)
                         sorted_images = sorted(images, key=lambda x: x.get('index', 0)) if images else []
+                        logger.info(f"사용 가능한 이미지: {len(sorted_images)}개")
                         
-                        # 이미지가 있으면 마커로 대체
-                        image_index = 0
-                        if sorted_images:
-                            logger.info(f"이미지 {len(sorted_images)}개를 마커로 변환 중...")
-                            # PLACEHOLDER가 있는 모든 img 태그를 마커로 대체
-                            for img in body.find_all('img'):
-                                src = img.get('src', '')
-                                if 'PLACEHOLDER' in src or not src:
-                                    # 이미지를 독특한 마커로 대체
-                                    marker = f"###IMG{image_index + 1}###"
-                                    img.replace_with(marker)
-                                    image_index += 1
-                                    logger.debug(f"이미지 태그를 {marker}로 변환")
+                        # ⚠️ 새로운 방식: 마커가 이미 HTML에 포함되어 있음!
+                        # BlogGenerator가 이미 ###DIVIDER1###, ###IMG1### 등의 마커를 생성함
+                        # 따라서 img 태그 변환이나 h2 태그 변환이 불필요함
                         
-                        logger.info(f"이미지 마커 변환 완료: {image_index}개")
-                        
-                        # 텍스트 추출 (style, script, head 태그 제거)
-                        for tag in body.find_all(['style', 'script', 'head']):
+                        # 텍스트 추출 (style, script, head, h1 태그 제거)
+                        for tag in body.find_all(['style', 'script', 'head', 'h1']):
                             tag.decompose()
                         
-                        # h2 태그를 구분선 마커로 대체 (서론, 본론, 결론 구분용)
-                        h2_tags = body.find_all('h2')
-                        logger.info(f"h2 태그 {len(h2_tags)}개 발견")
-                        divider_count = 0
-                        for i, h2 in enumerate(h2_tags):
-                            h2_text = h2.get_text(strip=True)
-                            if i == 0:
-                                # 첫 번째 h2(서론)는 그냥 제거
-                                logger.debug(f"첫 번째 h2 제거: '{h2_text}'")
-                                h2.decompose()
-                            else:
-                                # 두 번째 h2부터는 구분선 마커로 대체 (본론, 결론 전)
-                                divider_marker = f"\n\n###DIVIDER{divider_count + 1}###\n\n"
-                                logger.debug(f"h2 '{h2_text}'를 {divider_marker.strip()}로 변환")
-                                h2.replace_with(divider_marker)
-                                divider_count += 1
-                        
-                        logger.info(f"h2 태그 변환 완료: 구분선 마커 {divider_count}개 생성")
-                        
-                        # h1, h3 제목 태그 제거
-                        for tag in body.find_all(['h1', 'h3']):
-                            tag.decompose()
+                        logger.info("HTML에서 텍스트 추출 중... (마커는 이미 포함되어 있음)")
                         
                         # 텍스트 추출
                         text_content = body.get_text(separator='\n', strip=True)
