@@ -477,10 +477,11 @@ class NaverBlogPublisher:
         
         # 본문 설정 (HTML이 있으면 HTML 사용, 없으면 텍스트만)
         if content is None:
-            if html and ('PLACEHOLDER' in html or '<img' in html):
+            # HTML에 PLACEHOLDER, img 태그, 또는 마커(###DIVIDER###, ###IMG###)가 있으면 HTML 사용
+            if html and ('PLACEHOLDER' in html or '<img' in html or '###DIVIDER' in html or '###IMG' in html):
                 # HTML을 사용하여 이미지 위치 포함하여 입력
                 content = html  # HTML을 그대로 사용
-                logger.info("HTML을 본문으로 사용 (이미지 위치 포함)")
+                logger.info("HTML을 본문으로 사용 (마커/이미지 위치 포함)")
             elif blog_content:
                 content = blog_content
             else:
