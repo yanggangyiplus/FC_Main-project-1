@@ -1,24 +1,24 @@
 {
-  "blog_topic": "외교부 \"원팀 노력\"·통일부 \"평화 공동목표\"…갈등 우려 진화(종합)",
-  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/politics/외교부_원팀_노력통일부_평화_공동목표갈등_우려_진화종합_20251216_163547_v1.html",
+  "blog_topic": "與, 내란재판부법 명칭 '윤석열' 삭제…2심도입·내부추천 잠정결론",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/politics/與_내란재판부법_명칭_윤석열_삭제2심도입내부추천_잠정결론_20251216_185809_v1.html",
   "placeholders": [
     {
       "index": 0,
-      "alt": "A conceptual illustration depicting two figures representing diplomatic entities, facing each other with a map of the Korean peninsula in the background, minimalist art style",
-      "tag": "<img src=\"PLACEHOLDER\" alt=\"A conceptual illustration depicting two figures representing diplomatic entities, facing each other with a map of the Korean peninsula in the background, minimalist art style\" class=\"blog-image\">"
+      "alt": "Digital illustration of scales of justice with binary code background, representing legal and technological aspects, cyberpunk style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Digital illustration of scales of justice with binary code background, representing legal and technological aspects, cyberpunk style\" class=\"blog-image\">"
     },
     {
       "index": 1,
-      "alt": "Abstract representation of global trade routes and supply chains, highlighting strategic minerals, futuristic technology visualization",
-      "tag": "<img src=\"PLACEHOLDER\" alt=\"Abstract representation of global trade routes and supply chains, highlighting strategic minerals, futuristic technology visualization\" class=\"blog-image\">"
+      "alt": "Abstract representation of political debate and legal proceedings, courtroom setting with digital interfaces, art deco style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Abstract representation of political debate and legal proceedings, courtroom setting with digital interfaces, art deco style\" class=\"blog-image\">"
     },
     {
       "index": 2,
-      "alt": "An image showing two hands reaching out to each other over a blurred background of government buildings, symbolic of cooperation, soft lighting, atmospheric",
-      "tag": "<img src=\"PLACEHOLDER\" alt=\"An image showing two hands reaching out to each other over a blurred background of government buildings, symbolic of cooperation, soft lighting, atmospheric\" class=\"blog-image\">"
+      "alt": "Close-up of stock market data on multiple screens, showing fluctuating graphs and numbers, financial district background, realistic rendering",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Close-up of stock market data on multiple screens, showing fluctuating graphs and numbers, financial district background, realistic rendering\" class=\"blog-image\">"
     }
   ],
-  "created_at": "2025-12-16T16:35:49.628399",
-  "evaluation_score": 85,
+  "created_at": "2025-12-16T18:58:12.111741",
+  "evaluation_score": 87,
   "category": "politics"
 }

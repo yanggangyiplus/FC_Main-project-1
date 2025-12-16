@@ -1,0 +1,35 @@
+{
+  "blog_id": "04d01970",
+  "blog_topic": "與, 내란재판부법 명칭 '윤석열' 삭제…2심도입·내부추천 잠정결론",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/politics/與_내란재판부법_명칭_윤석열_삭제2심도입내부추천_잠정결론_20251216_185809_v1.html",
+  "created_at": "2025-12-16T18:58:16.844757",
+  "evaluation_score": 87,
+  "category": "politics",
+  "blog_category": "politics",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251216_185813_0.jpg",
+      "url": "https://pixabay.com/get/ge76a4b3ed4b1b668caafe9f6ef77b952270ca296b792c05755fdc37a893559a68efac8c8b379e739b64f786851caa231726bddb58c75f9d50b9d55395f6d7f0c_640.png",
+      "alt": "Digital illustration of scales of justice with binary code background, representing legal and technological aspects, cyberpunk style",
+      "model": "pixabay",
+      "search_keyword": "justice code"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251216_185815_1.jpg",
+      "url": "https://pixabay.com/get/g0cee27e4997a8d4305604c7a0568e85f7447bd4cd0bcf6fa3ffe10752b1dc4157ca505d1bd087f92129ec7ee02721131_640.jpg",
+      "alt": "Abstract representation of political debate and legal proceedings, courtroom setting with digital interfaces, art deco style",
+      "model": "pixabay",
+      "search_keyword": "Courtroom debate"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251216_185816_2.jpg",
+      "url": "https://pixabay.com/get/gd60827b657cff8acf1e2d6d85cec9d0f6331b022503917c7307a7d15b6aa91ccc46923ce515802cdd4ef2d53ccdb91b0a5810ec8941b0ceb7be2abb2bc2014b8_640.jpg",
+      "alt": "Close-up of stock market data on multiple screens, showing fluctuating graphs and numbers, financial district background, realistic rendering",
+      "model": "pixabay",
+      "search_keyword": "stock market"
+    }
+  ]
+}
