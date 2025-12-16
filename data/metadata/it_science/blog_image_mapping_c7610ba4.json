@@ -1,0 +1,35 @@
+{
+  "blog_id": "c7610ba4",
+  "blog_topic": "리벨리온, 5년 만에 AI 반도체 국가대표...\"非엔비디아 생태계 선봉장 될 것\"",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/리벨리온_5년_만에_AI_반도체_국가대표非엔비디아_생태계_선봉장_될_것_20251216_194056_v1.html",
+  "created_at": "2025-12-16T19:41:04.262079",
+  "evaluation_score": 85,
+  "category": "it_science",
+  "blog_category": "it_tech",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_194101_0.jpg",
+      "url": "https://pixabay.com/get/g1ad3fed8cd65c175dae97a73fbf9d70818883fc0f997056eec1f2ed4e20c00698a7d4e61a2ef0454a90273f7c011e4b7b1f6f5a1fe27c6b361342e69f994574b_640.jpg",
+      "alt": "Network security concept with data protection shield and lock icons, digital art style",
+      "model": "pixabay",
+      "search_keyword": "Network security"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_194102_1.jpg",
+      "url": "https://pixabay.com/get/g7c42c646b7e2fb8f0a74472d8fe2f807b20b09a893f3740c4ec1cd50a64f92fa8400fd9d3df6acbc634ac7dd84e99247_640.jpg",
+      "alt": "Abstract representation of digital transformation and cloud computing, futuristic style",
+      "model": "pixabay",
+      "search_keyword": "Cloud computing"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_194104_2.jpg",
+      "url": "https://pixabay.com/get/g6b92435aa34c6d4acebd7343cb68fb22a98ec6602ccaf98400a7513e13b577613324b6ebabd2b4b3c3c213187be26013f406757fb911e8c53d63e660882579c1_640.jpg",
+      "alt": "Team of business executives discussing strategy in a modern conference room, focus on leader, professional corporate photography",
+      "model": "pixabay",
+      "search_keyword": "business meeting"
+    }
+  ]
+}
