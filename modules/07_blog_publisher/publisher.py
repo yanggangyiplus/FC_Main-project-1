@@ -813,21 +813,26 @@ class NaverBlogPublisher:
                             logger.warning(f"내용 p 태그 클릭도 실패: {e2}")
                     
                     if is_html and images:
-                        # 방법: 먼저 전체 텍스트를 붙여넣고, 이미지 위치를 찾아서 삽입
-                        logger.info("HTML 파싱하여 텍스트 먼저 입력 후 이미지 삽입...")
+                        # 방법: 이미지 위치 마커를 포함한 텍스트를 붙여넣고, 마커를 찾아 이미지 삽입
+                        logger.info("HTML 파싱하여 이미지 위치 마커 포함 텍스트 입력 후 이미지 삽입...")
                         soup = BeautifulSoup(content, 'html.parser')
                         body = soup.find('body') or soup
                         
                         # 이미지 매핑 생성 (index 기준)
                         sorted_images = sorted(images, key=lambda x: x.get('index', 0))
                         
-                        # HTML에서 텍스트만 추출 (이미지 제외)
+                        # HTML에서 텍스트 추출 (이미지는 마커로 대체)
                         temp_body = BeautifulSoup(str(body), 'html.parser')
-                        # PLACEHOLDER 이미지 제거
-                        for img in temp_body.find_all('img', src=lambda x: x and 'PLACEHOLDER' in x):
-                            img.decompose()
                         
-                        # 텍스트만 추출
+                        # PLACEHOLDER 이미지를 마커로 대체
+                        image_index = 0
+                        for img in temp_body.find_all('img', src=lambda x: x and 'PLACEHOLDER' in x):
+                            # 이미지를 독특한 마커로 대체
+                            marker = f"###IMG{image_index + 1}###"
+                            img.replace_with(marker)
+                            image_index += 1
+                        
+                        # 텍스트 추출 (이미지 마커 포함)
                         text_content = temp_body.get_text(separator='\n', strip=True)
                         
                         # 제목 제거 (h1, h2, h3)
@@ -838,6 +843,8 @@ class NaverBlogPublisher:
                             if line.strip():
                                 filtered_lines.append(line)
                         text_content = '\n'.join(filtered_lines)
+                        
+                        logger.info(f"이미지 마커 {image_index}개 포함한 텍스트 생성 완료: {text_content[:100]}...")
                         
                         # 본문 입력 (Tab으로 이미 내용 영역에 있음)
                         from selenium.webdriver.common.keys import Keys
@@ -867,205 +874,147 @@ class NaverBlogPublisher:
                                 except:
                                     pass
                         
-                        # 이미지 위치 찾기 및 삽입
-                        # HTML에서 이미지 위치를 텍스트 기준으로 파악
-                        image_positions = []  # [(이미지 인덱스, 앞의 텍스트), ...]
+                        # 붙여넣기 후 실제 에디터 내용 확인
+                        time.sleep(1)
+                        editor_content = self.driver.execute_script("""
+                            var editor = document.querySelector('p.se-text-paragraph:not(:has(span.se-placeholder.se-fs32)), [contenteditable="true"]:not(:has(span.se-placeholder.se-fs32))');
+                            return editor ? editor.textContent : '';
+                        """)
+                        logger.info(f"에디터 실제 내용 (처음 200자): {editor_content[:200]}")
                         
-                        # body의 모든 요소를 순서대로 순회하여 이미지 위치 파악
-                        current_text = ""
-                        image_index = 0
+                        # 이미지 마커를 찾아 이미지 삽입
+                        logger.info(f"이미지 마커를 찾아 이미지 {len(sorted_images)}개 삽입 시작...")
                         
-                        for element in body.children:
-                            if not hasattr(element, 'name'):
-                                continue
+                        for img_idx in range(len(sorted_images)):
+                            img_info = sorted_images[img_idx]
+                            local_path = img_info.get('local_path', '')
+                            marker = f"###IMG{img_idx + 1}###"
                             
-                            # 제목은 건너뛰기
-                            if element.name in ['h1', 'h2', 'h3']:
-                                continue
-                            
-                            # p 태그 처리
-                            if element.name == 'p':
-                                # 이미지가 있는지 확인
-                                placeholder_imgs = element.find_all('img', src=lambda x: x and 'PLACEHOLDER' in x)
-                                
-                                if placeholder_imgs:
-                                    # 이미지 앞의 텍스트
-                                    before_text = ""
-                                    for child in element.children:
-                                        if hasattr(child, 'name') and child.name == 'img':
-                                            break
-                                        if isinstance(child, str):
-                                            before_text += child.strip() + " "
-                                        elif hasattr(child, 'get_text'):
-                                            before_text += child.get_text(strip=True) + " "
+                            if local_path and Path(local_path).exists():
+                                # 이미지 마커 찾기 및 커서 이동
+                                try:
+                                    logger.info(f"이미지 마커 '{marker}' 찾는 중...")
                                     
-                                    # 이미지 위치 저장
-                                    for img in placeholder_imgs:
-                                        if image_index < len(sorted_images):
-                                            image_positions.append((image_index, current_text + before_text.strip()))
-                                            image_index += 1
-                                    
-                                    # 이미지 뒤의 텍스트도 추가
-                                    after_text = ""
-                                    img_found = False
-                                    for child in element.children:
-                                        if hasattr(child, 'name') and child.name == 'img':
-                                            img_found = True
-                                            continue
-                                        if img_found:
-                                            if isinstance(child, str):
-                                                after_text += child.strip() + " "
-                                            elif hasattr(child, 'get_text'):
-                                                after_text += child.get_text(strip=True) + " "
-                                    
-                                    current_text += before_text.strip() + " " + after_text.strip() + "\n"
-                                else:
-                                    # 이미지 없는 경우 텍스트만 추가
-                                    text = element.get_text(strip=True)
-                                    if text:
-                                        current_text += text + "\n"
-                            
-                            # 독립적인 이미지 태그
-                            elif element.name == 'img':
-                                src = element.get('src', '')
-                                if 'PLACEHOLDER' in src:
-                                    if image_index < len(sorted_images):
-                                        image_positions.append((image_index, current_text))
-                                        image_index += 1
-                            
-                            # 기타 텍스트 요소
-                            elif hasattr(element, 'get_text'):
-                                text = element.get_text(strip=True)
-                                if text:
-                                    current_text += text + "\n"
-                        
-                        # 이미지 삽입 (텍스트 위치 기준)
-                        logger.info(f"이미지 {len(image_positions)}개 위치 찾기 완료, 삽입 시작...")
-                        
-                        for img_idx, before_text in image_positions:
-                            if img_idx < len(sorted_images):
-                                img_info = sorted_images[img_idx]
-                                local_path = img_info.get('local_path', '')
-                                
-                                if local_path and Path(local_path).exists():
-                                    # 텍스트 위치 찾기 및 커서 이동
-                                    try:
-                                        # 텍스트의 마지막 부분을 찾아서 커서 이동
-                                        search_text = before_text.strip()
-                                        if len(search_text) > 50:
-                                            search_text = search_text[-50:]  # 마지막 50자 사용
+                                    # 에디터 영역에서 이미지 마커 찾기
+                                    found = self.driver.execute_script("""
+                                        var marker = arguments[0];
+                                        // 내용 영역만 찾기 (제목이 아닌 p 태그)
+                                        var contentParagraphs = document.querySelectorAll('p.se-text-paragraph');
+                                        var editor = null;
                                         
-                                        # 에디터 영역에서 텍스트 찾기 (내용 영역만, 제목 제외)
-                                        found = self.driver.execute_script("""
-                                            var searchText = arguments[0];
-                                            // 내용 영역만 찾기 (제목이 아닌 p 태그)
-                                            var contentParagraphs = document.querySelectorAll('p.se-text-paragraph');
-                                            var editor = null;
-                                            
-                                            // 제목이 아닌 내용 영역 찾기
-                                            for (var i = 0; i < contentParagraphs.length; i++) {
-                                                var p = contentParagraphs[i];
-                                                var titlePlaceholder = p.querySelector('span.se-placeholder.se-fs32');
-                                                if (!titlePlaceholder) {
-                                                    // 제목이 아닌 영역이면 내용 영역
-                                                    editor = p;
-                                                    break;
-                                                }
+                                        // 제목이 아닌 내용 영역 찾기
+                                        for (var i = 0; i < contentParagraphs.length; i++) {
+                                            var p = contentParagraphs[i];
+                                            var titlePlaceholder = p.querySelector('span.se-placeholder.se-fs32');
+                                            if (!titlePlaceholder) {
+                                                // 제목이 아닌 영역이면 내용 영역
+                                                editor = p;
+                                                break;
                                             }
-                                            
-                                            // 내용 영역을 못 찾으면 contenteditable 사용
-                                            if (!editor) {
-                                                editor = document.querySelector('[contenteditable="true"]');
-                                            }
-                                            
-                                            if (!editor) return false;
-                                            
-                                            // 모든 텍스트 노드 찾기
-                                            var walker = document.createTreeWalker(
-                                                editor,
-                                                NodeFilter.SHOW_TEXT,
-                                                null,
-                                                false
-                                            );
-                                            
-                                            var node;
-                                            var foundNode = null;
-                                            var foundOffset = -1;
-                                            
-                                            while (node = walker.nextNode()) {
-                                                var text = node.textContent;
-                                                var index = text.indexOf(searchText);
-                                                if (index !== -1) {
-                                                    foundNode = node;
-                                                    foundOffset = index + searchText.length;
-                                                    break;
-                                                }
-                                            }
-                                            
-                                            if (foundNode && foundOffset >= 0) {
-                                                var range = document.createRange();
-                                                range.setStart(foundNode, foundOffset);
-                                                range.collapse(true);
-                                                
-                                                var sel = window.getSelection();
-                                                sel.removeAllRanges();
-                                                sel.addRange(range);
-                                                
-                                                // 포커스 이동
-                                                editor.focus();
-                                                
-                                                return true;
-                                            }
-                                            return false;
-                                        """, search_text)
+                                        }
                                         
-                                        if found:
-                                            time.sleep(0.5)
-                                            logger.info(f"이미지 {img_idx + 1} 위치 찾기 성공: '{search_text[:30]}...'")
-                                        else:
-                                            logger.warning(f"이미지 {img_idx + 1} 위치 찾기 실패, 맨 뒤로 이동")
-                                            # 맨 뒤로 커서 이동
-                                            self.driver.execute_script("""
-                                                var editor = document.querySelector('p.se-text-paragraph:last-child, [contenteditable="true"]');
-                                                if (editor) {
-                                                    editor.focus();
-                                                    var range = document.createRange();
-                                                    range.selectNodeContents(editor);
-                                                    range.collapse(false);
-                                                    var sel = window.getSelection();
-                                                    sel.removeAllRanges();
-                                                    sel.addRange(range);
-                                                }
-                                            """)
-                                            time.sleep(0.5)
+                                        // 내용 영역을 못 찾으면 contenteditable 사용
+                                        if (!editor) {
+                                            editor = document.querySelector('[contenteditable="true"]');
+                                        }
+                                        
+                                        if (!editor) return false;
+                                        
+                                        // 모든 텍스트 노드에서 마커 찾기
+                                        var walker = document.createTreeWalker(
+                                            editor,
+                                            NodeFilter.SHOW_TEXT,
+                                            null,
+                                            false
+                                        );
+                                        
+                                        var node;
+                                        var foundNode = null;
+                                        var foundOffset = -1;
+                                        
+                                        while (node = walker.nextNode()) {
+                                            var text = node.textContent;
+                                            var index = text.indexOf(marker);
+                                            if (index !== -1) {
+                                                foundNode = node;
+                                                foundOffset = index;
+                                                break;
+                                            }
+                                        }
+                                        
+                                        if (foundNode && foundOffset >= 0) {
+                                            // 마커 선택
+                                            var range = document.createRange();
+                                            range.setStart(foundNode, foundOffset);
+                                            range.setEnd(foundNode, foundOffset + marker.length);
+                                            
+                                            var sel = window.getSelection();
+                                            sel.removeAllRanges();
+                                            sel.addRange(range);
+                                            
+                                            // 마커 삭제 (선택 후 삭제)
+                                            range.deleteContents();
+                                            
+                                            // 포커스 이동
+                                            editor.focus();
+                                            
+                                            return true;
+                                        }
+                                        return false;
+                                    """, marker)
+                                    
+                                    if found:
+                                        time.sleep(0.5)
+                                        logger.info(f"이미지 마커 '{marker}' 찾기 성공, 이미지 삽입 중...")
                                         
                                         # 이미지 삽입
                                         self._insert_image_at_cursor(local_path, img_info)
                                         time.sleep(1.5)
                                         logger.info(f"이미지 {img_idx + 1} 삽입 완료")
-                                    except Exception as e:
-                                        logger.warning(f"이미지 {img_idx + 1} 삽입 중 오류: {e}, 맨 뒤에 삽입 시도")
-                                        # 실패 시 맨 뒤에 삽입
-                                        try:
-                                            self.driver.execute_script("""
-                                                var editor = document.querySelector('p.se-text-paragraph:last-child, [contenteditable="true"]');
-                                                if (editor) {
-                                                    editor.focus();
-                                                    var range = document.createRange();
-                                                    range.selectNodeContents(editor);
-                                                    range.collapse(false);
-                                                    var sel = window.getSelection();
-                                                    sel.removeAllRanges();
-                                                    sel.addRange(range);
-                                                }
-                                            """)
-                                            time.sleep(0.5)
-                                            self._insert_image_at_cursor(local_path, img_info)
-                                            time.sleep(1.5)
-                                        except:
-                                            logger.error(f"이미지 {img_idx + 1} 삽입 완전 실패")
+                                    else:
+                                        logger.warning(f"이미지 마커 '{marker}' 찾기 실패, 맨 뒤에 삽입")
+                                        # 맨 뒤로 커서 이동
+                                        self.driver.execute_script("""
+                                            var editor = document.querySelector('p.se-text-paragraph:last-child, [contenteditable="true"]');
+                                            if (editor) {
+                                                editor.focus();
+                                                var range = document.createRange();
+                                                range.selectNodeContents(editor);
+                                                range.collapse(false);
+                                                var sel = window.getSelection();
+                                                sel.removeAllRanges();
+                                                sel.addRange(range);
+                                            }
+                                        """)
+                                        time.sleep(0.5)
+                                        
+                                        # 이미지 삽입
+                                        self._insert_image_at_cursor(local_path, img_info)
+                                        time.sleep(1.5)
+                                        logger.info(f"이미지 {img_idx + 1} 맨 뒤에 삽입 완료")
+                                except Exception as e:
+                                    logger.warning(f"이미지 {img_idx + 1} 삽입 중 오류: {e}, 맨 뒤에 삽입 시도")
+                                    # 실패 시 맨 뒤에 삽입
+                                    try:
+                                        self.driver.execute_script("""
+                                            var editor = document.querySelector('p.se-text-paragraph:last-child, [contenteditable="true"]');
+                                            if (editor) {
+                                                editor.focus();
+                                                var range = document.createRange();
+                                                range.selectNodeContents(editor);
+                                                range.collapse(false);
+                                                var sel = window.getSelection();
+                                                sel.removeAllRanges();
+                                                sel.addRange(range);
+                                            }
+                                        """)
+                                        time.sleep(0.5)
+                                        self._insert_image_at_cursor(local_path, img_info)
+                                        time.sleep(1.5)
+                                    except:
+                                        logger.error(f"이미지 {img_idx + 1} 삽입 완전 실패")
                         
-                        logger.info(f"본문 입력 완료 (텍스트 먼저 입력 후 이미지 {len(image_positions)}개 삽입)")
+                        logger.info(f"본문 입력 완료 (이미지 마커 방식, 이미지 {len(sorted_images)}개 삽입)")
                     else:
                         # 일반 텍스트 입력 (Tab으로 이미 내용 영역에 있음)
                         try:
