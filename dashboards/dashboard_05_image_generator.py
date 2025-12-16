@@ -34,13 +34,14 @@ st.markdown("---")
 CATEGORY_MAP = {
     "politics": "정치 (Politics)",
     "economy": "경제 (Economy)",
-    "it_science": "IT/과학 (IT & Science)"
+    "it_science": "IT/과학 (IT & Science)",
+    "test": "테스트 (Test)"
 }
 
 # 카테고리 선택
 selected_category = st.selectbox(
     "📂 카테고리 선택",
-    options=["전체", "politics", "economy", "it_science"],
+    options=["전체", "politics", "economy", "it_science", "test"],
     format_func=lambda x: "전체" if x == "전체" else CATEGORY_MAP.get(x, x),
     index=0
 )
@@ -341,7 +342,8 @@ with tab0:
                         if st.button(f"🎨 이미지 {current_idx + 1} 생성", type="primary", use_container_width=True):
                             with st.spinner(f"이미지 {current_idx + 1} 생성 중... (30초~1분 소요)"):
                                 try:
-                                    generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size)
+                                    current_category = selected_category if selected_category != "전체" else ""
+                                    generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size, category=current_category)
                                     result = generator.generate_single_image(current_ph['alt'], index=current_idx)
                                     
                                     if result.get('local_path'):
@@ -470,7 +472,8 @@ with tab0:
                         status_text.text(f"이미지 {i+1}/{len(placeholders)} 생성 중...")
                         
                         try:
-                            generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size)
+                            current_category = selected_category if selected_category != "전체" else ""
+                            generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size, category=current_category)
                             result = generator.generate_single_image(ph['alt'], index=i)
                             results.append(result)
                             
@@ -602,7 +605,8 @@ with tab1:
             if prompt:
                 with st.spinner("이미지 생성 중... (30초~1분 소요)"):
                     try:
-                        generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size)
+                        current_category = selected_category if selected_category != "전체" else ""
+                        generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size, category=current_category)
                         result = generator.generate_single_image(prompt, index=0)
  
                         st.session_state.single_image_result = result
@@ -668,8 +672,9 @@ with tab1:
                 placeholders = json.loads(placeholder_input)
  
                 with st.spinner(f"{len(placeholders)}개 이미지 생성 중..."):
-                    generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size)
-                    results = generator.generate_images(placeholders)
+                    current_category = selected_category if selected_category != "전체" else ""
+                    generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size, category=current_category)
+                    results = generator.generate_images(placeholders, category=current_category)
  
                     st.session_state.batch_results = results
                     st.success(f"✅ {len(results)}개 이미지 생성 완료!")

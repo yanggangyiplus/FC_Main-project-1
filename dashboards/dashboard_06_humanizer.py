@@ -31,7 +31,7 @@ st.set_page_config(
  
 st.title("✨ Humanizer 대시보드")
 st.markdown("---")
-
+ 
 # 카테고리 매핑
 CATEGORY_MAP = {
     "politics": "정치 (Politics)",
@@ -83,26 +83,26 @@ with st.sidebar:
             st.warning("⚠️ LM Studio 비활성화\n.env에서 LM_STUDIO_ENABLED=true 설정 필요")
 
     st.markdown("---")
-
+ 
     st.markdown("""
     ### 🎯 인간화 개선 방향
-
+ 
     1. **문체 자연스럽게**
        - AI 느낌 제거
        - 구어체 적절히 섞기
-
+ 
     2. **문장 다양화**
        - 짧은/긴 문장 조화
        - 시작 단어 다양화
-
+ 
     3. **표현 풍부하게**
        - 관용구 추가
        - 적절한 강조
-
+ 
     4. **가독성 개선**
        - 단락 조정
        - 리스트 활용
-
+ 
     5. **구조 최적화**
        - 흥미로운 소제목
        - 강화된 마무리
@@ -230,16 +230,16 @@ with tab1:
                             st.rerun()
                         except Exception as e:
                             st.error(f"❌ 인간화 실패: {str(e)}")
-    
+ 
     # 입력 방법 선택
     input_method = st.radio(
         "입력 방법",
         ["4번 모듈에서 자동 전달", "저장된 파일 선택", "직접 HTML 입력"],
         horizontal=True
     )
-
+ 
     original_html = None
-
+ 
     if input_method == "4번 모듈에서 자동 전달":
         if HUMANIZER_INPUT_FILE.exists():
             try:
@@ -263,18 +263,18 @@ with tab1:
             else:
                 # 전체 카테고리에서 검색
                 html_files = sorted(list(GENERATED_BLOGS_DIR.glob("**/*.html")), reverse=True)
-
+ 
             if html_files:
                 selected_file = st.selectbox(
                     "블로그 파일 선택",
                     options=html_files,
                     format_func=lambda x: x.name
                 )
-
+ 
                 if selected_file:
                     with open(selected_file, 'r', encoding='utf-8') as f:
                         original_html = f.read()
-
+ 
                     st.success(f"✅ 파일 로드 완료: {selected_file.name}")
             else:
                 st.info("저장된 블로그가 없습니다.")
@@ -379,7 +379,7 @@ with tab1:
                             st.success(f"✅ 인간화 완료 및 자동 저장: {filename.name}")
                         
                         st.rerun()
-
+ 
                     except Exception as e:
                         st.error(f"❌ 인간화 실패: {str(e)}")
  
@@ -415,12 +415,12 @@ with tab1:
                     category_dir.mkdir(parents=True, exist_ok=True)
                     filename = category_dir / f"humanized_{timestamp}.html"
                 else:
-                    filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
-
+                filename = GENERATED_BLOGS_DIR / f"humanized_{timestamp}.html"
+ 
                 GENERATED_BLOGS_DIR.mkdir(parents=True, exist_ok=True)
                 with open(filename, 'w', encoding='utf-8') as f:
                     f.write(st.session_state.humanized_html)
-                
+ 
                 # ✅ 블로그 주제와 본문 텍스트 추출하여 7번 모듈용으로 저장
                 try:
                     soup = BeautifulSoup(st.session_state.humanized_html, 'html.parser')
@@ -477,7 +477,7 @@ with tab1:
                     st.info("👉 이제 **7번 모듈 (블로그 발행)**에서 발행할 수 있습니다!")
                 except Exception as e:
                     st.warning(f"⚠️ 블로그 발행용 데이터 저장 실패: {e}")
-                    st.success(f"✅ 저장 완료: {filename.name}")
+                st.success(f"✅ 저장 완료: {filename.name}")
  
 # 탭 2: Before/After 비교
 with tab2:

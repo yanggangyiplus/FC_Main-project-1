@@ -371,14 +371,15 @@ with tab2:
                     st.session_state.current_context = context
                     st.session_state.current_category = st.session_state.get('selected_category', '')
                     
-                    # 자동 저장
+                    # 자동 저장 (카테고리 포함)
                     with st.spinner("💾 저장 중..."):
-                        filepath = blog_generator.save_blog(html, topic, context)
+                        current_category = st.session_state.get('selected_category', '')
+                        filepath = blog_generator.save_blog(html, topic, context, category=current_category)
                         
                         # 주제 기록에 추가
                         topic_manager.add_topic(
                             topic_title=topic,
-                            category=st.session_state.get('selected_category', ''),
+                            category=current_category,
                             blog_file=str(filepath)
                         )
                         

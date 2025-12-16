@@ -1,0 +1,19 @@
+{
+  "blog_topic": "국회, 오늘 본회의서 '은행법 개정안' 표결…필리버스터 계속",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/politics/국회_오늘_본회의서_은행법_개정안_표결필리버스터_계속_20251214_005551_v1.html",
+  "placeholders": [
+    {
+      "index": 0,
+      "alt": "A modern data center with glowing servers and blue lights, digital art style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"A modern data center with glowing servers and blue lights, digital art style\" class=\"blog-image\">"
+    },
+    {
+      "index": 1,
+      "alt": "Business professionals analyzing charts on large screens, photorealistic",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Business professionals analyzing charts on large screens, photorealistic\" class=\"blog-image\">"
+    }
+  ],
+  "created_at": "2025-12-14T01:00:19.864202",
+  "evaluation_score": 85,
+  "category": "politics"
+}

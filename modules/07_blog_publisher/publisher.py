@@ -230,7 +230,7 @@ class NaverBlogPublisher:
 
         # BeautifulSoup으로 HTML 파싱
         soup = BeautifulSoup(html, 'html.parser')
-        
+
         # 플레이스홀더를 순서대로 교체
         placeholder_count = 0
         for img_tag in soup.find_all('img'):
@@ -435,6 +435,23 @@ class NaverBlogPublisher:
         
         publish_data = self.load_publish_data(category=data_category)
         
+        # HTML 자동 로드 (html 파라미터가 None이고 publish_data에 html_file이 있는 경우)
+        if html is None and publish_data:
+            html_file_path = publish_data.get('html_file', '')
+            if html_file_path and Path(html_file_path).exists():
+                try:
+                    with open(html_file_path, 'r', encoding='utf-8') as f:
+                        html = f.read()
+                    logger.info(f"HTML 파일 자동 로드: {html_file_path}")
+                except Exception as e:
+                    logger.warning(f"HTML 파일 로드 실패: {e}")
+        
+        # HTML이 없으면 최신 HTML 파일 로드 시도
+        if html is None:
+            html = self.load_latest_html()
+            if html:
+                logger.info("최신 HTML 파일 자동 로드 완료")
+        
         # 제목과 본문 텍스트 가져오기
         blog_title = None
         blog_content = None
@@ -458,21 +475,14 @@ class NaverBlogPublisher:
             else:
                 title = "블로그 제목"
         
-        # 본문 텍스트 설정
+        # 본문 설정 (HTML이 있으면 HTML 사용, 없으면 텍스트만)
         if content is None:
-            if blog_content:
+            if html and ('PLACEHOLDER' in html or '<img' in html):
+                # HTML을 사용하여 이미지 위치 포함하여 입력
+                content = html  # HTML을 그대로 사용
+                logger.info("HTML을 본문으로 사용 (이미지 위치 포함)")
+            elif blog_content:
                 content = blog_content
-            elif html:
-                # HTML에서 텍스트 추출
-                soup = BeautifulSoup(html, 'html.parser')
-                body_content = soup.find('body')
-                if body_content:
-                    # 이미지 태그 제거
-                    for img in body_content.find_all('img'):
-                        img.decompose()
-                    content = body_content.get_text(separator='\n', strip=True)
-                else:
-                    content = soup.get_text(separator='\n', strip=True)
             else:
                 content = ""
         
@@ -539,6 +549,94 @@ class NaverBlogPublisher:
             "attempts": max_retries
         }
 
+    def _insert_image_at_cursor(self, local_path: str, img_info: Dict[str, Any]) -> bool:
+        """
+        현재 커서 위치에 이미지 삽입
+        
+        Args:
+            local_path: 이미지 파일 경로
+            img_info: 이미지 정보 딕셔너리
+            
+        Returns:
+            삽입 성공 여부
+        """
+        try:
+            image_inserted = False
+            
+            # 방법 1: 이미지 삽입 버튼 클릭 후 파일 업로드
+            try:
+                image_btn_selectors = [
+                    "button[data-name='image']",
+                    "button.se-toolbar-button-image",
+                    ".se-toolbar-button-image",
+                    "button[aria-label*='이미지']",
+                    "button[title*='이미지']"
+                ]
+                
+                image_btn = None
+                for selector in image_btn_selectors:
+                    try:
+                        image_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                        if image_btn and image_btn.is_displayed():
+                            break
+                    except:
+                        continue
+                
+                if image_btn:
+                    self.driver.execute_script("arguments[0].click();", image_btn)
+                    time.sleep(1)
+                    
+                    file_input_selectors = [
+                        "input[type='file'][accept*='image']",
+                        "input[type='file']",
+                        "input[accept*='image']"
+                    ]
+                    
+                    file_input = None
+                    for selector in file_input_selectors:
+                        try:
+                            file_input = self.driver.find_element(By.CSS_SELECTOR, selector)
+                            if file_input:
+                                break
+                        except:
+                            continue
+                    
+                    if file_input:
+                        file_input.send_keys(str(local_path))
+                        time.sleep(2)
+                        
+                        try:
+                            WebDriverWait(self.driver, 10).until(
+                                lambda d: d.execute_script("""
+                                    return document.querySelectorAll('img.se-image-resource, img.se-module-image').length > 0;
+                                """)
+                            )
+                            image_inserted = True
+                            logger.info(f"이미지 {img_info.get('index', 0)} 삽입 완료")
+                        except:
+                            logger.warning(f"이미지 {img_info.get('index', 0)} 삽입 확인 실패")
+            
+            except Exception as e:
+                logger.warning(f"이미지 삽입 방법 1 실패: {e}")
+            
+            # 방법 2: 드래그 앤 드롭 (방법 1 실패 시)
+            if not image_inserted:
+                try:
+                    file_inputs = self.driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
+                    if file_inputs:
+                        file_inputs[-1].send_keys(str(local_path))
+                        time.sleep(2)
+                        image_inserted = True
+                        logger.info(f"이미지 {img_info.get('index', 0)} 삽입 완료 (방법 2)")
+                except Exception as e:
+                    logger.warning(f"이미지 삽입 방법 2 실패: {e}")
+            
+            return image_inserted
+            
+        except Exception as e:
+            logger.error(f"이미지 삽입 실패: {e}")
+            return False
+
     def _attempt_publish(self, title: str, content: str, images: List[Dict[str, Any]], category: Optional[str] = None, use_base64: bool = True) -> Dict[str, Any]:
         """
         실제 발행 시도 (단일)
@@ -577,14 +675,14 @@ class NaverBlogPublisher:
             except:
                 logger.info("iframe 없음, 메인 프레임에서 진행")
 
-            # 작성중인 글 팝업 확인 버튼 클릭 (있는 경우) - 먼저 처리
+            # 작성중인 글 팝업 취소 버튼 클릭 (있는 경우) - 먼저 처리
             try:
-                draft_confirm_btn = WebDriverWait(self.driver, 3).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, "button.se-popup-button.se-popup-button-confirm"))
+                draft_cancel_btn = WebDriverWait(self.driver, 3).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "button.se-popup-button.se-popup-button-cancel"))
                 )
-                draft_confirm_btn.click()
+                draft_cancel_btn.click()
                 time.sleep(0.5)
-                logger.info("작성중인 글 팝업 확인 버튼 클릭 완료")
+                logger.info("작성중인 글 팝업 취소 버튼 클릭 완료")
             except:
                 logger.info("작성중인 글 팝업 없음 (정상)")
 
@@ -605,7 +703,7 @@ class NaverBlogPublisher:
                 # 제목 placeholder 찾기
                 title_placeholder = WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'se-placeholder') and contains(text(), '제목')]"))
-                )
+            )
                 
                 # 제목 영역 클릭 (부모 p 태그)
                 title_paragraph = title_placeholder.find_element(By.XPATH, "./ancestor::p[contains(@class, 'se-text-paragraph')]")
@@ -664,98 +762,486 @@ class NaverBlogPublisher:
                 except Exception as e2:
                     logger.error(f"제목 입력 완전 실패: {e2}")
 
-            # 2. 내용 입력 (텍스트만)
+            # 2. 내용 입력 (HTML 파싱하여 텍스트와 이미지 순서대로 입력)
             logger.info(f"내용 입력 중 (길이: {len(content)}자)...")
+            
+            # HTML인지 확인 (PLACEHOLDER가 있는지) - 변수 스코프를 위해 먼저 정의
+            is_html = False
+            if content:
+                is_html = 'PLACEHOLDER' in content or '<img' in content or '<h' in content
+            
             if not content:
                 logger.warning("본문 내용이 없습니다. 건너뜁니다.")
             else:
                 try:
-                    # 내용 placeholder 찾기
-                    content_placeholder = WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'se-placeholder') and contains(text(), '글감과 함께')]"))
-                    )
+                    # 내용 영역 클릭 + 더블클릭으로 포커스 확실히 설정
+                    from selenium.webdriver.common.action_chains import ActionChains
                     
-                    # 내용 영역 클릭 (부모 p 태그)
-                    content_paragraph = content_placeholder.find_element(By.XPATH, "./ancestor::p[contains(@class, 'se-text-paragraph')]")
-                    
-                    # 클립보드에 본문 텍스트 복사 후 붙여넣기
+                    logger.info("내용 영역 클릭 및 더블클릭으로 포커스 설정 중...")
                     try:
-                        import pyperclip
-                        pyperclip.copy(content)
-                        time.sleep(0.3)
+                        # 내용 placeholder 찾기 (se-fs15)
+                        content_placeholder = self.driver.find_element(By.CSS_SELECTOR, "span.se-placeholder.se-fs15")
+                        if content_placeholder:
+                            # 1. 먼저 한 번 클릭
+                            self.driver.execute_script("arguments[0].click();", content_placeholder)
+                            time.sleep(0.3)
+                            
+                            # 2. 더블클릭
+                            ActionChains(self.driver).double_click(content_placeholder).perform()
+                            time.sleep(0.5)
+                            logger.info("내용 placeholder 클릭 + 더블클릭 완료")
+                    except Exception as e:
+                        logger.warning(f"내용 placeholder 클릭 실패: {e}")
+                        # 대체 방법: p 태그로 찾기
+                        try:
+                            # 제목이 아닌 p 태그 찾기
+                            all_paragraphs = self.driver.find_elements(By.CSS_SELECTOR, "p.se-text-paragraph")
+                            for p in all_paragraphs:
+                                # 제목 placeholder가 없는 p 태그
+                                title_placeholders = p.find_elements(By.CSS_SELECTOR, "span.se-placeholder.se-fs32")
+                                if not title_placeholders:
+                                    # 1. 먼저 한 번 클릭
+                                    self.driver.execute_script("arguments[0].click();", p)
+                                    time.sleep(0.3)
+                                    
+                                    # 2. 더블클릭
+                                    ActionChains(self.driver).double_click(p).perform()
+                                    time.sleep(0.5)
+                                    logger.info("내용 p 태그 클릭 + 더블클릭 완료")
+                                    break
+                        except Exception as e2:
+                            logger.warning(f"내용 p 태그 클릭도 실패: {e2}")
+                    
+                    if is_html and images:
+                        # 방법: 이미지 위치 마커를 포함한 텍스트를 붙여넣고, 마커를 찾아 이미지 삽입
+                        logger.info("HTML 파싱하여 이미지 위치 마커 포함 텍스트 입력 후 이미지 삽입...")
+                        soup = BeautifulSoup(content, 'html.parser')
+                        body = soup.find('body') or soup
                         
+                        # 이미지 매핑 생성 (index 기준)
+                        sorted_images = sorted(images, key=lambda x: x.get('index', 0))
+                        
+                        # HTML에서 텍스트 추출 (이미지는 마커로 대체)
+                        temp_body = BeautifulSoup(str(body), 'html.parser')
+                        
+                        # PLACEHOLDER 이미지를 마커로 대체
+                        image_index = 0
+                        for img in temp_body.find_all('img', src=lambda x: x and 'PLACEHOLDER' in x):
+                            # 이미지를 독특한 마커로 대체
+                            marker = f"###IMG{image_index + 1}###"
+                            img.replace_with(marker)
+                            image_index += 1
+                        
+                        # 텍스트 추출 (이미지 마커 포함)
+                        text_content = temp_body.get_text(separator='\n', strip=True)
+                        
+                        # 제목 제거 (h1, h2, h3)
+                        lines = text_content.split('\n')
+                        filtered_lines = []
+                        for line in lines:
+                            # 제목 라인 제거 (이미 제목은 별도로 입력됨)
+                            if line.strip():
+                                filtered_lines.append(line)
+                        text_content = '\n'.join(filtered_lines)
+                        
+                        logger.info(f"이미지 마커 {image_index}개 포함한 텍스트 생성 완료: {text_content[:100]}...")
+                        
+                        # 본문 입력 (Tab으로 이미 내용 영역에 있음)
+                        from selenium.webdriver.common.keys import Keys
                         from selenium.webdriver.common.action_chains import ActionChains
-                        from selenium.webdriver.common.keys import Keys
                         import platform
+                        import pyperclip
                         
-                        # 내용 영역 클릭
-                        ActionChains(self.driver).move_to_element(content_paragraph).click().perform()
-                        time.sleep(0.5)
-                        
-                        # 붙여넣기
-                        if platform.system() == 'Darwin':
-                            ActionChains(self.driver).key_down(Keys.COMMAND).send_keys('v').key_up(Keys.COMMAND).perform()
-                        else:
-                            ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
-                        time.sleep(1)
-                        
-                        logger.info("본문 텍스트 입력 완료 (붙여넣기)")
-                    except ImportError:
-                        # pyperclip이 없으면 send_keys로 직접 입력
-                        from selenium.webdriver.common.keys import Keys
-                        content_paragraph.click()
+                        # 텍스트를 클립보드에 복사
+                        pyperclip.copy(text_content)
                         time.sleep(0.3)
-                        # 본문을 줄 단위로 입력
-                        for line in content.split('\n'):
-                            content_paragraph.send_keys(line)
-                            content_paragraph.send_keys(Keys.RETURN)
-                            time.sleep(0.1)
-                        time.sleep(0.5)
-                        logger.info("본문 텍스트 입력 완료 (직접 입력)")
+                        
+                        # 붙여넣기 (Tab으로 이미 내용 영역에 있음)
+                        try:
+                            if platform.system() == 'Darwin':
+                                ActionChains(self.driver).key_down(Keys.COMMAND).send_keys('v').key_up(Keys.COMMAND).perform()
+                            else:
+                                ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
+                            time.sleep(1)
+                            logger.info("본문 텍스트 붙여넣기 완료 (내용 영역)")
+                        except Exception as e:
+                            logger.warning(f"붙여넣기 실패, 직접 입력 시도: {e}")
+                            # 직접 입력 시도
+                            for line in text_content.split('\n'):
+                                try:
+                                    ActionChains(self.driver).send_keys(line).send_keys(Keys.RETURN).perform()
+                                    time.sleep(0.1)
+                                except:
+                                    pass
+                        
+                        # 붙여넣기 후 실제 에디터 내용 확인
+                        time.sleep(1)
+                        editor_content = self.driver.execute_script("""
+                            var editor = document.querySelector('p.se-text-paragraph:not(:has(span.se-placeholder.se-fs32)), [contenteditable="true"]:not(:has(span.se-placeholder.se-fs32))');
+                            return editor ? editor.textContent : '';
+                        """)
+                        logger.info(f"에디터 실제 내용 (처음 200자): {editor_content[:200]}")
+                        
+                        # 이미지 마커를 찾아 이미지 삽입
+                        logger.info(f"이미지 마커를 찾아 이미지 {len(sorted_images)}개 삽입 시작...")
+                        
+                        for img_idx in range(len(sorted_images)):
+                            img_info = sorted_images[img_idx]
+                            local_path = img_info.get('local_path', '')
+                            marker = f"###IMG{img_idx + 1}###"
+                            
+                            if local_path and Path(local_path).exists():
+                                # 이미지 마커 찾기 및 커서 이동
+                                try:
+                                    logger.info(f"이미지 마커 '{marker}' 찾는 중...")
+                                    
+                                    # 에디터 영역에서 이미지 마커 찾기
+                                    found = self.driver.execute_script("""
+                                        var marker = arguments[0];
+                                        // 내용 영역만 찾기 (제목이 아닌 p 태그)
+                                        var contentParagraphs = document.querySelectorAll('p.se-text-paragraph');
+                                        var editor = null;
+                                        
+                                        // 제목이 아닌 내용 영역 찾기
+                                        for (var i = 0; i < contentParagraphs.length; i++) {
+                                            var p = contentParagraphs[i];
+                                            var titlePlaceholder = p.querySelector('span.se-placeholder.se-fs32');
+                                            if (!titlePlaceholder) {
+                                                // 제목이 아닌 영역이면 내용 영역
+                                                editor = p;
+                                                break;
+                                            }
+                                        }
+                                        
+                                        // 내용 영역을 못 찾으면 contenteditable 사용
+                                        if (!editor) {
+                                            editor = document.querySelector('[contenteditable="true"]');
+                                        }
+                                        
+                                        if (!editor) return false;
+                                        
+                                        // 모든 텍스트 노드에서 마커 찾기
+                                        var walker = document.createTreeWalker(
+                                            editor,
+                                            NodeFilter.SHOW_TEXT,
+                                            null,
+                                            false
+                                        );
+                                        
+                                        var node;
+                                        var foundNode = null;
+                                        var foundOffset = -1;
+                                        
+                                        while (node = walker.nextNode()) {
+                                            var text = node.textContent;
+                                            var index = text.indexOf(marker);
+                                            if (index !== -1) {
+                                                foundNode = node;
+                                                foundOffset = index;
+                                                break;
+                                            }
+                                        }
+                                        
+                                        if (foundNode && foundOffset >= 0) {
+                                            // 마커 선택
+                                            var range = document.createRange();
+                                            range.setStart(foundNode, foundOffset);
+                                            range.setEnd(foundNode, foundOffset + marker.length);
+                                            
+                                            var sel = window.getSelection();
+                                            sel.removeAllRanges();
+                                            sel.addRange(range);
+                                            
+                                            // 마커 삭제 (선택 후 삭제)
+                                            range.deleteContents();
+                                            
+                                            // 포커스 이동
+                                            editor.focus();
+                                            
+                                            return true;
+                                        }
+                                        return false;
+                                    """, marker)
+                                    
+                                    if found:
+                                        time.sleep(0.5)
+                                        logger.info(f"이미지 마커 '{marker}' 찾기 성공, 이미지 삽입 중...")
+                                        
+                                        # 이미지 삽입
+                                        self._insert_image_at_cursor(local_path, img_info)
+                                        time.sleep(1.5)
+                                        logger.info(f"이미지 {img_idx + 1} 삽입 완료")
+                                    else:
+                                        logger.warning(f"이미지 마커 '{marker}' 찾기 실패, 맨 뒤에 삽입")
+                                        # 맨 뒤로 커서 이동
+                                        self.driver.execute_script("""
+                                            var editor = document.querySelector('p.se-text-paragraph:last-child, [contenteditable="true"]');
+                                            if (editor) {
+                                                editor.focus();
+                                                var range = document.createRange();
+                                                range.selectNodeContents(editor);
+                                                range.collapse(false);
+                                                var sel = window.getSelection();
+                                                sel.removeAllRanges();
+                                                sel.addRange(range);
+                                            }
+                                        """)
+                                        time.sleep(0.5)
+                                        
+                                        # 이미지 삽입
+                                        self._insert_image_at_cursor(local_path, img_info)
+                                        time.sleep(1.5)
+                                        logger.info(f"이미지 {img_idx + 1} 맨 뒤에 삽입 완료")
+                                except Exception as e:
+                                    logger.warning(f"이미지 {img_idx + 1} 삽입 중 오류: {e}, 맨 뒤에 삽입 시도")
+                                    # 실패 시 맨 뒤에 삽입
+                                    try:
+                                        self.driver.execute_script("""
+                                            var editor = document.querySelector('p.se-text-paragraph:last-child, [contenteditable="true"]');
+                                            if (editor) {
+                                                editor.focus();
+                                                var range = document.createRange();
+                                                range.selectNodeContents(editor);
+                                                range.collapse(false);
+                                                var sel = window.getSelection();
+                                                sel.removeAllRanges();
+                                                sel.addRange(range);
+                                            }
+                                        """)
+                                        time.sleep(0.5)
+                                        self._insert_image_at_cursor(local_path, img_info)
+                                        time.sleep(1.5)
+                                    except:
+                                        logger.error(f"이미지 {img_idx + 1} 삽입 완전 실패")
+                        
+                        logger.info(f"본문 입력 완료 (이미지 마커 방식, 이미지 {len(sorted_images)}개 삽입)")
+                    else:
+                        # 일반 텍스트 입력 (Tab으로 이미 내용 영역에 있음)
+                        try:
+                            import pyperclip
+                            pyperclip.copy(content)
+                            time.sleep(0.3)
+                            
+                            from selenium.webdriver.common.action_chains import ActionChains
+                            from selenium.webdriver.common.keys import Keys
+                            import platform
+                            
+                            # 붙여넣기 (Tab으로 이미 내용 영역에 있음)
+                            if platform.system() == 'Darwin':
+                                ActionChains(self.driver).key_down(Keys.COMMAND).send_keys('v').key_up(Keys.COMMAND).perform()
+                            else:
+                                ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
+                            time.sleep(1)
+                            logger.info("본문 텍스트 입력 완료 (붙여넣기)")
+                        except ImportError:
+                            # pyperclip이 없으면 send_keys로 직접 입력
+                            from selenium.webdriver.common.keys import Keys
+                            
+                            # 포커스 확인
+                            try:
+                                if not content_paragraph.is_displayed():
+                                    self.driver.execute_script("arguments[0].click();", content_paragraph)
+                                    time.sleep(0.3)
+                            except:
+                                pass
+                            
+                            # 본문을 줄 단위로 입력
+                            for line in content.split('\n'):
+                                try:
+                                    content_paragraph.send_keys(line)
+                                    content_paragraph.send_keys(Keys.RETURN)
+                                    time.sleep(0.1)
+                                except Exception as e:
+                                    # send_keys 실패 시 JavaScript로 시도
+                                    escaped_line = line.replace("'", "\\'").replace("\n", "\\n")
+                                    self.driver.execute_script("""
+                                        var elem = arguments[0];
+                                        var text = arguments[1];
+                                        elem.textContent += text + '\\n';
+                                        elem.dispatchEvent(new Event('input', { bubbles: true }));
+                                    """, content_paragraph, line)
+                                    time.sleep(0.1)
+                            time.sleep(0.5)
+                            logger.info("본문 텍스트 입력 완료 (직접 입력)")
                 except Exception as e:
                     logger.error(f"본문 입력 실패: {e}")
             
-            # 3. 이미지 삽입 (별도로 처리)
-            if images:
+            # 3. 남은 이미지 삽입 (HTML 파싱 방식이 아닌 경우에만)
+            if images and not (is_html and 'PLACEHOLDER' in content):
                 logger.info(f"이미지 {len(images)}개 삽입 중...")
                 try:
-                    # 이미지를 base64로 인코딩하여 삽입
                     sorted_images = sorted(images, key=lambda x: x.get('index', 0))
                     
                     for img_info in sorted_images:
                         local_path = img_info.get('local_path', '')
                         if local_path and Path(local_path).exists():
                             try:
-                                with open(local_path, 'rb') as img_file:
-                                    img_data = base64.b64encode(img_file.read()).decode('utf-8')
+                                # 이미지 삽입 버튼 찾기 (여러 선택자 시도)
+                                image_inserted = False
                                 
-                                ext = Path(local_path).suffix.lower()
-                                mime_type = 'image/png' if ext == '.png' else 'image/jpeg'
-                                img_src = f"data:{mime_type};base64,{img_data}"
-                                
-                                # JavaScript로 이미지 삽입
-                                self.driver.execute_script(f"""
-                                    var img = document.createElement('img');
-                                    img.src = '{img_src}';
-                                    img.alt = '{img_info.get("alt", "")}';
-                                    img.style.maxWidth = '100%';
+                                # 방법 1: 이미지 삽입 버튼 클릭 후 파일 업로드
+                                try:
+                                    # 이미지 삽입 버튼 찾기
+                                    image_btn_selectors = [
+                                        "button[data-name='image']",
+                                        "button.se-toolbar-button-image",
+                                        ".se-toolbar-button-image",
+                                        "button[aria-label*='이미지']",
+                                        "button[title*='이미지']"
+                                    ]
                                     
-                                    // 내용 영역에 이미지 추가
-                                    var contentParagraphs = document.querySelectorAll('p.se-text-paragraph');
-                                    if (contentParagraphs.length > 0) {{
-                                        var lastParagraph = contentParagraphs[contentParagraphs.length - 1];
-                                        lastParagraph.parentNode.insertBefore(img, lastParagraph.nextSibling);
+                                    image_btn = None
+                                    for selector in image_btn_selectors:
+                                        try:
+                                            image_btn = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                            if image_btn and image_btn.is_displayed():
+                                                break
+                                        except:
+                                            continue
+                                    
+                                    if image_btn:
+                                        # 이미지 삽입 버튼 클릭
+                                        self.driver.execute_script("arguments[0].click();", image_btn)
+                                        time.sleep(1)
                                         
-                                        // 새 p 태그 생성 (이미지 다음 줄)
-                                        var newP = document.createElement('p');
-                                        newP.className = 'se-text-paragraph';
-                                        img.parentNode.insertBefore(newP, img.nextSibling);
-                                    }}
-                                """)
-                                time.sleep(0.5)
-                                logger.info(f"이미지 {img_info.get('index', 0)} 삽입 완료")
+                                        # 파일 input 찾기
+                                        file_input_selectors = [
+                                            "input[type='file'][accept*='image']",
+                                            "input[type='file']",
+                                            "input[accept*='image']"
+                                        ]
+                                        
+                                        file_input = None
+                                        for selector in file_input_selectors:
+                                            try:
+                                                file_input = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                                if file_input:
+                                                    break
+                                            except:
+                                                continue
+                                        
+                                        if file_input:
+                                            # 파일 업로드
+                                            file_input.send_keys(str(local_path))
+                                            time.sleep(2)  # 업로드 대기
+                                            
+                                            # 업로드 완료 대기 (이미지가 에디터에 삽입될 때까지)
+                                            try:
+                                                WebDriverWait(self.driver, 10).until(
+                                                    lambda d: d.execute_script("""
+                                                        return document.querySelectorAll('img.se-image-resource, img.se-module-image').length > 0;
+                                                    """)
+                                                )
+                                                image_inserted = True
+                                                logger.info(f"이미지 {img_info.get('index', 0)} 업로드 완료 (방법 1)")
+                                            except:
+                                                logger.warning(f"이미지 {img_info.get('index', 0)} 업로드 확인 실패")
+                                    
+                                except Exception as e:
+                                    logger.warning(f"방법 1 실패: {e}")
+                                
+                                # 방법 2: 드래그 앤 드롭 시도 (방법 1 실패 시)
+                                if not image_inserted:
+                                    try:
+                                        # 에디터 영역 찾기
+                                        editor_selectors = [
+                                            ".se-component",
+                                            ".se-section-content",
+                                            ".se-module",
+                                            "div[contenteditable='true']"
+                                        ]
+                                        
+                                        editor_area = None
+                                        for selector in editor_selectors:
+                                            try:
+                                                editor_area = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                                if editor_area:
+                                                    break
+                                            except:
+                                                continue
+                                        
+                                        if editor_area:
+                                            # 파일을 드래그 앤 드롭으로 업로드 시도
+                                            from selenium.webdriver.common.action_chains import ActionChains
+                                            
+                                            # 파일 input을 숨겨진 상태로 생성하고 업로드
+                                            self.driver.execute_script("""
+                                                var input = document.createElement('input');
+                                                input.type = 'file';
+                                                input.accept = 'image/*';
+                                                input.style.display = 'none';
+                                                document.body.appendChild(input);
+                                                input.click();
+                                            """)
+                                            time.sleep(0.5)
+                                            
+                                            # 파일 input 찾아서 업로드
+                                            file_inputs = self.driver.find_elements(By.CSS_SELECTOR, "input[type='file']")
+                                            if file_inputs:
+                                                # 가장 최근에 생성된 input 사용
+                                                file_inputs[-1].send_keys(str(local_path))
+                                                time.sleep(2)
+                                                image_inserted = True
+                                                logger.info(f"이미지 {img_info.get('index', 0)} 업로드 완료 (방법 2)")
+                                        
+                                    except Exception as e:
+                                        logger.warning(f"방법 2 실패: {e}")
+                                
+                                # 방법 3: JavaScript로 직접 이미지 삽입 (최후의 수단)
+                                if not image_inserted:
+                                    try:
+                                        with open(local_path, 'rb') as img_file:
+                                            img_data = base64.b64encode(img_file.read()).decode('utf-8')
+                                        
+                                        ext = Path(local_path).suffix.lower()
+                                        mime_type = 'image/png' if ext == '.png' else 'image/jpeg'
+                                        img_src = f"data:{mime_type};base64,{img_data}"
+                                        
+                                        # 네이버 에디터 구조에 맞게 이미지 삽입
+                                        self.driver.execute_script(f"""
+                                            // 에디터 모듈 찾기
+                                            var editor = document.querySelector('.se-component-content, .se-section-content');
+                                            if (!editor) {{
+                                                editor = document.querySelector('[contenteditable="true"]');
+                                            }}
+                                            
+                                            if (editor) {{
+                                                // 이미지 모듈 생성
+                                                var imgModule = document.createElement('div');
+                                                imgModule.className = 'se-module se-module-image';
+                                                
+                                                var imgContainer = document.createElement('div');
+                                                imgContainer.className = 'se-component se-image-container';
+                                                
+                                                var img = document.createElement('img');
+                                                img.src = '{img_src}';
+                                                img.alt = '{img_info.get("alt", "")}';
+                                                img.className = 'se-image-resource';
+                                                img.style.maxWidth = '100%';
+                                                
+                                                imgContainer.appendChild(img);
+                                                imgModule.appendChild(imgContainer);
+                                                
+                                                // 에디터에 추가
+                                                var lastComponent = editor.querySelector('.se-component:last-child');
+                                                if (lastComponent) {{
+                                                    lastComponent.parentNode.insertBefore(imgModule, lastComponent.nextSibling);
+                                                }} else {{
+                                                    editor.appendChild(imgModule);
+                                                }}
+                                                
+                                                // 이벤트 트리거
+                                                var event = new Event('input', {{ bubbles: true }});
+                                                editor.dispatchEvent(event);
+                                            }}
+                                        """)
+                                        time.sleep(1)
+                                        logger.info(f"이미지 {img_info.get('index', 0)} 삽입 완료 (방법 3 - JavaScript)")
+                                    except Exception as e:
+                                        logger.error(f"이미지 {img_info.get('index', 0)} 삽입 실패 (모든 방법 실패): {e}")
+                                
                             except Exception as e:
-                                logger.error(f"이미지 {img_info.get('index', 0)} 삽입 실패: {e}")
+                                logger.error(f"이미지 {img_info.get('index', 0)} 처리 실패: {e}")
                 except Exception as e:
                     logger.error(f"이미지 삽입 실패: {e}")
 

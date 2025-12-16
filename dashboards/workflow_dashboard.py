@@ -345,7 +345,7 @@ if start_workflow:
             html = blog_generator.generate_blog(topic_title, context)
             
             # 카테고리별 저장
-            filepath = blog_generator.save_blog(html, topic_title, context)
+            filepath = blog_generator.save_blog(html, topic_title, context, category=category)
             
             # 주제 기록
             topic_manager.add_topic(
@@ -452,11 +452,12 @@ if start_workflow:
                             previous_feedback=previous_feedback
                         )
                         
-                        # 재저장
+                        # 재저장 (카테고리 포함)
                         filepath = blog_generator.save_blog(
                             html,
                             st.session_state.workflow_topic,
-                            st.session_state.workflow_context
+                            st.session_state.workflow_context,
+                            category=st.session_state.get('workflow_category', '')
                         )
                         
                         st.session_state.workflow_blog_html = html
@@ -486,8 +487,8 @@ if start_workflow:
                         placeholders = image_prompts_data.get('placeholders', [])
                         st.info(f"이미지 {len(placeholders)}개 생성 예정")
                         
-                        # 이미지 생성기 초기화
-                        image_generator = ImageGenerator(model=image_model, use_google_drive=False)
+                        # 이미지 생성기 초기화 (카테고리 포함)
+                        image_generator = ImageGenerator(model=image_model, use_google_drive=False, category=category)
                         
                         generated_images = []
                         for i, placeholder in enumerate(placeholders):

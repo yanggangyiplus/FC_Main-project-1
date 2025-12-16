@@ -51,7 +51,7 @@ logger = get_logger(__name__)
 class ImageGenerator:
     """이미지 생성 및 저장 클래스"""
 
-    def __init__(self, model: str = IMAGE_MODEL, use_google_drive: bool = True, image_size: str = IMAGE_SIZE):
+    def __init__(self, model: str = IMAGE_MODEL, use_google_drive: bool = True, image_size: str = IMAGE_SIZE, category: str = ""):
         """
         Args:
             model: 이미지 생성 모델 
@@ -61,10 +61,12 @@ class ImageGenerator:
                 - "stable-diffusion-webui" (로컬)
             use_google_drive: 구글 드라이브 저장 여부
             image_size: 이미지 사이즈 (예: "1024x1024", "512x512")
+            category: 카테고리 (폴더 구분용, 예: "politics", "economy", "it_science")
         """
         self.model = model
         self.use_google_drive = use_google_drive
         self.image_size = image_size
+        self.category = category  # 카테고리 저장
         self.drive_service = None
         self.client = None  # OpenAI 또는 Hugging Face 클라이언트
         self.z_image_pipe = None  # Z-Image-Turbo 파이프라인
@@ -204,19 +206,24 @@ class ImageGenerator:
             logger.error(f"Z-Image-Turbo 초기화 실패: {e}")
             raise Exception(f"Z-Image-Turbo 초기화 실패: {e}")
 
-    def generate_images(self, placeholders: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def generate_images(self, placeholders: List[Dict[str, Any]], category: str = None) -> List[Dict[str, Any]]:
         """
         이미지 플레이스홀더 리스트에 대한 이미지 생성
 
         Args:
             placeholders: 플레이스홀더 정보 리스트
                 [{"index": 0, "alt": "설명", "tag": "<img...>"}, ...]
+            category: 카테고리 (None이면 self.category 사용)
 
         Returns:
             생성된 이미지 정보 리스트
                 [{"index": 0, "alt": "설명", "local_path": "...", "url": "..."}, ...]
         """
-        logger.info(f"총 {len(placeholders)}개 이미지 생성 시작")
+        # 카테고리 설정 (파라미터 우선, 없으면 인스턴스 속성 사용)
+        if category is not None:
+            self.category = category
+        
+        logger.info(f"총 {len(placeholders)}개 이미지 생성 시작 (카테고리: {self.category or '없음'})")
 
         results = []
         for placeholder in placeholders:
@@ -499,7 +506,7 @@ class ImageGenerator:
 
     def _save_image_locally(self, image_data: bytes, index: int) -> Path:
         """
-        이미지를 로컬에 저장
+        이미지를 로컬에 저장 (카테고리별 폴더)
 
         Args:
             image_data: 이미지 바이너리 데이터
@@ -508,14 +515,20 @@ class ImageGenerator:
         Returns:
             저장된 파일 경로
         """
-        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+        # 카테고리별 폴더 생성
+        if self.category:
+            save_dir = IMAGES_DIR / self.category
+        else:
+            save_dir = IMAGES_DIR
+        save_dir.mkdir(parents=True, exist_ok=True)
+        
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = IMAGES_DIR / f"image_{timestamp}_{index}.png"
+        filename = save_dir / f"image_{timestamp}_{index}.png"
 
         with open(filename, 'wb') as f:
             f.write(image_data)
 
-        logger.info(f"이미지 로컬 저장: {filename}")
+        logger.info(f"이미지 로컬 저장: {filename} (카테고리: {self.category or '없음'})")
         return filename
 
     def _upload_to_google_drive(self, image_data: bytes, index: int, description: str) -> Optional[str]:

@@ -1,0 +1,28 @@
+{
+  "blog_id": "test_blog_20251215_000000",
+  "blog_topic": "AI Auto BlogGenerator TEST용 글입니다.",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/test/test_blog_20251215_000000_v1.html",
+  "created_at": "2025-12-15T00:00:00.000000",
+  "category": "test",
+  "images": [
+    {
+      "index": 0,
+      "alt": "AI Auto BlogGenerator TEST용 글입니다. -이미지 설명1",
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/test/IMG_8248.jpeg",
+      "url": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/test/IMG_8248.jpeg"
+    },
+    {
+      "index": 1,
+      "alt": "AI Auto BlogGenerator TEST용 글입니다. -이미지 설명2",
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/test/IMG_8249.jpeg",
+      "url": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/test/IMG_8249.jpeg"
+    },
+    {
+      "index": 2,
+      "alt": "AI Auto BlogGenerator TEST용 글입니다. -이미지 설명3",
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/test/IMG_8250.jpeg",
+      "url": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/test/IMG_8250.jpeg"
+    }
+  ]
+}
+
