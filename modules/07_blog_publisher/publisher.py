@@ -884,6 +884,14 @@ class NaverBlogPublisher:
                         # 텍스트 추출
                         text_content = body.get_text(separator='\n', strip=True)
                         
+                        # 디버깅: 마커 포함 여부 확인
+                        divider_in_text = text_content.count('###DIVIDER')
+                        img_in_text = text_content.count('###IMG')
+                        logger.info(f"추출된 텍스트에서 발견된 마커: DIVIDER={divider_in_text}개, IMG={img_in_text}개")
+                        
+                        # 디버깅: 추출된 텍스트 일부 출력
+                        logger.debug(f"추출된 텍스트 샘플:\n{text_content[:500]}")
+                        
                         # 네이버 블로그 포맷팅: 한 문장 당 한 줄 + 문단/이미지 전후 빈 줄
                         import re
                         
