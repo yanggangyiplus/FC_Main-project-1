@@ -312,7 +312,7 @@ class ImageGenerator:
 
 if __name__ == "__main__":
     # 테스트 코드
-    generator = ImageGenerator(use_lm_studio=False)
+    generator = ImageGenerator(use_gemini=True)
     
     # 샘플 플레이스홀더
     sample_placeholders = [
