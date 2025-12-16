@@ -7,6 +7,14 @@ import sys
 from pathlib import Path
 import json
 from datetime import datetime
+import asyncio
+
+# Streamlit 스레드에서 이벤트 루프 설정 (Google Generative AI 비동기 클라이언트용)
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
  
 sys.path.append(str(Path(__file__).parent.parent))
  
