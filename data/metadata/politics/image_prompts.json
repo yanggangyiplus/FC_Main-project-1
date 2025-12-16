@@ -1,19 +1,24 @@
 {
-  "blog_topic": "국회, 오늘 본회의서 '은행법 개정안' 표결…필리버스터 계속",
-  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/politics/국회_오늘_본회의서_은행법_개정안_표결필리버스터_계속_20251214_005551_v1.html",
+  "blog_topic": "외교부 \"원팀 노력\"·통일부 \"평화 공동목표\"…갈등 우려 진화(종합)",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/politics/외교부_원팀_노력통일부_평화_공동목표갈등_우려_진화종합_20251216_163547_v1.html",
   "placeholders": [
     {
       "index": 0,
-      "alt": "A modern data center with glowing servers and blue lights, digital art style",
-      "tag": "<img src=\"PLACEHOLDER\" alt=\"A modern data center with glowing servers and blue lights, digital art style\" class=\"blog-image\">"
+      "alt": "A conceptual illustration depicting two figures representing diplomatic entities, facing each other with a map of the Korean peninsula in the background, minimalist art style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"A conceptual illustration depicting two figures representing diplomatic entities, facing each other with a map of the Korean peninsula in the background, minimalist art style\" class=\"blog-image\">"
     },
     {
       "index": 1,
-      "alt": "Business professionals analyzing charts on large screens, photorealistic",
-      "tag": "<img src=\"PLACEHOLDER\" alt=\"Business professionals analyzing charts on large screens, photorealistic\" class=\"blog-image\">"
+      "alt": "Abstract representation of global trade routes and supply chains, highlighting strategic minerals, futuristic technology visualization",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Abstract representation of global trade routes and supply chains, highlighting strategic minerals, futuristic technology visualization\" class=\"blog-image\">"
+    },
+    {
+      "index": 2,
+      "alt": "An image showing two hands reaching out to each other over a blurred background of government buildings, symbolic of cooperation, soft lighting, atmospheric",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"An image showing two hands reaching out to each other over a blurred background of government buildings, symbolic of cooperation, soft lighting, atmospheric\" class=\"blog-image\">"
     }
   ],
-  "created_at": "2025-12-14T01:00:19.864202",
+  "created_at": "2025-12-16T16:35:49.628399",
   "evaluation_score": 85,
   "category": "politics"
 }

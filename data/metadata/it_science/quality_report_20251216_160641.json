@@ -1,0 +1,18 @@
+{
+  "topic": "AI 기술 최신 동향",
+  "category": "it_science",
+  "final_score": 85,
+  "attempts": 1,
+  "passed": true,
+  "threshold": 80,
+  "evaluations": [
+    {
+      "attempt": 1,
+      "score": 85,
+      "passed": true,
+      "feedback": "전반적으로 잘 작성된 블로그 게시물입니다. 사실적인 정확성이 높고, AI 기술 동향을 정부의 노력과 투자 심리 변화라는 두 가지 관점에서 균형 있게 제시했습니다. 가독성이 뛰어나며, 어려운 내용도 쉽게 이해할 수 있도록 풀어썼습니다. 이미지 플레이스홀더는 적절한 위치에 있지만, alt 텍스트가 구체적이어서 훌륭합니다. 하지만, 실제 이미지를 삽입했다면 블로그의 완성도를 더욱 높일 수 있었을 것입니다. 또한, 본문 내용의 깊이를 조금 더 심화시켜, 독자들에게 더욱 유용한 정보를 제공할 수 있습니다."
+    }
+  ],
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/auto_revised_20251216_160641.html",
+  "created_at": "2025-12-16T16:06:41.049389"
+}

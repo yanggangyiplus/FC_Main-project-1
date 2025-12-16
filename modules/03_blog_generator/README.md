@@ -103,12 +103,18 @@ for p in placeholders:
 3. **이미지 위치**: 자연스러운 흐름에 맞춰 배치
 4. **alt 텍스트**: 이미지 생성 AI가 이해할 수 있도록 구체적으로 작성
 
-## LLM 모델 선택
-- **GPT-4**: 더 정교한 글 생성, 비용 높음
-- **GPT-3.5**: 빠르고 저렴, 품질은 약간 낮음
-- **Claude-3**: 긴 컨텍스트 처리에 유리
+## 지원 LLM
+이 모듈은 다음 LLM을 지원합니다:
+- **LM Studio**: 로컬 LLM (무료, 오프라인 사용 가능)
+- **OpenAI API**: gpt-4, gpt-4o, gpt-4o-mini 등 (유료, 고품질)
+- **Google Gemini API**: gemini-pro, gemini-1.5-pro 등 (유료, 긴 컨텍스트 지원)
 
 설정: `config/settings.py`의 `DEFAULT_LLM_MODEL`
+
+### 모델 선택 가이드
+- **LM Studio**: 무료이지만 모델 품질에 따라 성능 차이
+- **OpenAI (gpt-4o-mini)**: 가장 균형 잡힌 선택 (속도/비용/품질)
+- **Gemini**: 긴 컨텍스트 처리에 유리
 
 ## 품질 관리
 - 생성된 HTML은 자동으로 검증
@@ -117,5 +123,5 @@ for p in placeholders:
 
 ## 다음 모듈과의 연결
 1. `Module 04: Critic & QA` - 생성된 블로그 품질 평가
-2. `Module 05: Image Generator` - 플레이스홀더에 들어갈 이미지 생성
-3. `Module 06: Humanizer` - 문체 개선
+2. `Module 05: Humanizer` - 문체 개선
+3. `Module 06: Image Generator` - 플레이스홀더에 들어갈 이미지 다운로드

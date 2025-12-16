@@ -18,8 +18,8 @@ NaverNewsScraper = importlib.import_module("modules.01_news_scraper").NaverNewsS
 RAGBuilder = importlib.import_module("modules.02_rag_builder").RAGBuilder
 BlogGenerator = importlib.import_module("modules.03_blog_generator").BlogGenerator
 BlogCritic = importlib.import_module("modules.04_critic_qa").BlogCritic
-ImageGenerator = importlib.import_module("modules.05_image_generator").ImageGenerator
-Humanizer = importlib.import_module("modules.06_humanizer").Humanizer
+Humanizer = importlib.import_module("modules.05_humanizer").Humanizer
+ImageGenerator = importlib.import_module("modules.06_image_generator").ImageGenerator
 NaverBlogPublisher = importlib.import_module("modules.07_blog_publisher").NaverBlogPublisher
 SlackNotifier = importlib.import_module("modules.08_notifier").SlackNotifier
 from config.settings import MAX_REGENERATION_ATTEMPTS, QUALITY_THRESHOLD

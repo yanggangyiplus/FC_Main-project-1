@@ -2,16 +2,17 @@
 블로그 품질 평가 모듈 (Critic & QA)
 """
 from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 from typing import Dict, Any
 from pathlib import Path
 
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config.settings import (
-    OPENAI_API_KEY, ANTHROPIC_API_KEY, DEFAULT_LLM_MODEL,
+    OPENAI_API_KEY, GOOGLE_API_KEY, DEFAULT_LLM_MODEL,
     QUALITY_THRESHOLD, LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, LM_STUDIO_MODEL_NAME,
-    LM_STUDIO_CONTEXT_LENGTH, MAX_CONTEXT_CHARS
+    LM_STUDIO_CONTEXT_LENGTH, MAX_CONTEXT_CHARS,
+    MODULE_LLM_MODELS, MAX_REVISION_ATTEMPTS
 )
 from config.logger import get_logger
 
@@ -21,11 +22,15 @@ logger = get_logger(__name__)
 class BlogCritic:
     """블로그 품질 평가 클래스"""
 
-    def __init__(self, model_name: str = DEFAULT_LLM_MODEL):
+    def __init__(self, model_name: str = None):
         """
         Args:
-            model_name: 사용할 LLM 모델
+            model_name: 사용할 LLM 모델 (None이면 최적 모델 자동 선택)
         """
+        # 모델명이 없으면 모듈별 최적 모델 사용
+        if model_name is None:
+            model_name = MODULE_LLM_MODELS.get("critic_qa", DEFAULT_LLM_MODEL)
+        
         self.model_name = model_name
         self.llm = self._init_llm()
         self.threshold = QUALITY_THRESHOLD
@@ -33,7 +38,7 @@ class BlogCritic:
         logger.info(f"BlogCritic 초기화 (모델: {model_name}, 임계값: {self.threshold})")
 
     def _init_llm(self):
-        """LLM 초기화"""
+        """LLM 초기화 - LM Studio, OpenAI API, Gemini API 지원"""
         if "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
             # LM Studio (로컬 LLM)
             if not LM_STUDIO_ENABLED:
@@ -48,6 +53,7 @@ class BlogCritic:
                 max_retries=2
             )
         elif "gpt" in self.model_name.lower():
+            # OpenAI API (GPT 모델)
             if not OPENAI_API_KEY:
                 raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
             return ChatOpenAI(
@@ -55,16 +61,17 @@ class BlogCritic:
                 temperature=0.0,  # 평가는 일관성이 중요
                 api_key=OPENAI_API_KEY
             )
-        elif "claude" in self.model_name.lower():
-            if not ANTHROPIC_API_KEY:
-                raise ValueError("ANTHROPIC_API_KEY가 설정되지 않았습니다.")
-            return ChatAnthropic(
+        elif "gemini" in self.model_name.lower():
+            # Google Gemini API
+            if not GOOGLE_API_KEY:
+                raise ValueError("GOOGLE_API_KEY가 설정되지 않았습니다.")
+            return ChatGoogleGenerativeAI(
                 model=self.model_name,
-                temperature=0.0,
-                anthropic_api_key=ANTHROPIC_API_KEY
+                temperature=0.0,  # 평가는 일관성이 중요
+                google_api_key=GOOGLE_API_KEY
             )
         else:
-            raise ValueError(f"지원하지 않는 모델: {self.model_name}")
+            raise ValueError(f"지원하지 않는 모델: {self.model_name}. 지원 모델: LM Studio, OpenAI (gpt-*), Gemini (gemini-*)")
 
     def evaluate(self, html: str, topic: str, context: str) -> Dict[str, Any]:
         """
@@ -305,6 +312,135 @@ RECOMMENDATION:
             재생성 필요 여부
         """
         return not evaluation['passed']
+
+    def evaluate_and_revise(
+        self,
+        html: str,
+        topic: str,
+        context: str,
+        blog_generator=None
+    ) -> Dict[str, Any]:
+        """
+        블로그를 평가하고, 점수가 80점 미만이면 피드백을 바탕으로 자동 수정
+        
+        Args:
+            html: 평가할 HTML
+            topic: 블로그 주제
+            context: 참고 컨텍스트
+            blog_generator: BlogGenerator 인스턴스 (None이면 자동 생성)
+        
+        Returns:
+            Dict: {
+                'final_html': 최종 HTML,
+                'final_score': 최종 점수,
+                'attempts': 시도 횟수,
+                'evaluations': 각 시도별 평가 결과 리스트,
+                'passed': 통과 여부
+            }
+        """
+        logger.info(f"자동 평가 및 수정 시작 (기준점: {self.threshold}점)")
+        
+        # BlogGenerator import (순환 import 방지)
+        if blog_generator is None:
+            import importlib
+            BlogGenerator = importlib.import_module("modules.03_blog_generator").BlogGenerator
+            blog_generator = BlogGenerator()
+            logger.info(f"BlogGenerator 자동 생성 (모델: {blog_generator.model_name})")
+        
+        current_html = html
+        evaluations = []
+        
+        for attempt in range(1, MAX_REVISION_ATTEMPTS + 1):
+            logger.info(f"[시도 {attempt}/{MAX_REVISION_ATTEMPTS}] 블로그 평가 중...")
+            
+            # 평가 실행
+            evaluation = self.evaluate(
+                html=current_html,
+                topic=topic,
+                context=context[:2000] if len(context) > 2000 else context
+            )
+            
+            evaluations.append({
+                'attempt': attempt,
+                'score': evaluation['score'],
+                'passed': evaluation['passed'],
+                'feedback': evaluation['feedback']
+            })
+            
+            score = evaluation['score']
+            passed = evaluation['passed']
+            
+            logger.info(
+                f"[시도 {attempt}] 점수: {score}/100, "
+                f"{'✅ 통과' if passed else f'❌ 미달 (기준: {self.threshold}점)'}"
+            )
+            
+            # 점수가 기준을 넘으면 즉시 반환
+            if passed:
+                logger.info(f"🎉 {attempt}번 시도만에 품질 기준 통과! (점수: {score}/100)")
+                return {
+                    'final_html': current_html,
+                    'final_score': score,
+                    'attempts': attempt,
+                    'evaluations': evaluations,
+                    'passed': True
+                }
+            
+            # 마지막 시도인 경우
+            if attempt == MAX_REVISION_ATTEMPTS:
+                logger.warning(
+                    f"⚠️ 최대 시도 횟수({MAX_REVISION_ATTEMPTS}회) 도달. "
+                    f"최종 점수: {score}/100 (기준: {self.threshold}점)"
+                )
+                return {
+                    'final_html': current_html,
+                    'final_score': score,
+                    'attempts': attempt,
+                    'evaluations': evaluations,
+                    'passed': False
+                }
+            
+            # 피드백 기반 수정
+            logger.info(f"📝 피드백을 바탕으로 블로그 수정 중... (시도 {attempt + 1}/{MAX_REVISION_ATTEMPTS})")
+            
+            try:
+                # 피드백 구조화
+                feedback_data = {
+                    'score': score,
+                    'details': evaluation['details'],
+                    'feedback': evaluation['feedback'],
+                    'suggestions': evaluation.get('suggestions', [])
+                }
+                
+                # BlogGenerator로 수정
+                current_html = blog_generator.generate_blog(
+                    topic=topic,
+                    context=context,
+                    previous_feedback=feedback_data
+                )
+                
+                logger.info(f"✅ 블로그 수정 완료 (길이: {len(current_html)}자)")
+                
+            except Exception as e:
+                logger.error(f"❌ 블로그 수정 중 오류: {e}")
+                # 오류 발생 시 이전 HTML 유지하고 종료
+                return {
+                    'final_html': current_html,
+                    'final_score': score,
+                    'attempts': attempt,
+                    'evaluations': evaluations,
+                    'passed': False,
+                    'error': str(e)
+                }
+        
+        # 여기까지 오면 안되지만, 안전장치
+        return {
+            'final_html': current_html,
+            'final_score': evaluations[-1]['score'],
+            'attempts': MAX_REVISION_ATTEMPTS,
+            'evaluations': evaluations,
+            'passed': False
+        }
 
 
 if __name__ == "__main__":

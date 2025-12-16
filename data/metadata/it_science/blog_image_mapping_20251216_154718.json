@@ -1,0 +1,36 @@
+{
+  "blog_id": "it_science_20251216_154718",
+  "images": [
+    {
+      "index": 0,
+      "alt": "Government officials discussing AI development plans in a modern conference room, digital art style",
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_154719_0.jpg",
+      "url": "https://pixabay.com/get/g04bf000b18dba392f0e5c8a5367e83196a4e0ba6ac6e7cd7cad103d9b0ec966f6055a1023ba223fa74ce4df8907a2d7eb5d59fbb78ddb3e0506869b8c6419ad5_1280.jpg",
+      "pixabay_id": 933051,
+      "pixabay_user": "tookapic",
+      "pixabay_page_url": "https://pixabay.com/photos/passport-canada-document-933051/",
+      "search_keyword": "Government officials discussing"
+    },
+    {
+      "index": 1,
+      "alt": "A graph showing the fluctuating performance of AI-related stocks on the stock market, dark and moody lighting, digital painting",
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_154721_1.jpg",
+      "url": "https://pixabay.com/get/g9b949dc0054fe653fd74e31997348351a8a42777f89aec895e3f3d6054722768bb922b8d5b46a78f0501487159d303cfe31459dbfdf35792eaaca4505dc8f607_1280.jpg",
+      "pixabay_id": 1469121,
+      "pixabay_user": "MirelaSchenk",
+      "pixabay_page_url": "https://pixabay.com/photos/magic-black-magic-hat-wand-1469121/",
+      "search_keyword": "graph showing fluctuating"
+    },
+    {
+      "index": 2,
+      "alt": "Close-up of a circuit board with glowing AI neural network connections, cyberpunk style",
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_154723_2.jpg",
+      "url": "https://pixabay.com/get/g9a3b4891c24f2e85e311ca0b4127b7c3985cf4d81acdc6a627b2bd3d91f708af148f3d17a3871f642a28f4090bdb1bf3faf335352777538a641c0b027438ca52_1280.jpg",
+      "pixabay_id": 4199160,
+      "pixabay_user": "guypracy",
+      "pixabay_page_url": "https://pixabay.com/photos/circuit-computer-chip-electronics-4199160/",
+      "search_keyword": "Close up circuit"
+    }
+  ],
+  "created_at": "2025-12-16T15:47:23.605623"
+}

@@ -75,28 +75,27 @@ streamlit run dashboards/dashboard_04_critic_qa.py
  
 ---
  
-### 5️⃣ 이미지 생성기 대시보드
- 
+### 5️⃣ Humanizer 대시보드
+
 ```bash
-streamlit run dashboards/dashboard_05_image_generator.py
+streamlit run dashboards/dashboard_05_humanizer.py
 ```
- 
-**기능:**
-- DALL-E를 통한 이미지 생성
-- 단일 이미지 / 배치 생성 지원
-- 구글 드라이브 업로드 옵션
-- 생성된 이미지 갤러리
- 
----
- 
-### 6️⃣ Humanizer 대시보드
- 
-```bash
-streamlit run dashboards/dashboard_06_humanizer.py
-```
- 
+
 **기능:**
 - 블로그 문체 자연스럽게 개선
+- AI 특유의 딱딱한 표현 제거
+- 가독성 향상
+
+---
+
+### 6️⃣ 이미지 생성기 대시보드
+
+```bash
+streamlit run dashboards/dashboard_06_image_generator.py
+```
+
+**기능:**
+- Pixabay를 통한 무료 이미지 다운로드
 - Before/After 비교
 - HTML 코드 비교
 - 통계 분석
@@ -140,8 +139,8 @@ dashboards/
 ├── dashboard_02_rag_builder.py         # RAG Builder
 ├── dashboard_03_blog_generator.py      # 블로그 생성기
 ├── dashboard_04_critic_qa.py           # Critic & QA
-├── dashboard_05_image_generator.py     # 이미지 생성기
-├── dashboard_06_humanizer.py           # Humanizer
+├── dashboard_05_humanizer.py           # Humanizer
+├── dashboard_06_image_generator.py     # 이미지 생성기
 ├── dashboard_07_blog_publisher.py      # 블로그 발행기
 ├── dashboard_08_notifier.py            # 알림 시스템
 └── README.md                           # 이 파일

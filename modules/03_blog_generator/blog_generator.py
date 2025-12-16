@@ -2,7 +2,7 @@
 블로그 생성기 - RAG 기반 HTML 블로그 생성
 """
 from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
@@ -13,11 +13,12 @@ import json
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config.settings import (
-    OPENAI_API_KEY, ANTHROPIC_API_KEY, DEFAULT_LLM_MODEL,
+    OPENAI_API_KEY, GOOGLE_API_KEY, DEFAULT_LLM_MODEL,
     TEMPERATURE, GENERATED_BLOGS_DIR, IMAGES_PER_BLOG,
     TOPIC_HISTORY_FILE, TOPIC_DUPLICATE_DAYS,
     LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, LM_STUDIO_MODEL_NAME,
-    LM_STUDIO_CONTEXT_LENGTH, MAX_CONTEXT_CHARS
+    LM_STUDIO_CONTEXT_LENGTH, MAX_CONTEXT_CHARS,
+    MODULE_LLM_MODELS
 )
 from config.logger import get_logger
 
@@ -200,12 +201,16 @@ class TopicManager:
 class BlogGenerator:
     """RAG 기반 블로그 생성 클래스"""
 
-    def __init__(self, model_name: str = DEFAULT_LLM_MODEL, temperature: float = TEMPERATURE):
+    def __init__(self, model_name: str = None, temperature: float = TEMPERATURE):
         """
         Args:
-            model_name: 사용할 LLM 모델
+            model_name: 사용할 LLM 모델 (None이면 최적 모델 자동 선택)
             temperature: 생성 다양성 (0.0 ~ 1.0)
         """
+        # 모델명이 없으면 모듈별 최적 모델 사용
+        if model_name is None:
+            model_name = MODULE_LLM_MODELS.get("blog_generator", DEFAULT_LLM_MODEL)
+        
         self.model_name = model_name
         self.temperature = temperature
         self.llm = self._init_llm()
@@ -213,7 +218,7 @@ class BlogGenerator:
         logger.info(f"BlogGenerator 초기화 (모델: {model_name}, 온도: {temperature})")
 
     def _init_llm(self):
-        """LLM 초기화"""
+        """LLM 초기화 - LM Studio, OpenAI API, Gemini API 지원"""
         if "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
             # LM Studio (로컬 LLM)
             if not LM_STUDIO_ENABLED:
@@ -228,6 +233,7 @@ class BlogGenerator:
                 max_retries=2
             )
         elif "gpt" in self.model_name.lower():
+            # OpenAI API (GPT 모델)
             if not OPENAI_API_KEY:
                 raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
             return ChatOpenAI(
@@ -235,16 +241,17 @@ class BlogGenerator:
                 temperature=self.temperature,
                 api_key=OPENAI_API_KEY
             )
-        elif "claude" in self.model_name.lower():
-            if not ANTHROPIC_API_KEY:
-                raise ValueError("ANTHROPIC_API_KEY가 설정되지 않았습니다.")
-            return ChatAnthropic(
+        elif "gemini" in self.model_name.lower():
+            # Google Gemini API
+            if not GOOGLE_API_KEY:
+                raise ValueError("GOOGLE_API_KEY가 설정되지 않았습니다.")
+            return ChatGoogleGenerativeAI(
                 model=self.model_name,
                 temperature=self.temperature,
-                anthropic_api_key=ANTHROPIC_API_KEY
+                google_api_key=GOOGLE_API_KEY
             )
         else:
-            raise ValueError(f"지원하지 않는 모델: {self.model_name}")
+            raise ValueError(f"지원하지 않는 모델: {self.model_name}. 지원 모델: LM Studio, OpenAI (gpt-*), Gemini (gemini-*)")
 
     def generate_blog(
         self,
@@ -286,59 +293,146 @@ class BlogGenerator:
             raise
 
     def get_default_prompt(self) -> str:
-        """기본 프롬프트 템플릿 반환"""
-        return """너는 전문 블로거야. 매일 카테고리별 관련된 이슈를 블로그 글로 정리 및 작성해서 올리지.
+        """기본 프롬프트 템플릿 반환 - 네이버 블로그 스타일"""
+        return """You are a NAVER Blog content writer with 10 years of experience.
+Your role is strictly limited to **generating one blog post** based on a single topic within a single category.
 
-내가 첨부한 기사들의 **주제, 제목, 본문**을 읽고 **하나의 통합된 블로그 글**로 작성해줘.
+You DO NOT scrape articles.
+You DO NOT store data.
+You DO NOT edit or revise previous posts.
+You ONLY write a blog post using the given structured input.
 
-⚠️ 중요: 기사를 그대로 나열하지 말고, 모든 기사의 핵심 내용을 종합하여 하나의 흐름 있는 글로 작성해줘.
+━━━━━━━━━━━━━━━━━━
+📌 입력 구조 (반드시 이 형태로 들어온다)
+━━━━━━━━━━━━━━━━━━
 
-## 📋 블로그 글 구조 (필수)
+Category: [경제 | 정치 | IT/기술]
 
-아래 구조를 **정확히** 따라서 작성해줘:
+Topic: [하나의 명확한 주제]
+(예: 금리 인하 전망, 총선 이후 정국 흐름, 생성형 AI 규제 동향 등)
 
-```
-<h1>핵심 키워드가 포함된 흥미로운 제목</h1>
+Articles (Top 5 related news):
+1. Title + Link + Short summary
+2. Title + Link + Short summary
+3. Title + Link + Short summary
+4. Title + Link + Short summary
+5. Title + Link + Short summary
 
-<h2>서론</h2>
-<p>독자의 관심을 끄는 도입부 내용...</p>
-<p>이 주제가 왜 중요한지 설명...</p>
+━━━━━━━━━━━━━━━━━━
+📌 출력 목표
+━━━━━━━━━━━━━━━━━━
+- 위 입력만을 기반으로
+- **네이버 블로그 글 1편**을 작성한다
+- 이 글은 [카테고리 1개 + 주제 1개]만 다룬다
+- 다른 카테고리나 다른 주제를 절대 언급하지 않는다
 
-<h2>본론</h2>
-<p>기사들의 핵심 내용을 종합한 첫 번째 문단...</p>
+━━━━━━━━━━━━━━━━━━
+📌 글 전체 구조 (필수)
+━━━━━━━━━━━━━━━━━━
+1. 제목 (h1 태그)
+2. 서론 (h2 + p 태그)
+3. 본론 (h2 + p 태그 + 이미지)
+4. 결론 (h2 + p 태그)
 
-<img src="PLACEHOLDER" alt="이미지 생성을 위한 구체적인 영어 설명" class="blog-image">
+━━━━━━━━━━━━━━━━━━
+📌 제목 작성 규칙 (네이버 블로그 톤)
+━━━━━━━━━━━━━━━━━━
+- 기자식 헤드라인 ❌
+- 클릭 장사형 자극 ❌
+- '정리해주는 블로그' 톤 유지
 
-<p>논리적인 흐름으로 정보 전달하는 두 번째 문단...</p>
-<p>구체적인 수치, 인용을 포함한 세 번째 문단...</p>
+예시:
+- "요즘 계속 나오는 ○○ 이슈, 핵심만 정리해봤어요"
+- "○○ 관련 뉴스가 많은 이유, 이렇게 정리됩니다"
 
-<img src="PLACEHOLDER" alt="이미지 생성을 위한 구체적인 영어 설명" class="blog-image">
+━━━━━━━━━━━━━━━━━━
+📌 서론 작성 가이드
+━━━━━━━━━━━━━━━━━━
+- 독자에게 말 걸듯 시작
+- 해당 주제가 왜 요즘 많이 보이는지 언급
+- "뉴스가 계속 나오길래 정리해봤어요" 톤
+- 2~3개 문단
+- `<p>` 태그 사용
 
-<p>추가 내용 및 상세 설명...</p>
+━━━━━━━━━━━━━━━━━━
+📌 본론 작성 가이드 (핵심)
+━━━━━━━━━━━━━━━━━━
+- 입력된 기사 5개를 **하나의 흐름**으로 묶어서 설명
+- 기사별 나열 ❌
+- '이 주제에서 지금 중요한 포인트' 중심
 
-<h2>결론</h2>
-<p>내용 요약 및 시사점...</p>
-<p>향후 전망 또는 독자에게 전하는 메시지...</p>
+설명 방식:
+- "이번 이슈의 핵심은…"
+- "기사들을 종합해보면 공통적으로 나오는 이야기는…"
+- "이 흐름을 이렇게 이해하면 편합니다"
 
-<h2>출처</h2>
-<ul>
-<li><a href="URL">기사 제목 1</a></li>
-<li><a href="URL">기사 제목 2</a></li>
-</ul>
-```
+- 필요 시 소제목 사용 가능 (h3 태그)
+- 독자가 뉴스 배경을 이해하도록 풀어 설명
 
-## ✅ 작성 가이드라인
+━━━━━━━━━━━━━━━━━━
+📌 이미지 삽입 규칙 (중요)
+━━━━━━━━━━━━━━━━━━
+- 본론 중간에 **2~3개**
+- 반드시 독립된 줄
+- 앞뒤 빈 줄 유지
+- 형식: <img src="PLACEHOLDER" alt="..." class="blog-image">
 
-1. **구조**: 제목 → 서론 → 본론 → 결론 → 출처 순서 준수
-2. **이미지**: 본론 중간에 2-3개 배치 (독립된 줄, 앞뒤 빈 줄)
-   - **중요**: alt 속성에는 AI 이미지 생성을 위한 **구체적이고 상세한 영어 설명**을 작성해줘
-   - 예: "A modern data center with glowing servers and blue lights, digital art style"
-   - 예: "Business professionals analyzing charts on large screens, photorealistic"
-   - alt는 반드시 영어로 작성하고, 이미지 스타일(digital art, photorealistic 등)을 명시해줘
-3. **문체**: 자연스러운 블로그 문체 (친근하면서도 전문적)
-4. **길이**: 1500~2500자 분량
-5. **여백**: 문단 사이 적절한 여백 (p 태그 활용)
-6. **SEO**: 키워드를 자연스럽게 배치"""
+- alt는 **AI 이미지 생성을 위한 상세한 영어 설명**
+- 반드시 영어 + 스타일 명시
+
+예시:
+<img src="PLACEHOLDER" alt="People analyzing economic trends on large digital screens, modern office environment, photorealistic" class="blog-image">
+
+<img src="PLACEHOLDER" alt="Abstract visualization of political data flow and decision making, digital art style" class="blog-image">
+
+━━━━━━━━━━━━━━━━━━
+📌 문체 & 네이버 블로그 톤앤매너
+━━━━━━━━━━━━━━━━━━
+- 정보 전달 + 개인 정리 느낌
+- 과도한 감정 ❌
+- 과도한 전문가 어투 ❌
+- 예:
+  - "개인적으로 이 부분이 가장 눈에 띄었습니다"
+  - "이 정도만 이해해두셔도 흐름을 보기에 충분합니다"
+
+━━━━━━━━━━━━━━━━━━
+📌 분량
+━━━━━━━━━━━━━━━━━━
+- 1500 ~ 2500자
+- 스크롤 읽기 좋은 길이
+
+━━━━━━━━━━━━━━━━━━
+📌 SEO 가이드
+━━━━━━━━━━━━━━━━━━
+- 카테고리 + 주제 키워드 자연 삽입
+- 예:
+  - 경제 뉴스 정리
+  - ○○ 이슈 요약
+  - IT 기술 흐름
+
+━━━━━━━━━━━━━━━━━━
+📌 결론 작성 가이드
+━━━━━━━━━━━━━━━━━━
+- 오늘 주제 핵심 한 번 더 요약
+- 독자에게 마무리 멘트
+
+예:
+- "오늘은 ○○ 이슈만 정리해봤어요."
+- "다음에도 중요한 흐름 위주로 정리해볼게요."
+
+━━━━━━━━━━━━━━━━━━
+📌 중요한 제한 사항
+━━━━━━━━━━━━━━━━━━
+- 입력되지 않은 정보 추측 ❌
+- 기사 원문 문장 복사 ❌
+- 다른 카테고리 언급 ❌
+- 이전/다음 글 언급 ❌
+
+━━━━━━━━━━━━━━━━━━
+📌 당신은 지금
+[카테고리 1개 → 주제 1개 → 기사 5개]
+에 대한 블로그 글 **1편만 작성한다**
+━━━━━━━━━━━━━━━━━━"""
 
     def _truncate_context(self, context: str, max_chars: int = None) -> str:
         """

@@ -9,8 +9,8 @@ from modules.01_news_scraper import NaverNewsScraper
 from modules.02_rag_builder import RAGBuilder
 from modules.03_blog_generator import BlogGenerator
 from modules.04_critic_qa import BlogCritic
-from modules.05_image_generator import ImageGenerator
-from modules.06_humanizer import Humanizer
+from modules.05_humanizer import Humanizer
+from modules.06_image_generator import ImageGenerator
 from modules.07_blog_publisher import NaverBlogPublisher
 from modules.08_notifier import SlackNotifier
 from config.logger import get_logger

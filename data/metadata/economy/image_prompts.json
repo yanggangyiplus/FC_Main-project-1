@@ -1,0 +1,24 @@
+{
+  "blog_topic": "‘장성 파인데이터센터’ 사업… CJ올리브네트웍스 참여키로",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/economy/장성_파인데이터센터_사업_CJ올리브네트웍스_참여키로_20251216_165155_v1.html",
+  "placeholders": [
+    {
+      "index": 0,
+      "alt": "Data center servers and networking equipment, futuristic design, neon lights, photorealistic",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Data center servers and networking equipment, futuristic design, neon lights, photorealistic\" class=\"blog-image\">"
+    },
+    {
+      "index": 1,
+      "alt": "Abstract network connections and data flow visualization, interconnected nodes, digital art",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Abstract network connections and data flow visualization, interconnected nodes, digital art\" class=\"blog-image\">"
+    },
+    {
+      "index": 2,
+      "alt": "Conceptual image of a smart city powered by AI and data centers, futuristic skyline, digital painting",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Conceptual image of a smart city powered by AI and data centers, futuristic skyline, digital painting\" class=\"blog-image\">"
+    }
+  ],
+  "created_at": "2025-12-16T16:51:58.687763",
+  "evaluation_score": 88,
+  "category": "economy"
+}

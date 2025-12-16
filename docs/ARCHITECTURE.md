@@ -72,19 +72,7 @@ Process:
 Output: Evaluation (score, feedback, passed)
 ```
 
-### Module 05: Image Generator
-```
-Input: List[Placeholder]
-Process:
-  1. DALL-E 3 API 호출
-  2. 이미지 생성
-  3. 로컬 저장
-  4. 구글 드라이브 업로드
-  5. 공유 링크 생성
-Output: List[ImageInfo] (url 포함)
-```
-
-### Module 06: Humanizer
+### Module 05: Humanizer
 ```
 Input: HTML (str)
 Process:
@@ -92,6 +80,16 @@ Process:
   2. API 호출
   3. 문체 개선 (사실 보존)
 Output: Humanized HTML (str)
+```
+
+### Module 06: Image Generator
+```
+Input: List[Placeholder]
+Process:
+  1. Pixabay API 호출
+  2. 이미지 검색 및 다운로드
+  3. 로컬 저장
+Output: List[ImageInfo] (local_path, url 포함)
 ```
 
 ### Module 07: Blog Publisher

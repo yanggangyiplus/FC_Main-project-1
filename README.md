@@ -10,12 +10,17 @@
 ## ✨ 주요 기능
 - 🔍 네이버 뉴스 자동 스크래핑 (정치, 경제, IT/과학)
 - 🧠 RAG 기반 컨텍스트 검색 (ChromaDB + Sentence Transformers)
-- ✍️ LLM 기반 블로그 자동 생성 (GPT-4 / Claude-3)
+- ✍️ LLM 기반 블로그 자동 생성 (LM Studio / OpenAI / Gemini)
 - ⭐ AI 품질 평가 및 자동 재생성 (Critic & QA Agent)
-- 🖼️ AI 이미지 자동 생성 (DALL-E 3)
+- 🖼️ 무료 고품질 이미지 다운로드 (Pixabay API)
 - 💬 자연스러운 문체로 개선 (Humanizer)
 - 📤 네이버 블로그 자동 발행 (Selenium)
 - 📢 Slack 실시간 알림
+
+### 지원 LLM
+- **LM Studio**: 로컬 LLM (무료, 오프라인 사용 가능)
+- **OpenAI API**: gpt-4, gpt-4o, gpt-4o-mini 등 (유료, 고품질)
+- **Google Gemini API**: gemini-pro, gemini-1.5-pro 등 (유료, 긴 컨텍스트 지원)
 
 ## 🔄 워크플로우
 ```
@@ -47,8 +52,8 @@ awesome-raman/
 │   ├── 02_rag_builder/        # RAG 구축 (벡터화)
 │   ├── 03_blog_generator/     # 블로그 생성
 │   ├── 04_critic_qa/          # 품질 평가
-│   ├── 05_image_generator/    # 이미지 생성
-│   ├── 06_humanizer/          # 문체 개선
+│   ├── 05_humanizer/          # 문체 개선
+│   ├── 06_image_generator/    # 이미지 생성
 │   ├── 07_blog_publisher/     # 블로그 발행
 │   └── 08_notifier/           # 슬랙 알림
 ├── workflows/                  # LangGraph 워크플로우
@@ -87,7 +92,15 @@ pip install -r requirements.txt
 cp .env.example .env
 
 # .env 파일 편집 (필수 설정)
-OPENAI_API_KEY=your_api_key
+# LLM API (선택: OpenAI, Gemini, 또는 LM Studio)
+OPENAI_API_KEY=your_openai_key          # OpenAI 사용 시
+GOOGLE_API_KEY=your_google_key          # Gemini 사용 시
+LM_STUDIO_ENABLED=true                  # LM Studio 사용 시
+
+# 이미지 API (필수)
+PIXABAY_API_KEY=your_pixabay_key        # Pixabay 무료 API
+
+# 네이버 계정 (필수)
 NAVER_ID=your_naver_id
 NAVER_PASSWORD=your_password
 NAVER_BLOG_URL=https://blog.naver.com/your_id
@@ -113,8 +126,8 @@ awesome-raman/
 │   ├── 02_rag_builder/        # RAG 구축 (벡터화)
 │   ├── 03_blog_generator/     # LLM 기반 블로그 생성
 │   ├── 04_critic_qa/          # 품질 평가 에이전트
-│   ├── 05_image_generator/    # DALL-E 이미지 생성
-│   ├── 06_humanizer/          # 문체 개선 에이전트
+│   ├── 05_humanizer/          # 문체 개선 에이전트
+│   ├── 06_image_generator/    # Pixabay 이미지 다운로드
 │   ├── 07_blog_publisher/     # 네이버 블로그 발행
 │   └── 08_notifier/           # Slack 알림
 ├── workflows/                  # LangGraph 워크플로우

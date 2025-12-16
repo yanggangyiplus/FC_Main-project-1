@@ -17,8 +17,8 @@ scraper_module = importlib.import_module("modules.01_news_scraper.scraper")
 rag_module = importlib.import_module("modules.02_rag_builder.rag_builder")
 blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_generator")
 critic_module = importlib.import_module("modules.04_critic_qa.critic")
-image_gen_module = importlib.import_module("modules.05_image_generator.image_generator")
-humanizer_module = importlib.import_module("modules.06_humanizer.humanizer")
+humanizer_module = importlib.import_module("modules.05_humanizer.humanizer")
+image_gen_module = importlib.import_module("modules.06_image_generator.image_generator")
 publisher_module = importlib.import_module("modules.07_blog_publisher.publisher")
 
 NaverNewsScraper = scraper_module.NaverNewsScraper
@@ -83,8 +83,8 @@ with st.sidebar:
         ("🗄️", "RAG 구축", "dashboard_02_rag_builder.py"),
         ("✍️", "블로그 생성", "dashboard_03_blog_generator.py"),
         ("🎯", "품질 평가", "dashboard_04_critic_qa.py"),
-        ("🎨", "이미지 생성", "dashboard_05_image_generator.py"),
-        ("✨", "인간화", "dashboard_06_humanizer.py"),
+        ("✨", "인간화", "dashboard_05_humanizer.py"),
+        ("🎨", "이미지 생성", "dashboard_06_image_generator.py"),
         ("📤", "블로그 발행", "dashboard_07_blog_publisher.py"),
     ]
     
@@ -103,7 +103,7 @@ with st.sidebar:
     blog_model = st.selectbox(
         "생성 모델",
         options=[
-            "lm-studio (로컬)",
+            "gemini-2.0-flash-exp",
             "gpt-4o-mini",
             "gpt-4o",
             "gpt-3.5-turbo",
@@ -117,7 +117,7 @@ with st.sidebar:
     critic_model = st.selectbox(
         "평가 모델",
         options=[
-            "lm-studio (로컬)",
+            "gemini-2.0-flash-exp",
             "gpt-4o-mini",
             "gpt-4o",
             "claude-3-5-sonnet-20241022"
@@ -130,7 +130,7 @@ with st.sidebar:
     humanizer_model = st.selectbox(
         "인간화 모델",
         options=[
-            "lm-studio (로컬)",
+            "gemini-2.0-flash-exp",
             "gpt-4o-mini",
             "gpt-4o",
             "claude-3-5-sonnet-20241022"
@@ -153,6 +153,9 @@ with st.sidebar:
     st.markdown("---")
     st.metric("품질 임계값", f"{QUALITY_THRESHOLD}점 이상")
     st.metric("최대 재생성 횟수", "3회")
+    
+    # Gemini 추천 안내
+    st.info("💡 **추천**: Gemini 2.0 Flash Exp 모델이 빠르고 품질이 우수합니다!")
     
     # LM Studio 상태
     if "lm-studio" in blog_model.lower() or "lm-studio" in critic_model.lower() or "lm-studio" in humanizer_model.lower():
