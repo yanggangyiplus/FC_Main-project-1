@@ -962,8 +962,13 @@ class NaverBlogPublisher:
                         # 본문 입력 - send_keys로 직접 입력 (마커 정확도 향상)
                         from selenium.webdriver.common.keys import Keys
                         from selenium.webdriver.common.action_chains import ActionChains
+                        import unicodedata
                         
                         logger.info("본문 텍스트를 send_keys로 직접 입력 중 (마커 발견 시 즉시 삽입)...")
+                        
+                        # 마커 통계 카운트
+                        divider_count = 0
+                        img_count = 0
                         
                         # 줄 단위로 입력하면서 마커 발견 시 즉시 처리
                         lines = text_content.split('\n')
@@ -976,17 +981,25 @@ class NaverBlogPublisher:
                         ]
                         
                         for i, line in enumerate(lines):
-                            line_stripped = line.strip()
+                            # 보이지 않는 특수문자 제거 (zero-width space, BOM 등)
+                            import unicodedata
+                            line_stripped = ''.join(char for char in line if unicodedata.category(char) not in ['Cc', 'Cf', 'Zs', 'Zl', 'Zp'] or char in [' ', '\t'])
+                            line_stripped = line_stripped.strip()
                             
                             if line_stripped:  # 빈 줄이 아니면
-                                # 마커인지 확인
-                                if line_stripped.startswith('###') and line_stripped.endswith('###'):
-                                    logger.info(f"마커 발견: {line_stripped}")
+                                # 마커인지 확인 (정규표현식으로 더 정확하게)
+                                marker_match = re.match(r'^###(DIVIDER|IMG)(\d+)?###$', line_stripped)
+                                
+                                if marker_match:
+                                    logger.info(f"✅ 마커 발견: '{line_stripped}' (원본: '{line}')")
                                     
                                     # 마커 타입 확인
-                                    if line_stripped.startswith('###D'):
+                                    marker_type = marker_match.group(1)
+                                    
+                                    if marker_type == 'DIVIDER':
                                         # 구분선 삽입
-                                        logger.info("구분선 삽입 중...")
+                                        divider_count += 1
+                                        logger.info(f"🔲 구분선 삽입 중 ({divider_count}번째)...")
                                         divider_btn = None
                                         for selector in divider_btn_selectors:
                                             try:
@@ -999,14 +1012,15 @@ class NaverBlogPublisher:
                                         if divider_btn:
                                             self.driver.execute_script("arguments[0].click();", divider_btn)
                                             time.sleep(1)
-                                            logger.info(f"구분선 삽입 완료: {line_stripped}")
+                                            logger.info(f"✅ 구분선 {divider_count} 삽입 완료: {line_stripped}")
                                         else:
-                                            logger.warning("구분선 버튼을 찾을 수 없음")
+                                            logger.warning(f"❌ 구분선 버튼을 찾을 수 없음")
                                     
-                                    elif line_stripped.startswith('###I'):
+                                    elif marker_type == 'IMG':
                                         # 이미지 삽입
+                                        img_count += 1
                                         try:
-                                            img_num = int(line_stripped.replace('###IMG', '').replace('###', ''))
+                                            img_num = int(marker_match.group(2)) if marker_match.group(2) else 1
                                             img_idx = img_num - 1
                                             
                                             if img_idx < len(sorted_images):
@@ -1014,14 +1028,14 @@ class NaverBlogPublisher:
                                                 local_path = img_info.get('local_path', '')
                                                 
                                                 if local_path and Path(local_path).exists():
-                                                    logger.info(f"이미지 {img_num} 삽입 중...")
+                                                    logger.info(f"🖼️ 이미지 {img_num} 삽입 중 ({img_count}번째)...")
                                                     insert_success = self._insert_image_at_cursor(local_path, img_info)
                                                     time.sleep(1.5)
                                                     
                                                     if insert_success:
-                                                        logger.info(f"이미지 {img_num} 삽입 완료: {line_stripped}")
+                                                        logger.info(f"✅ 이미지 {img_num} 삽입 완료: {line_stripped}")
                                                     else:
-                                                        logger.warning(f"이미지 {img_num} 삽입 실패")
+                                                        logger.warning(f"❌ 이미지 {img_num} 삽입 실패")
                                                 else:
                                                     logger.warning(f"이미지 파일 없음: {local_path}")
                                             else:
@@ -1031,9 +1045,12 @@ class NaverBlogPublisher:
                                     
                                     # 마커는 입력하지 않음 (이미 요소 삽입했으므로)
                                 else:
-                                    # 일반 텍스트 입력
-                                    ActionChains(self.driver).send_keys(line).perform()
-                                    time.sleep(0.03)
+                                    # 일반 텍스트 입력 (특수문자 제거된 버전 사용)
+                                    if line_stripped:
+                                        ActionChains(self.driver).send_keys(line_stripped).perform()
+                                        time.sleep(0.03)
+                                        if i % 10 == 0:  # 10줄마다 로그
+                                            logger.debug(f"텍스트 입력 중 (줄 {i+1}/{len(lines)}): {line_stripped[:50]}...")
                             
                             # 줄바꿈 (마지막 줄 제외)
                             if i < len(lines) - 1:
@@ -1041,7 +1058,7 @@ class NaverBlogPublisher:
                                 time.sleep(0.03)
                         
                         time.sleep(1)
-                        logger.info(f"본문 입력 완료 (텍스트 + 실시간 구분선/이미지 삽입)")
+                        logger.info(f"✅ 본문 입력 완료! 구분선 {divider_count}개, 이미지 {img_count}개 삽입됨")
                         
                         # 아래 코드는 더 이상 필요 없음 (실시간 처리로 대체)
                         '''

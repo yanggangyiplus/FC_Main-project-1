@@ -1,0 +1,35 @@
+{
+  "blog_id": "ac55a88c",
+  "blog_topic": "KT 차기 대표 낙점 박윤영…첫 과제는 '해킹 사고 수습'",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/KT_차기_대표_낙점_박윤영첫_과제는_해킹_사고_수습_20251216_193004_v1.html",
+  "created_at": "2025-12-16T19:30:11.874757",
+  "evaluation_score": 85,
+  "category": "it_science",
+  "blog_category": "it_tech",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_193008_0.jpg",
+      "url": "https://pixabay.com/get/g0ec5243c3b67624aaed6216823dfe6cc97f0277693059bbc99c9fff4c416f88df4880f8e7dbccd94d2d8ffe77cc1b135545d0f26eccb44c608a4f35769dc732f_640.jpg",
+      "alt": "Network security concept with data protection shield and lock icons, digital art style",
+      "model": "pixabay",
+      "search_keyword": "network security"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_193010_1.jpg",
+      "url": "https://pixabay.com/get/gbe27df0c84151321628576202ba7b08c4cdf848bf5b0cc1236f5a75d674ba55589e0c935400348218500c64024cfd4a0_640.jpg",
+      "alt": "Abstract representation of digital transformation and cloud computing, futuristic style",
+      "model": "pixabay",
+      "search_keyword": "Cloud computing"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_193011_2.jpg",
+      "url": "https://pixabay.com/get/g0031e1cd3ee4972022065dbbe7a5b2de78b0539daf8af2828eface2f675e6c246d7d418e2c85dabe9dbc1ffcdc03e2eefcbc6ee247c64a458396d9eab651aa26_640.jpg",
+      "alt": "Team of business executives discussing strategy in a modern conference room, focus on leader, professional corporate photography",
+      "model": "pixabay",
+      "search_keyword": "business meeting"
+    }
+  ]
+}
