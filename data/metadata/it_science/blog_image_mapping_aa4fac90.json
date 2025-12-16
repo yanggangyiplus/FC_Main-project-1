@@ -1,0 +1,35 @@
+{
+  "blog_id": "aa4fac90",
+  "blog_topic": "KT 새 수장에 'KT맨' 박윤영 낙점…\"DX·B2B 성과 입증\"",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/KT_새_수장에_KT맨_박윤영_낙점DXB2B_성과_입증_20251216_190513_v1.html",
+  "created_at": "2025-12-16T19:05:21.397136",
+  "evaluation_score": 88,
+  "category": "it_science",
+  "blog_category": "it_tech",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_190517_0.jpg",
+      "url": "https://pixabay.com/get/g11e684e38d6f92c9d7876f685a746f2584cd7e816613830f76980329d8aa01d66c12efa6da35d65d713fd354891052a89c8e206b4ce9cb4985510eaf0807dd35_640.jpg",
+      "alt": "Network security concept with data protection shield and lock icons, digital art style",
+      "model": "pixabay",
+      "search_keyword": "network security"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_190519_1.jpg",
+      "url": "https://pixabay.com/get/g9deef80af2b58765bcae255b654b68fd368902917bdff116e9ae5383074021ea9949476e97a9ff2fe123e6f601545bb8_640.jpg",
+      "alt": "Abstract representation of digital transformation and cloud computing, futuristic style",
+      "model": "pixabay",
+      "search_keyword": "Cloud computing"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251216_190521_2.jpg",
+      "url": "https://pixabay.com/get/ge71b3c14f04f402a9fc674984651e5982b6a1f04e6feaba139472b364d26b52377d92b93bbca255b4092149572410451f25db3cb8f0390edb82f3dd092f34339_640.jpg",
+      "alt": "Team of business executives discussing strategy in a modern conference room, focus on leader, professional corporate photography",
+      "model": "pixabay",
+      "search_keyword": "business meeting"
+    }
+  ]
+}

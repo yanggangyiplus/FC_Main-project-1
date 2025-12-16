@@ -1,24 +1,24 @@
 {
-  "blog_topic": "해리포터의 '투명 망토' 나온다?…KAIST 기술 개발",
-  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/해리포터의_투명_망토_나온다KAIST_기술_개발_20251216_183026_v1.html",
+  "blog_topic": "KT 새 수장에 'KT맨' 박윤영 낙점…\"DX·B2B 성과 입증\"",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/KT_새_수장에_KT맨_박윤영_낙점DXB2B_성과_입증_20251216_190513_v1.html",
   "placeholders": [
     {
       "index": 0,
-      "alt": "Illustration of a futuristic laboratory with scientists working on a transparent cloak, detailed and vibrant, digital painting",
-      "tag": "<img src=\"PLACEHOLDER\" alt=\"Illustration of a futuristic laboratory with scientists working on a transparent cloak, detailed and vibrant, digital painting\" class=\"blog-image\">"
+      "alt": "Network security concept with data protection shield and lock icons, digital art style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Network security concept with data protection shield and lock icons, digital art style\" class=\"blog-image\">"
     },
     {
       "index": 1,
-      "alt": "Close-up shot of a flexible, transparent material bending and stretching, with electromagnetic waves visualized as light patterns, macro photography, studio lighting",
-      "tag": "<img src=\"PLACEHOLDER\" alt=\"Close-up shot of a flexible, transparent material bending and stretching, with electromagnetic waves visualized as light patterns, macro photography, studio lighting\" class=\"blog-image\">"
+      "alt": "Abstract representation of digital transformation and cloud computing, futuristic style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Abstract representation of digital transformation and cloud computing, futuristic style\" class=\"blog-image\">"
     },
     {
       "index": 2,
-      "alt": "Abstract representation of electromagnetic wave manipulation using metamaterials, glowing lines and curves, dark background, futuristic technology, digital art",
-      "tag": "<img src=\"PLACEHOLDER\" alt=\"Abstract representation of electromagnetic wave manipulation using metamaterials, glowing lines and curves, dark background, futuristic technology, digital art\" class=\"blog-image\">"
+      "alt": "Team of business executives discussing strategy in a modern conference room, focus on leader, professional corporate photography",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Team of business executives discussing strategy in a modern conference room, focus on leader, professional corporate photography\" class=\"blog-image\">"
     }
   ],
-  "created_at": "2025-12-16T18:30:29.399628",
-  "evaluation_score": 90,
+  "created_at": "2025-12-16T19:05:16.195804",
+  "evaluation_score": 88,
   "category": "it_science"
 }
