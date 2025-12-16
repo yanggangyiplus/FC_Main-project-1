@@ -651,6 +651,14 @@ class NaverBlogPublisher:
         Returns:
             결과 딕셔너리
         """
+        # #region agent log - START: 함수 진입 확인
+        try:
+            with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
+                f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'START','location':'publisher.py:654','message':'_attempt_publish 함수 시작','data':{'title':title[:50],'content_length':len(content),'images_count':len(images),'category':category},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
+        except Exception as e:
+            logger.error(f"로그 작성 실패: {e}")
+        # #endregion
+        
         try:
             # 블로그 글쓰기 페이지로 이동
             # 카테고리 선택
@@ -856,6 +864,14 @@ class NaverBlogPublisher:
                             logger.warning("정렬 드롭다운 버튼을 찾을 수 없음")
                     except Exception as e:
                         logger.warning(f"가운데 정렬 설정 실패 (계속 진행): {e}")
+                    
+                    # #region agent log - HTML체크: is_html 값 확인
+                    try:
+                        with open('/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log', 'a', encoding='utf-8') as f:
+                            f.write(json.dumps({'sessionId':'debug-session','runId':'pre-fix','hypothesisId':'HTML체크','location':'publisher.py:868','message':'is_html 체크','data':{'is_html':is_html,'content_type':type(content).__name__,'content_starts_with':'<!DOCTYPE' if content.startswith('<!DOCTYPE') else content[:50]},'timestamp':int(time.time()*1000)}, ensure_ascii=False) + '\n')
+                    except Exception as e:
+                        logger.error(f"로그 작성 실패: {e}")
+                    # #endregion
                     
                     if is_html:
                         # HTML 파싱하여 텍스트만 추출
