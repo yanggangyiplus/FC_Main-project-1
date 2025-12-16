@@ -59,6 +59,9 @@ with st.sidebar:
     model = st.selectbox(
         "LLM 모델",
         options=[
+            "gemini-2.0-flash-exp (Gemini 최신)",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash",
             "lm-studio (로컬)",
             "gpt-4o-mini",
             "gpt-4o",
@@ -66,8 +69,8 @@ with st.sidebar:
             "claude-3-5-sonnet-20241022",
             "claude-3-opus-20240229"
         ],
-        index=0,  # 기본값: lm-studio (로컬)
-        help="💡 lm-studio: 로컬에서 실행되는 무료 LLM (LM Studio 실행 필요)"
+        index=0,  # 기본값: gemini-2.0-flash-exp
+        help="💡 Gemini: Google AI 무료 (API 키 필요)"
     )
  
     # 온도

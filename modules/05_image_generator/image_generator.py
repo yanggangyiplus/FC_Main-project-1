@@ -21,8 +21,8 @@ try:
     from googleapiclient.http import MediaIoBaseUpload
     GOOGLE_DRIVE_AVAILABLE = True
 except ImportError as e:
-    print(f"⚠️ 구글 드라이브 패키지를 불러올 수 없습니다: {e}")
-    print("   로컬 저장 기능만 사용됩니다.")
+    # 구글 드라이브 패키지 없음 - 로컬 저장만 사용
+    pass
 
 # Z-Image-Turbo 로컬 실행 관련 import (선택적)
 Z_IMAGE_AVAILABLE = False
@@ -31,10 +31,8 @@ try:
     from diffusers import ZImagePipeline
     Z_IMAGE_AVAILABLE = True
 except ImportError as e:
-    print(f"⚠️ Z-Image-Turbo 패키지를 불러올 수 없습니다: {e}")
-    print("   Z-Image-Turbo 로컬 실행을 사용하려면 다음을 설치하세요:")
-    print("   pip install git+https://github.com/huggingface/diffusers")
-    print("   pip install torch torchvision")
+    # Z-Image-Turbo 패키지 없음
+    pass
 
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))

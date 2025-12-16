@@ -250,8 +250,8 @@ class NaverNewsScraper:
             # 1단계: 카테고리 페이지 접속
             url = SELECTORS["CATEGORY_URL"].format(category_id=category_id)
             logger.info(f"카테고리 페이지 접속: {url}")
-        self.driver.get(url)
-        time.sleep(SCRAPING_DELAY)
+            self.driver.get(url)
+            time.sleep(SCRAPING_DELAY)
 
             # 2단계: 헤드라인 더보기 클릭 (있는 경우)
             self._click_headline_more()
@@ -428,7 +428,7 @@ class NaverNewsScraper:
                 try:
                     dt = datetime.strptime(published_at, "%Y-%m-%d %H:%M:%S")
                     published_at = dt.isoformat()
-            except:
+                except:
                     published_at = datetime.now().isoformat()
             else:
                 published_at = datetime.now().isoformat()

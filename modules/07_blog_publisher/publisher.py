@@ -1,5 +1,6 @@
 """
 네이버 블로그 발행기 - Selenium 사용
+리치 텍스트 클립보드 + 이미지 순차 삽입 지원
 """
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -18,6 +19,16 @@ import sys
 import json
 import base64
 from bs4 import BeautifulSoup
+
+# Windows 리치 텍스트 클립보드 지원
+CLIPBOARD_AVAILABLE = False
+try:
+    import win32clipboard
+    import win32con
+    CLIPBOARD_AVAILABLE = True
+except ImportError:
+    # pywin32가 없으면 리치 텍스트 서식 적용 비활성화
+    pass
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config.settings import (
     NAVER_ID, NAVER_PASSWORD, NAVER_BLOG_URL,
@@ -661,6 +672,348 @@ class NaverBlogPublisher:
             "attempts": max_retries
         }
 
+    def _copy_html_to_clipboard(self, html: str) -> bool:
+        """
+        HTML을 CF_HTML 형식으로 Windows 클립보드에 복사
+        붙여넣기 시 서식(굵게, 크기 등)이 유지됨
+        
+        Args:
+            html: HTML 문자열
+            
+        Returns:
+            성공 여부
+        """
+        if not CLIPBOARD_AVAILABLE:
+            logger.warning("pywin32가 설치되지 않아 리치 텍스트 클립보드를 사용할 수 없습니다.")
+            return False
+        
+        try:
+            # CF_HTML 형식으로 변환
+            # 참고: https://docs.microsoft.com/en-us/windows/win32/dataxchg/html-clipboard-format
+            
+            # HTML을 완전한 문서로 감싸기
+            if not html.strip().startswith('<!DOCTYPE') and not html.strip().startswith('<html'):
+                html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body {{ font-family: '맑은 고딕', sans-serif; line-height: 1.8; }}
+h1, h2, h3 {{ font-weight: bold; }}
+h1 {{ font-size: 20pt; }}
+h2 {{ font-size: 15pt; }}
+h3 {{ font-size: 13pt; }}
+p {{ margin-bottom: 10px; }}
+strong, b {{ font-weight: bold; }}
+</style>
+</head>
+<body>
+{html}
+</body>
+</html>"""
+            
+            # CF_HTML 헤더 생성
+            html_bytes = html.encode('utf-8')
+            
+            # 헤더 템플릿
+            header_template = (
+                "Version:0.9\r\n"
+                "StartHTML:{:08d}\r\n"
+                "EndHTML:{:08d}\r\n"
+                "StartFragment:{:08d}\r\n"
+                "EndFragment:{:08d}\r\n"
+            )
+            
+            # Fragment 마커
+            start_fragment = "<!--StartFragment-->"
+            end_fragment = "<!--EndFragment-->"
+            
+            # Fragment 마커가 없으면 추가
+            if start_fragment not in html:
+                # <body> 태그 뒤에 StartFragment 추가
+                html = html.replace('<body>', f'<body>{start_fragment}', 1)
+                html = html.replace('</body>', f'{end_fragment}</body>', 1)
+                html_bytes = html.encode('utf-8')
+            
+            # 헤더 크기 계산 (임시값으로 계산)
+            dummy_header = header_template.format(0, 0, 0, 0)
+            header_length = len(dummy_header.encode('utf-8'))
+            
+            # 실제 위치 계산
+            start_html = header_length
+            end_html = header_length + len(html_bytes)
+            
+            start_frag_pos = html.find(start_fragment)
+            end_frag_pos = html.find(end_fragment)
+            
+            start_fragment_offset = header_length + len(html[:start_frag_pos + len(start_fragment)].encode('utf-8'))
+            end_fragment_offset = header_length + len(html[:end_frag_pos].encode('utf-8'))
+            
+            # 최종 헤더 생성
+            header = header_template.format(start_html, end_html, start_fragment_offset, end_fragment_offset)
+            
+            # 클립보드에 복사
+            cf_html = win32clipboard.RegisterClipboardFormat("HTML Format")
+            
+            win32clipboard.OpenClipboard()
+            try:
+                win32clipboard.EmptyClipboard()
+                
+                # CF_HTML 형식으로 설정
+                clipboard_data = (header + html).encode('utf-8')
+                win32clipboard.SetClipboardData(cf_html, clipboard_data)
+                
+                # 일반 텍스트도 함께 설정 (fallback)
+                soup = BeautifulSoup(html, 'html.parser')
+                plain_text = soup.get_text(separator='\n', strip=True)
+                win32clipboard.SetClipboardData(win32con.CF_UNICODETEXT, plain_text)
+                
+                logger.info("HTML을 리치 텍스트로 클립보드에 복사 완료")
+                return True
+            finally:
+                win32clipboard.CloseClipboard()
+                
+        except Exception as e:
+            logger.error(f"클립보드 복사 실패: {e}")
+            return False
+
+    def _split_html_into_sections(self, html: str) -> List[Dict[str, Any]]:
+        """
+        HTML을 섹션(텍스트/이미지)으로 분리
+        
+        Args:
+            html: HTML 문자열
+            
+        Returns:
+            섹션 리스트 [{"type": "text|image", "content": "...", "index": 0}, ...]
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        body = soup.find('body') or soup
+        
+        sections = []
+        current_html = ""
+        image_index = 0
+        
+        def process_element(element):
+            nonlocal current_html, image_index
+            
+            if not hasattr(element, 'name'):
+                return
+            
+            # 이미지 태그 처리
+            if element.name == 'img':
+                src = element.get('src', '')
+                if 'PLACEHOLDER' in src:
+                    # 현재까지의 텍스트를 섹션으로 저장
+                    if current_html.strip():
+                        sections.append({
+                            "type": "text",
+                            "content": current_html.strip(),
+                            "index": len(sections)
+                        })
+                        current_html = ""
+                    
+                    # 이미지 섹션 추가
+                    sections.append({
+                        "type": "image",
+                        "content": element.get('alt', ''),
+                        "index": len(sections),
+                        "image_index": image_index
+                    })
+                    image_index += 1
+                return
+            
+            # 텍스트 요소는 HTML로 누적
+            if element.name in ['h1', 'h2', 'h3', 'p', 'ul', 'ol', 'li', 'div', 'span', 'strong', 'b', 'em', 'i', 'a']:
+                # 이미지가 포함된 요소는 자식들을 개별 처리
+                has_placeholder = element.find('img', src=lambda x: x and 'PLACEHOLDER' in x)
+                if has_placeholder:
+                    for child in element.children:
+                        if hasattr(child, 'name'):
+                            process_element(child)
+                        elif isinstance(child, str) and child.strip():
+                            current_html += child
+                else:
+                    current_html += str(element) + "\n"
+                return
+            
+            # 기타 컨테이너 요소는 자식들을 처리
+            for child in element.children:
+                if hasattr(child, 'name'):
+                    process_element(child)
+        
+        # 모든 요소 처리
+        for element in body.children:
+            if hasattr(element, 'name'):
+                process_element(element)
+        
+        # 남은 텍스트 섹션 추가
+        if current_html.strip():
+            sections.append({
+                "type": "text",
+                "content": current_html.strip(),
+                "index": len(sections)
+            })
+        
+        logger.info(f"HTML을 {len(sections)}개 섹션으로 분리 (텍스트: {len([s for s in sections if s['type'] == 'text'])}개, 이미지: {len([s for s in sections if s['type'] == 'image'])}개)")
+        return sections
+
+    def _input_content_with_images(self, content: str, images: List[Dict[str, Any]]) -> bool:
+        """
+        리치 텍스트 + 이미지 순차 삽입으로 본문 입력
+        서식(굵게, 크기 등)이 유지되고 이미지가 적절한 위치에 삽입됨
+        
+        Args:
+            content: HTML 본문
+            images: 이미지 정보 리스트
+            
+        Returns:
+            성공 여부
+        """
+        try:
+            from selenium.webdriver.common.action_chains import ActionChains
+            from selenium.webdriver.common.keys import Keys
+            import platform
+            
+            # HTML을 섹션으로 분리
+            sections = self._split_html_into_sections(content)
+            
+            if not sections:
+                logger.warning("분리된 섹션이 없습니다.")
+                return False
+            
+            # 이미지 매핑 (index -> 이미지 정보)
+            sorted_images = sorted(images, key=lambda x: x.get('index', 0)) if images else []
+            
+            # 내용 영역에 포커스 설정
+            content_focused = False
+            
+            # 방법 1: Tab 키로 제목에서 내용으로 이동
+            try:
+                ActionChains(self.driver).send_keys(Keys.TAB).perform()
+                time.sleep(0.5)
+                content_focused = True
+                logger.info("Tab 키로 내용 영역 이동")
+            except Exception as e:
+                logger.warning(f"Tab 키 이동 실패: {e}")
+            
+            # 방법 2: 내용 placeholder 클릭
+            if not content_focused:
+                try:
+                    content_placeholder = self.driver.find_element(By.CSS_SELECTOR, "span.se-placeholder.se-fs15")
+                    if content_placeholder:
+                        self.driver.execute_script("arguments[0].click();", content_placeholder)
+                        time.sleep(0.5)
+                        content_focused = True
+                        logger.info("내용 placeholder 클릭으로 포커스 설정")
+                except Exception as e:
+                    logger.warning(f"내용 placeholder 클릭 실패: {e}")
+            
+            # 방법 3: JavaScript로 내용 영역 찾아서 클릭
+            if not content_focused:
+                try:
+                    result = self.driver.execute_script("""
+                        // 모든 p.se-text-paragraph 중에서 제목이 아닌 것 찾기
+                        var paragraphs = document.querySelectorAll('p.se-text-paragraph');
+                        for (var i = 0; i < paragraphs.length; i++) {
+                            var p = paragraphs[i];
+                            var titlePlaceholder = p.querySelector('span.se-placeholder.se-fs32');
+                            if (!titlePlaceholder) {
+                                // 제목이 아닌 영역이면 클릭
+                                p.click();
+                                p.focus();
+                                return 'success';
+                            }
+                        }
+                        
+                        // contenteditable 영역 찾기
+                        var editor = document.querySelector('[contenteditable="true"]');
+                        if (editor) {
+                            editor.click();
+                            editor.focus();
+                            return 'success';
+                        }
+                        return 'not_found';
+                    """)
+                    
+                    if result == 'success':
+                        content_focused = True
+                        logger.info("JavaScript로 내용 영역 포커스 설정")
+                    time.sleep(0.5)
+                except Exception as e:
+                    logger.warning(f"JavaScript 포커스 설정 실패: {e}")
+            
+            # 섹션별로 순차 입력
+            for section in sections:
+                if section['type'] == 'text':
+                    # 텍스트 섹션: 리치 텍스트로 붙여넣기
+                    html_content = section['content']
+                    
+                    # 리치 텍스트 클립보드 복사 시도
+                    if CLIPBOARD_AVAILABLE and self._copy_html_to_clipboard(html_content):
+                        # 붙여넣기 (Ctrl+V)
+                        if platform.system() == 'Darwin':
+                            ActionChains(self.driver).key_down(Keys.COMMAND).send_keys('v').key_up(Keys.COMMAND).perform()
+                        else:
+                            ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
+                        time.sleep(0.5)
+                        logger.info(f"텍스트 섹션 {section['index']} 리치 텍스트 붙여넣기 완료")
+                    else:
+                        # 폴백: 일반 텍스트로 입력
+                        try:
+                            import pyperclip
+                            soup = BeautifulSoup(html_content, 'html.parser')
+                            plain_text = soup.get_text(separator='\n', strip=True)
+                            pyperclip.copy(plain_text)
+                            time.sleep(0.2)
+                            
+                            if platform.system() == 'Darwin':
+                                ActionChains(self.driver).key_down(Keys.COMMAND).send_keys('v').key_up(Keys.COMMAND).perform()
+                            else:
+                                ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
+                            time.sleep(0.5)
+                            logger.info(f"텍스트 섹션 {section['index']} 일반 텍스트 붙여넣기 완료")
+                        except Exception as e:
+                            logger.warning(f"텍스트 입력 실패: {e}")
+                    
+                    # 줄바꿈 추가
+                    ActionChains(self.driver).send_keys(Keys.RETURN).perform()
+                    time.sleep(0.2)
+                    
+                elif section['type'] == 'image':
+                    # 이미지 섹션: 파일 업로드
+                    img_idx = section.get('image_index', 0)
+                    if img_idx < len(sorted_images):
+                        img_info = sorted_images[img_idx]
+                        local_path = img_info.get('local_path', '')
+                        
+                        if local_path and Path(local_path).exists():
+                            # 줄바꿈 후 이미지 삽입
+                            ActionChains(self.driver).send_keys(Keys.RETURN).perform()
+                            time.sleep(0.3)
+                            
+                            success = self._insert_image_at_cursor(local_path, img_info)
+                            if success:
+                                logger.info(f"이미지 {img_idx + 1} 삽입 완료: {local_path}")
+                            else:
+                                logger.warning(f"이미지 {img_idx + 1} 삽입 실패")
+                            
+                            # 이미지 후 줄바꿈
+                            time.sleep(1)
+                            ActionChains(self.driver).send_keys(Keys.RETURN).perform()
+                            time.sleep(0.3)
+                        else:
+                            logger.warning(f"이미지 파일을 찾을 수 없습니다: {local_path}")
+                    else:
+                        logger.warning(f"이미지 인덱스 {img_idx}에 해당하는 이미지가 없습니다.")
+            
+            logger.info("리치 텍스트 + 이미지 순차 입력 완료")
+            return True
+            
+        except Exception as e:
+            logger.error(f"리치 텍스트 + 이미지 입력 실패: {e}")
+            return False
+
     def _insert_image_at_cursor(self, local_path: str, img_info: Dict[str, Any]) -> bool:
         """
         현재 커서 위치에 이미지 삽입
@@ -811,120 +1164,154 @@ class NaverBlogPublisher:
 
             # 1. 제목 입력
             logger.info(f"제목 입력 중: {title[:50]}...")
+            title_input_success = False
+            
+            # 방법 1: 제목 컨테이너를 직접 찾아서 입력
             try:
-                # 제목 placeholder 찾기
-                title_placeholder = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'se-placeholder') and contains(text(), '제목')]"))
-            )
+                # 제목 영역의 contenteditable 요소 찾기 (se-component-content 내부)
+                title_selectors = [
+                    "div.se-title-text p.se-text-paragraph",  # 제목 텍스트 영역
+                    "div.se-component.se-title p.se-text-paragraph",  # 제목 컴포넌트
+                    "div[class*='title'] p.se-text-paragraph",  # 제목 관련
+                ]
                 
-                # 제목 영역 클릭 (부모 p 태그)
-                title_paragraph = title_placeholder.find_element(By.XPATH, "./ancestor::p[contains(@class, 'se-text-paragraph')]")
+                title_element = None
+                for selector in title_selectors:
+                    try:
+                        title_element = WebDriverWait(self.driver, 3).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                        )
+                        if title_element:
+                            logger.info(f"제목 요소 발견: {selector}")
+                            break
+                    except:
+                        continue
                 
-                # 클립보드에 제목 복사 후 붙여넣기
-                try:
-                    import pyperclip
-                    pyperclip.copy(title)
-                    time.sleep(0.3)
-                    
-                    from selenium.webdriver.common.action_chains import ActionChains
-                    from selenium.webdriver.common.keys import Keys
-                    import platform
-                    
+                if title_element:
                     # 제목 영역 클릭
-                    ActionChains(self.driver).move_to_element(title_paragraph).click().perform()
+                    ActionChains(self.driver).move_to_element(title_element).click().perform()
                     time.sleep(0.5)
                     
-                    # 붙여넣기
-                    if platform.system() == 'Darwin':
-                        ActionChains(self.driver).key_down(Keys.COMMAND).send_keys('v').key_up(Keys.COMMAND).perform()
-                    else:
+                    # 클립보드로 제목 입력
+                    try:
+                        import pyperclip
+                        pyperclip.copy(title)
+                        time.sleep(0.2)
+                        
+                        # Ctrl+A로 전체 선택 후 Ctrl+V로 붙여넣기
+                        ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('a').key_up(Keys.CONTROL).perform()
+                        time.sleep(0.2)
                         ActionChains(self.driver).key_down(Keys.CONTROL).send_keys('v').key_up(Keys.CONTROL).perform()
-                    time.sleep(0.5)
-                    
-                    logger.info(f"제목 입력 완료 (붙여넣기): {title}")
-                except ImportError:
-                    # pyperclip이 없으면 send_keys로 직접 입력
-                    from selenium.webdriver.common.keys import Keys
-                    title_paragraph.click()
-                    time.sleep(0.3)
-                    title_paragraph.send_keys(Keys.CONTROL + 'a')  # 전체 선택
-                    time.sleep(0.2)
-                    title_paragraph.send_keys(title)  # 제목 입력
-                    time.sleep(0.5)
-                    logger.info(f"제목 입력 완료 (직접 입력): {title}")
+                        time.sleep(0.5)
+                        
+                        title_input_success = True
+                        logger.info(f"제목 입력 완료 (클립보드): {title}")
+                    except ImportError:
+                        # pyperclip이 없으면 send_keys로 직접 입력
+                        title_element.send_keys(Keys.CONTROL + 'a')
+                        time.sleep(0.2)
+                        title_element.send_keys(title)
+                        time.sleep(0.5)
+                        title_input_success = True
+                        logger.info(f"제목 입력 완료 (send_keys): {title}")
             except Exception as e:
-                logger.error(f"제목 입력 실패: {e}")
-                # 대체 방법: JavaScript로 시도
+                logger.warning(f"방법 1 제목 입력 실패: {e}")
+            
+            # 방법 2: JavaScript로 직접 입력
+            if not title_input_success:
                 try:
-                    escaped_title = title.replace("'", "\\'").replace('"', '\\"').replace("\n", " ").replace("\\", "\\\\")
-                    self.driver.execute_script(f"""
-                        var titlePlaceholder = document.querySelector('span.se-placeholder.se-ff-nanumgothic.se-fs32');
-                        if (titlePlaceholder && titlePlaceholder.textContent.includes('제목')) {{
-                            titlePlaceholder.click();
-                            var parent = titlePlaceholder.closest('p.se-text-paragraph');
-                            if (parent) {{
-                                parent.textContent = '{escaped_title}';
-                                parent.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                                parent.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                    escaped_title = title.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", " ")
+                    result = self.driver.execute_script(f"""
+                        // 방법 2-1: 제목 영역 직접 찾기
+                        var titleParagraph = document.querySelector('div.se-title-text p.se-text-paragraph');
+                        if (!titleParagraph) {{
+                            titleParagraph = document.querySelector('div.se-component.se-title p.se-text-paragraph');
+                        }}
+                        if (!titleParagraph) {{
+                            // placeholder가 있는 영역 찾기
+                            var placeholder = document.querySelector('span.se-placeholder');
+                            if (placeholder && placeholder.textContent.includes('제목')) {{
+                                titleParagraph = placeholder.closest('p.se-text-paragraph');
                             }}
                         }}
+                        
+                        if (titleParagraph) {{
+                            // 클릭하여 포커스
+                            titleParagraph.click();
+                            
+                            // 기존 내용 제거하고 새 내용 입력
+                            titleParagraph.innerHTML = '<span class="se-fs-fs32 se-ff-nanumgothic">{escaped_title}</span>';
+                            
+                            // 이벤트 발생
+                            titleParagraph.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            titleParagraph.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                            titleParagraph.dispatchEvent(new KeyboardEvent('keyup', {{ bubbles: true }}));
+                            
+                            return 'success';
+                        }}
+                        return 'not_found';
                     """)
-                    time.sleep(1)
-                    logger.info(f"제목 입력 완료 (JavaScript): {title}")
+                    
+                    if result == 'success':
+                        title_input_success = True
+                        logger.info(f"제목 입력 완료 (JavaScript): {title}")
+                    else:
+                        logger.warning("JavaScript로 제목 요소를 찾지 못함")
+                    time.sleep(0.5)
                 except Exception as e2:
-                    logger.error(f"제목 입력 완전 실패: {e2}")
+                    logger.error(f"방법 2 제목 입력 실패: {e2}")
+            
+            # 방법 3: iframe 내부 확인 (혹시 iframe 안에 있을 경우)
+            if not title_input_success:
+                try:
+                    iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
+                    for iframe in iframes:
+                        try:
+                            self.driver.switch_to.frame(iframe)
+                            title_elem = self.driver.find_element(By.CSS_SELECTOR, "p.se-text-paragraph")
+                            if title_elem:
+                                title_elem.click()
+                                time.sleep(0.3)
+                                title_elem.send_keys(title)
+                                title_input_success = True
+                                logger.info(f"제목 입력 완료 (iframe): {title}")
+                                break
+                        except:
+                            pass
+                        finally:
+                            self.driver.switch_to.default_content()
+                except Exception as e3:
+                    logger.error(f"방법 3 제목 입력 실패: {e3}")
+            
+            if not title_input_success:
+                logger.error("모든 방법으로 제목 입력 실패")
 
-            # 2. 내용 입력 (HTML 파싱하여 텍스트와 이미지 순서대로 입력)
+            # 2. 내용 입력 (리치 텍스트 + 이미지 순차 삽입)
             logger.info(f"내용 입력 중 (길이: {len(content)}자)...")
             
-            # HTML인지 확인 (PLACEHOLDER가 있는지) - 변수 스코프를 위해 먼저 정의
+            # HTML인지 확인 (HTML 태그가 있는지)
             is_html = False
             if content:
-                is_html = 'PLACEHOLDER' in content or '<img' in content or '<h' in content
+                is_html = '<h' in content or '<p>' in content or '<strong>' in content or '<b>' in content
             
             if not content:
                 logger.warning("본문 내용이 없습니다. 건너뜁니다.")
             else:
                 try:
-                    # 내용 영역 클릭 + 더블클릭으로 포커스 확실히 설정
-                    from selenium.webdriver.common.action_chains import ActionChains
+                    if is_html:
+                        # 리치 텍스트 + 이미지 순차 삽입 방식 (서식 유지)
+                        # 이미지가 없어도 HTML 서식은 적용
+                        logger.info("리치 텍스트 모드로 입력 (이미지: {}개)...".format(len(images) if images else 0))
+                        success = self._input_content_with_images(content, images if images else [])
+                        if success:
+                            logger.info("리치 텍스트 입력 완료")
+                        else:
+                            logger.warning("리치 텍스트 입력 실패, 기존 방식으로 폴백...")
+                            # 기존 방식으로 폴백
+                            is_html = False
                     
-                    logger.info("내용 영역 클릭 및 더블클릭으로 포커스 설정 중...")
-                    try:
-                        # 내용 placeholder 찾기 (se-fs15)
-                        content_placeholder = self.driver.find_element(By.CSS_SELECTOR, "span.se-placeholder.se-fs15")
-                        if content_placeholder:
-                            # 1. 먼저 한 번 클릭
-                            self.driver.execute_script("arguments[0].click();", content_placeholder)
-                            time.sleep(0.3)
-                            
-                            # 2. 더블클릭
-                            ActionChains(self.driver).double_click(content_placeholder).perform()
-                            time.sleep(0.5)
-                            logger.info("내용 placeholder 클릭 + 더블클릭 완료")
-                    except Exception as e:
-                        logger.warning(f"내용 placeholder 클릭 실패: {e}")
-                        # 대체 방법: p 태그로 찾기
-                        try:
-                            # 제목이 아닌 p 태그 찾기
-                            all_paragraphs = self.driver.find_elements(By.CSS_SELECTOR, "p.se-text-paragraph")
-                            for p in all_paragraphs:
-                                # 제목 placeholder가 없는 p 태그
-                                title_placeholders = p.find_elements(By.CSS_SELECTOR, "span.se-placeholder.se-fs32")
-                                if not title_placeholders:
-                                    # 1. 먼저 한 번 클릭
-                                    self.driver.execute_script("arguments[0].click();", p)
-                                    time.sleep(0.3)
-                                    
-                                    # 2. 더블클릭
-                                    ActionChains(self.driver).double_click(p).perform()
-                                    time.sleep(0.5)
-                                    logger.info("내용 p 태그 클릭 + 더블클릭 완료")
-                                    break
-                        except Exception as e2:
-                            logger.warning(f"내용 p 태그 클릭도 실패: {e2}")
-                    
-                    if is_html and images:
+                    if is_html and images and False:  # 기존 방식은 비활성화
+                        # 기존 방식 (호환성을 위해 유지, 비활성화됨)
                         # 방법: 먼저 전체 텍스트를 붙여넣고, 이미지 위치를 찾아서 삽입
                         logger.info("HTML 파싱하여 텍스트 먼저 입력 후 이미지 삽입...")
                         soup = BeautifulSoup(content, 'html.parser')
@@ -1179,7 +1566,35 @@ class NaverBlogPublisher:
                         
                         logger.info(f"본문 입력 완료 (텍스트 먼저 입력 후 이미지 {len(image_positions)}개 삽입)")
                     else:
-                        # 일반 텍스트 입력 (Tab으로 이미 내용 영역에 있음)
+                        # 일반 텍스트 입력
+                        logger.info("일반 텍스트 모드로 입력...")
+                        
+                        # 내용 영역으로 포커스 이동
+                        try:
+                            # Tab 키로 이동
+                            ActionChains(self.driver).send_keys(Keys.TAB).perform()
+                            time.sleep(0.5)
+                        except:
+                            pass
+                        
+                        # JavaScript로 내용 영역 찾아서 포커스
+                        try:
+                            self.driver.execute_script("""
+                                var paragraphs = document.querySelectorAll('p.se-text-paragraph');
+                                for (var i = 0; i < paragraphs.length; i++) {
+                                    var p = paragraphs[i];
+                                    var titlePlaceholder = p.querySelector('span.se-placeholder.se-fs32');
+                                    if (!titlePlaceholder) {
+                                        p.click();
+                                        p.focus();
+                                        break;
+                                    }
+                                }
+                            """)
+                            time.sleep(0.5)
+                        except:
+                            pass
+                        
                         try:
                             import pyperclip
                             pyperclip.copy(content)
@@ -1189,7 +1604,7 @@ class NaverBlogPublisher:
                             from selenium.webdriver.common.keys import Keys
                             import platform
                             
-                            # 붙여넣기 (Tab으로 이미 내용 영역에 있음)
+                            # 붙여넣기
                             if platform.system() == 'Darwin':
                                 ActionChains(self.driver).key_down(Keys.COMMAND).send_keys('v').key_up(Keys.COMMAND).perform()
                             else:
@@ -1197,32 +1612,25 @@ class NaverBlogPublisher:
                             time.sleep(1)
                             logger.info("본문 텍스트 입력 완료 (붙여넣기)")
                         except ImportError:
-                            # pyperclip이 없으면 send_keys로 직접 입력
+                            # pyperclip이 없으면 ActionChains로 직접 입력
                             from selenium.webdriver.common.keys import Keys
+                            from selenium.webdriver.common.action_chains import ActionChains
                             
-                            # 포커스 확인
-                            try:
-                                if not content_paragraph.is_displayed():
-                                    self.driver.execute_script("arguments[0].click();", content_paragraph)
-                                    time.sleep(0.3)
-                            except:
-                                pass
-                            
-                            # 본문을 줄 단위로 입력
+                            # 본문을 줄 단위로 입력 (ActionChains 사용)
                             for line in content.split('\n'):
                                 try:
-                                    content_paragraph.send_keys(line)
-                                    content_paragraph.send_keys(Keys.RETURN)
+                                    ActionChains(self.driver).send_keys(line).send_keys(Keys.RETURN).perform()
                                     time.sleep(0.1)
                                 except Exception as e:
-                                    # send_keys 실패 시 JavaScript로 시도
-                                    escaped_line = line.replace("'", "\\'").replace("\n", "\\n")
-                                    self.driver.execute_script("""
-                                        var elem = arguments[0];
-                                        var text = arguments[1];
-                                        elem.textContent += text + '\\n';
-                                        elem.dispatchEvent(new Event('input', { bubbles: true }));
-                                    """, content_paragraph, line)
+                                    # ActionChains 실패 시 JavaScript로 시도
+                                    escaped_line = line.replace("'", "\\'").replace("\n", "\\n").replace("\\", "\\\\")
+                                    self.driver.execute_script(f"""
+                                        var editor = document.querySelector('p.se-text-paragraph:not(:first-child), [contenteditable="true"]');
+                                        if (editor) {{
+                                            editor.textContent += '{escaped_line}' + '\\n';
+                                            editor.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                        }}
+                                    """)
                                     time.sleep(0.1)
                             time.sleep(0.5)
                             logger.info("본문 텍스트 입력 완료 (직접 입력)")

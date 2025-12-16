@@ -1,14 +1,14 @@
-# 웹 스크래핑
+# Web scraping
 selenium==4.16.0
 beautifulsoup4==4.12.3
 webdriver-manager==4.0.1
 lxml==5.1.0
 
-# 벡터 DB 및 임베딩
+# Vector DB and Embedding
 chromadb==0.4.22
 sentence-transformers==2.3.1
 
-# LLM 및 LangChain
+# LLM and LangChain
 langchain==0.1.9
 langchain-openai>=0.1.0
 langchain-anthropic==0.1.4
@@ -16,24 +16,22 @@ langgraph==0.0.20
 openai>=1.12.0
 anthropic==0.18.1
 
-# 이미지 생성 및 저장
+# Image generation
 Pillow==10.2.0
 
-# Cloudinary (이미지 저장소 - 선택)
+# Cloudinary (optional)
 cloudinary==1.38.0
 
-# Hugging Face (무료 이미지 생성 - 기본)
+# Hugging Face
 huggingface-hub>=0.34.0,<2.0
 transformers>=4.40.0
-# Z-Image-Turbo를 사용하려면 최신 diffusers가 필요합니다:
-# pip install git+https://github.com/huggingface/diffusers
-diffusers @ git+https://github.com/huggingface/diffusers@17c0e79dbdf53fb6705e9c09cc1a854b84c39249
-torch==2.9.1
-torchvision==0.24.1
-accelerate>=0.17.0  # Z-Image-Turbo CPU 오프로딩에 필요
-packaging>=20.0  # 버전 비교에 필요
+diffusers>=0.25.0
+torch>=2.0.0
+torchvision>=0.15.0
+accelerate>=0.17.0
+packaging>=20.0
 
-# 구글 드라이브 API (선택)
+# Google Drive API (optional)
 google-auth==2.27.0
 google-auth-oauthlib==1.2.0
 google-auth-httplib2==0.2.0
@@ -42,19 +40,20 @@ google-api-python-client==2.116.0
 # Slack API
 slack-sdk==3.26.2
 
-# 유틸리티
+# Utilities
 python-dotenv==1.0.1
 requests==2.31.0
 pandas==2.2.0
 pydantic==2.6.1
-pyperclip==1.8.2  # 클립보드 복사/붙여넣기 (블로그 발행용)
+pyperclip==1.8.2
+pywin32>=306
 
-# 로깅 및 모니터링
+# Logging
 loguru==0.7.2
 
-# 대시보드
+# Dashboard
 streamlit==1.31.0
 
-# 테스트
+# Test
 pytest==7.4.4
 pytest-asyncio==0.23.4

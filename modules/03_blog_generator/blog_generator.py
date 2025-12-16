@@ -1,8 +1,6 @@
 """
 블로그 생성기 - RAG 기반 HTML 블로그 생성
 """
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
@@ -13,13 +11,29 @@ import json
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config.settings import (
-    OPENAI_API_KEY, ANTHROPIC_API_KEY, DEFAULT_LLM_MODEL,
+    OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, DEFAULT_LLM_MODEL,
     TEMPERATURE, GENERATED_BLOGS_DIR, IMAGES_PER_BLOG,
     TOPIC_HISTORY_FILE, TOPIC_DUPLICATE_DAYS,
     LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, LM_STUDIO_MODEL_NAME,
     LM_STUDIO_CONTEXT_LENGTH, MAX_CONTEXT_CHARS
 )
 from config.logger import get_logger
+
+# LLM imports (조건부)
+try:
+    from langchain_openai import ChatOpenAI
+except ImportError:
+    ChatOpenAI = None
+
+try:
+    from langchain_anthropic import ChatAnthropic
+except ImportError:
+    ChatAnthropic = None
+
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+except ImportError:
+    ChatGoogleGenerativeAI = None
 
 logger = get_logger(__name__)
 
@@ -213,36 +227,68 @@ class BlogGenerator:
         logger.info(f"BlogGenerator 초기화 (모델: {model_name}, 온도: {temperature})")
 
     def _init_llm(self):
-        """LLM 초기화"""
-        if "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
-            # LM Studio (로컬 LLM)
+        """LLM 초기화 - Gemini API 우선 사용"""
+        # Gemini 모델 (기본값으로 사용)
+        if "gemini" in self.model_name.lower() or GOOGLE_API_KEY:
+            if not GOOGLE_API_KEY:
+                raise ValueError(
+                    "GOOGLE_API_KEY가 설정되지 않았습니다.\n"
+                    "1. https://aistudio.google.com/app/apikey 에서 API 키 발급\n"
+                    "2. .env 파일에 GOOGLE_API_KEY=your-api-key 추가"
+                )
+            if ChatGoogleGenerativeAI is None:
+                raise ValueError("langchain-google-genai 패키지가 설치되지 않았습니다. pip install langchain-google-genai")
+            
+            # Gemini 모델명 결정
+            gemini_model = self.model_name if "gemini" in self.model_name.lower() else "gemini-1.5-flash"
+            logger.info(f"Gemini 모델 사용: {gemini_model}")
+            
+            return ChatGoogleGenerativeAI(
+                model=gemini_model,
+                temperature=self.temperature,
+                google_api_key=GOOGLE_API_KEY
+            )
+        
+        # LM Studio (로컬 LLM)
+        elif "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
             if not LM_STUDIO_ENABLED:
                 logger.warning("LM Studio가 비활성화 상태입니다. .env에서 LM_STUDIO_ENABLED=true로 설정하세요.")
+            if ChatOpenAI is None:
+                raise ValueError("langchain-openai 패키지가 설치되지 않았습니다.")
             
             logger.info(f"LM Studio 연결 시도: {LM_STUDIO_BASE_URL}")
             return ChatOpenAI(
                 model=LM_STUDIO_MODEL_NAME,
                 temperature=self.temperature,
-                api_key="lm-studio",  # LM Studio는 API key 불필요 (더미값)
+                api_key="lm-studio",
                 base_url=LM_STUDIO_BASE_URL,
                 max_retries=2
             )
+        
+        # OpenAI GPT
         elif "gpt" in self.model_name.lower():
             if not OPENAI_API_KEY:
                 raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
+            if ChatOpenAI is None:
+                raise ValueError("langchain-openai 패키지가 설치되지 않았습니다.")
             return ChatOpenAI(
                 model=self.model_name,
                 temperature=self.temperature,
                 api_key=OPENAI_API_KEY
             )
+        
+        # Anthropic Claude
         elif "claude" in self.model_name.lower():
             if not ANTHROPIC_API_KEY:
                 raise ValueError("ANTHROPIC_API_KEY가 설정되지 않았습니다.")
+            if ChatAnthropic is None:
+                raise ValueError("langchain-anthropic 패키지가 설치되지 않았습니다.")
             return ChatAnthropic(
                 model=self.model_name,
                 temperature=self.temperature,
                 anthropic_api_key=ANTHROPIC_API_KEY
             )
+        
         else:
             raise ValueError(f"지원하지 않는 모델: {self.model_name}")
 

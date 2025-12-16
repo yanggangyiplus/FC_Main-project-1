@@ -38,6 +38,7 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 # API Keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")  # Gemini API
 STABILITY_API_KEY = os.getenv("STABILITY_API_KEY")
 
 # 네이버 계정
@@ -109,7 +110,7 @@ CHROMA_COLLECTION_NAME = "news_articles"
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 # LLM 설정
-DEFAULT_LLM_MODEL = "gpt-4o-mini"  # 또는 "gpt-4o", "claude-3-opus-20240229"
+DEFAULT_LLM_MODEL = "gemini-2.0-flash-exp"  # Gemini 2.0 Flash (최신)
 TEMPERATURE = 0.7
 
 # LM Studio (로컬 LLM) 설정
@@ -130,6 +131,10 @@ Z_IMAGE_CPU_OFFLOAD = os.getenv("Z_IMAGE_CPU_OFFLOAD", "false").lower() == "true
 
 # Hugging Face 설정 (무료 이미지 생성 - 기본 모델)
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")  # 선택적, 없으면 제한된 무료 사용
+
+# Pixabay 설정 (무료 스톡 이미지 검색)
+# API 키 발급: https://pixabay.com/api/docs/
+PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")  # 무료, 하루 5000건 제한
 # Inference API 지원 모델 (기본값)
 HUGGINGFACE_MODEL = os.getenv("HUGGINGFACE_MODEL", "runwayml/stable-diffusion-v1-5")
 # 추천 모델 (Inference API 지원):
