@@ -139,13 +139,9 @@ with st.sidebar:
         key="workflow_humanizer_model"
     )
     
-    st.subheader("🎨 이미지 생성 모델")
-    image_model = st.selectbox(
-        "이미지 모델",
-        options=["huggingface", "dall-e-3", "z-image-turbo"],
-        index=0,
-        key="workflow_image_model"
-    )
+    st.subheader("🎨 이미지 다운로드 설정")
+    st.info("📌 Pixabay API를 사용하여 무료 이미지 다운로드 (Gemini로 키워드 자동 개선)")
+    image_model = "pixabay"  # 고정값
     
     temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1, key="workflow_temperature")
     n_articles = st.slider("참조 기사 수", 1, 20, 10, key="workflow_n_articles")
@@ -490,8 +486,8 @@ if start_workflow:
                         placeholders = image_prompts_data.get('placeholders', [])
                         st.info(f"이미지 {len(placeholders)}개 생성 예정")
                         
-                        # 이미지 생성기 초기화 (카테고리 포함)
-                        image_generator = ImageGenerator(model=image_model, use_google_drive=False, category=category)
+                        # 이미지 생성기 초기화 (카테고리 포함, Gemini 사용)
+                        image_generator = ImageGenerator(use_gemini=True, category=category)
                         
                         generated_images = []
                         for i, placeholder in enumerate(placeholders):
@@ -503,19 +499,18 @@ if start_workflow:
                                     index=i
                                 )
                                 
-                                if result.get('success'):
-                                    generated_images.append({
-                                        'index': i,
-                                        'local_path': result.get('local_path'),
-                                        'url': result.get('url'),
-                                        'alt': placeholder.get('alt', ''),
-                                        'model': image_model
-                                    })
-                                    st.success(f"✅ 이미지 {i+1} 생성 완료")
-                                else:
-                                    st.warning(f"⚠️ 이미지 {i+1} 생성 실패: {result.get('error', '알 수 없는 오류')}")
+                                # result는 성공 시 딕셔너리 반환, 실패 시 Exception 발생
+                                generated_images.append({
+                                    'index': i,
+                                    'local_path': result.get('local_path'),
+                                    'url': result.get('url'),
+                                    'alt': placeholder.get('alt', ''),
+                                    'model': 'pixabay',
+                                    'search_keyword': result.get('search_keyword', '')
+                                })
+                                st.success(f"✅ 이미지 {i+1} 다운로드 완료 (키워드: {result.get('search_keyword', '')})")
                             except Exception as e:
-                                st.error(f"❌ 이미지 {i+1} 생성 중 오류: {e}")
+                                st.error(f"❌ 이미지 {i+1} 다운로드 중 오류: {e}")
                         
                         if generated_images:
                             # 카테고리별 이미지 매핑 저장
