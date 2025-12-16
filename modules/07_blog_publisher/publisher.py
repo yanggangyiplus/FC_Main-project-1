@@ -867,18 +867,24 @@ class NaverBlogPublisher:
                         if not body:
                             body = soup
                         
+                        # 이미지 매핑 생성 (나중에 사용할 수 있도록 먼저 정의)
+                        sorted_images = sorted(images, key=lambda x: x.get('index', 0)) if images else []
+                        
                         # 이미지가 있으면 마커로 대체
-                        if images:
-                            # 이미지 매핑 생성 (index 기준)
-                            sorted_images = sorted(images, key=lambda x: x.get('index', 0))
-                            
-                            # PLACEHOLDER 이미지를 마커로 대체
-                            image_index = 0
-                            for img in body.find_all('img', src=lambda x: x and 'PLACEHOLDER' in x):
-                                # 이미지를 독특한 마커로 대체
-                                marker = f"###IMG{image_index + 1}###"
-                                img.replace_with(marker)
-                                image_index += 1
+                        image_index = 0
+                        if sorted_images:
+                            logger.info(f"이미지 {len(sorted_images)}개를 마커로 변환 중...")
+                            # PLACEHOLDER가 있는 모든 img 태그를 마커로 대체
+                            for img in body.find_all('img'):
+                                src = img.get('src', '')
+                                if 'PLACEHOLDER' in src or not src:
+                                    # 이미지를 독특한 마커로 대체
+                                    marker = f"###IMG{image_index + 1}###"
+                                    img.replace_with(marker)
+                                    image_index += 1
+                                    logger.debug(f"이미지 태그를 {marker}로 변환")
+                        
+                        logger.info(f"이미지 마커 변환 완료: {image_index}개")
                         
                         # 텍스트 추출 (style, script, head 태그 제거)
                         for tag in body.find_all(['style', 'script', 'head']):
@@ -886,16 +892,22 @@ class NaverBlogPublisher:
                         
                         # h2 태그를 구분선 마커로 대체 (서론, 본론, 결론 구분용)
                         h2_tags = body.find_all('h2')
+                        logger.info(f"h2 태그 {len(h2_tags)}개 발견")
                         divider_count = 0
                         for i, h2 in enumerate(h2_tags):
+                            h2_text = h2.get_text(strip=True)
                             if i == 0:
                                 # 첫 번째 h2(서론)는 그냥 제거
+                                logger.debug(f"첫 번째 h2 제거: '{h2_text}'")
                                 h2.decompose()
                             else:
                                 # 두 번째 h2부터는 구분선 마커로 대체 (본론, 결론 전)
                                 divider_marker = f"\n\n###DIVIDER{divider_count + 1}###\n\n"
+                                logger.debug(f"h2 '{h2_text}'를 {divider_marker.strip()}로 변환")
                                 h2.replace_with(divider_marker)
                                 divider_count += 1
+                        
+                        logger.info(f"h2 태그 변환 완료: 구분선 마커 {divider_count}개 생성")
                         
                         # h1, h3 제목 태그 제거
                         for tag in body.find_all(['h1', 'h3']):
@@ -910,6 +922,7 @@ class NaverBlogPublisher:
                         lines = text_content.split('\n')
                         formatted_lines = []
                         
+                        section_titles_removed = 0
                         for line in lines:
                             line = line.strip()
                             if not line:
@@ -917,6 +930,8 @@ class NaverBlogPublisher:
                             
                             # "서론", "본론", "결론" 같은 섹션 제목 제거
                             if line in ['서론', '본론', '결론', '출처', 'Introduction', 'Body', 'Conclusion']:
+                                logger.debug(f"섹션 제목 제거: '{line}'")
+                                section_titles_removed += 1
                                 continue
                             
                             # 구분선 마커인 경우
@@ -971,8 +986,10 @@ class NaverBlogPublisher:
                         
                         # 구분선 마커 개수 확인
                         divider_marker_count = len([line for line in formatted_lines if line.startswith('###DIVIDER') and line.endswith('###')])
+                        img_marker_count = len([line for line in formatted_lines if line.startswith('###IMG') and line.endswith('###')])
                         
-                        logger.info(f"텍스트 생성 완료 - 이미지 마커 {image_index}개, 구분선 마커 {divider_marker_count}개: {text_content[:100]}...")
+                        logger.info(f"텍스트 생성 완료 - 이미지 마커 {img_marker_count}개, 구분선 마커 {divider_marker_count}개, 섹션 제목 제거 {section_titles_removed}개")
+                        logger.info(f"텍스트 미리보기: {text_content[:200]}...")
                         
                         # 본문 입력 - send_keys로 직접 입력 (마커 정확도 향상)
                         from selenium.webdriver.common.keys import Keys
