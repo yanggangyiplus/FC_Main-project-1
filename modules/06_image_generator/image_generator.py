@@ -65,7 +65,7 @@ class GoogleImagenGenerator:
     def __init__(
         self,
         category: str = "",
-        aspect_ratio: str = "16:9",
+        aspect_ratio: str = None,   # None으로 변경하여 kwargs에서 우선 처리
         use_llm: bool = True,
         model: str = None,          # 호환성: 기존 ImageGenerator(model=...)
         image_size: str = None,     # 호환성: 사용하지 않지만 받아서 무시
@@ -77,6 +77,9 @@ class GoogleImagenGenerator:
             aspect_ratio: 이미지 비율 (기본: 16:9 - 블로그에 적합)
             use_llm: LLM으로 프롬프트 생성 여부
         """
+        # kwargs에서 aspect_ratio 추출 (호환성)
+        if aspect_ratio is None:
+            aspect_ratio = kwargs.get('aspect_ratio', '16:9')
         # API 키 확인
         if not GOOGLE_API_KEY:
             raise ValueError(
@@ -100,6 +103,9 @@ class GoogleImagenGenerator:
         self.aspect_ratio = aspect_ratio if aspect_ratio in self.ASPECT_RATIOS else "16:9"
         self.use_llm = use_llm
         self.llm = None
+        
+        # 비율 설정 로깅
+        logger.info(f"이미지 생성기 초기화: 비율={self.aspect_ratio}, 카테고리={category or '없음'}")
         
         # Google GenAI 클라이언트 초기화
         self.client = genai.Client(api_key=GOOGLE_API_KEY)
@@ -183,23 +189,22 @@ class GoogleImagenGenerator:
 요구사항:
 1. 위 섹션 내용과 직접적으로 관련된 시각적 장면 묘사
 2. 영어로만 작성
-3. 한 문장으로 프롬프트만 출력 (설명 없이)
-4. 형식: "A [스타일] image of [구체적 장면], [세부사항], no text, high quality"
+3. 1~2 문장으로 프롬프트만 출력 (설명 없이)
+4. 형식: "16:9 wide horizontal format. A [스타일] image of [구체적 장면], [세부사항], high quality"
 5. 추상적 개념보다 구체적인 시각적 요소 사용
+6. **반드시 프롬프트 앞에 "16:9 wide horizontal format"을 포함**
 
 ⚠️ 중요 제한사항 (반드시 준수):
-- 사람, 인물, 얼굴은 절대 포함하지 마세요
-- 금지 단어: person, people, man, woman, child, family, parent, worker, employee, crowd, face, hand, body
-- 대신 사물, 건물, 그래프, 아이콘, 추상적 오브젝트로 표현하세요
+- 이미지 프롬프트와 상관없는 사진 및 요소는 절대로 생성하지마.
 
 예시 (경제/재정 관련):
-A photorealistic image of bills and financial statements spread on a kitchen table with a calculator and piggy bank, warm indoor lighting, modern home setting, no text, high quality
+16:9 wide horizontal format. A photorealistic image of bills and financial statements spread on a kitchen table with a calculator and piggy bank, warm indoor lighting, modern home setting, high quality
 
 예시 (정치/정책 관련):
-A photorealistic image of a government building exterior with national flags, official atmosphere, professional photography style, no text, high quality
+16:9 wide horizontal format. A photorealistic image of a government building exterior with national flags, official atmosphere, professional photography style, high quality
 
 예시 (생활비/가계):
-A minimalist image of a budget planner notebook with coins, receipts, and a small plant on a wooden desk, soft natural lighting, no text, high quality
+16:9 wide horizontal format. A minimalist image of a budget planner notebook with coins, receipts, and a small plant on a wooden desk, soft natural lighting, high quality
 
 프롬프트:"""
 
@@ -219,11 +224,11 @@ A minimalist image of a budget planner notebook with coins, receipts, and a smal
             
             # 프롬프트가 너무 길면 자르기
             if len(prompt) > 400:
-                prompt = prompt[:400].rsplit(',', 1)[0] + ", no text, high quality"
+                prompt = prompt[:400].rsplit(',', 1)[0] + ", high quality"
             
             # 프롬프트에 "no text" 없으면 추가
             if "no text" not in prompt.lower():
-                prompt = prompt.rstrip('.') + ", no text, high quality"
+                prompt = prompt.rstrip('.') + ", high quality"
             
             logger.info(f"LLM 프롬프트 생성 완료 ({len(prompt)}자): {prompt[:80]}...")
             return prompt
@@ -235,9 +240,9 @@ A minimalist image of a budget planner notebook with coins, receipts, and a smal
     def _generate_basic_prompt(self, topic: str, index: int) -> str:
         """기본 프롬프트 생성 (LLM 없이)"""
         base_prompts = [
-            f"A professional photorealistic image representing {topic}, modern style, high quality, no text",
-            f"An informative infographic style illustration about {topic}, clean design, no text",
-            f"A conceptual artistic representation of {topic}, digital art style, vibrant colors, no text"
+            f"16:9 wide horizontal format. A professional photorealistic image representing {topic}, modern style, high quality",
+            f"16:9 wide horizontal format. An informative infographic style illustration about {topic}, clean design",
+            f"16:9 wide horizontal format. A conceptual artistic representation of {topic}, digital art style, vibrant colors"
         ]
         return base_prompts[index % len(base_prompts)]
 
@@ -256,9 +261,29 @@ A minimalist image of a budget planner notebook with coins, receipts, and a smal
         
         try:
             # Imagen API 호출 (generate_content 메서드 사용)
+            # 프롬프트 앞부분에 비율 정보 명시적으로 추가
+            aspect_prefixes = {
+                "16:9": "Create a 16:9 wide horizontal landscape image. ",
+                "1:1": "Create a 1:1 square format image. ",
+                "3:4": "Create a 3:4 vertical portrait image. ",
+                "4:3": "Create a 4:3 horizontal landscape image. ",
+                "9:16": "Create a 9:16 vertical mobile format image. "
+            }
+            aspect_prefix = aspect_prefixes.get(self.aspect_ratio, "Create a 16:9 wide horizontal landscape image. ")
+            enhanced_prompt = f"{aspect_prefix}{prompt}"
+            
+            logger.info(f"이미지 생성 프롬프트 (비율: {self.aspect_ratio}): {enhanced_prompt[:150]}...")
+            
+            # GenerateContentConfig로 이미지 비율 명시
+            config = types.GenerateContentConfig(
+                temperature=0.7,
+                response_modalities=["image"]
+            )
+            
             response = self.client.models.generate_content(
                 model=self.IMAGEN_MODEL,
-                contents=[prompt]
+                contents=[enhanced_prompt],
+                config=config
             )
             
             # 응답에서 이미지 데이터 추출
@@ -290,6 +315,9 @@ A minimalist image of a budget planner notebook with coins, receipts, and a smal
                     
                     # PIL Image로 변환
                     image = Image.open(BytesIO(img_bytes))
+                    
+                    # 지정된 비율로 이미지 자르기 (Gemini는 1:1만 생성하므로 후처리)
+                    image = self._crop_to_aspect_ratio(image, self.aspect_ratio)
                     
                     # 저장 경로 생성
                     local_path = self._save_image(image, index)
@@ -399,6 +427,62 @@ A minimalist image of a budget planner notebook with coins, receipts, and a smal
         logger.info(f"블로그 이미지 생성 완료: 성공 {success_count}/{count}")
         
         return results
+
+    def _crop_to_aspect_ratio(self, image: Image.Image, aspect_ratio: str) -> Image.Image:
+        """
+        이미지를 지정된 비율로 자르기 (중앙 기준)
+        
+        Args:
+            image: PIL Image 객체
+            aspect_ratio: 목표 비율 (예: "16:9", "1:1")
+        
+        Returns:
+            자른 PIL Image 객체
+        """
+        if aspect_ratio == "1:1":
+            # 정사각형은 자르지 않음
+            return image
+        
+        # 비율 계산
+        aspect_map = {
+            "16:9": 16/9,   # 1.778
+            "3:4": 3/4,     # 0.75
+            "4:3": 4/3,     # 1.333
+            "9:16": 9/16,   # 0.5625
+        }
+        target_ratio = aspect_map.get(aspect_ratio, 16/9)
+        
+        width, height = image.size
+        current_ratio = width / height
+        
+        logger.info(f"이미지 자르기: 현재 {width}x{height} ({current_ratio:.2f}) → 목표 비율 {aspect_ratio} ({target_ratio:.2f})")
+        
+        # 이미지가 이미 목표 비율이면 자르지 않음
+        if abs(current_ratio - target_ratio) < 0.01:
+            return image
+        
+        # 자를 영역 계산 (중앙 기준)
+        if current_ratio > target_ratio:
+            # 현재 이미지가 더 가로로 넓음 → 좌우를 자름
+            new_width = int(height * target_ratio)
+            new_height = height
+            left = (width - new_width) // 2
+            top = 0
+        else:
+            # 현재 이미지가 더 세로로 길음 → 상하를 자름
+            new_width = width
+            new_height = int(width / target_ratio)
+            left = 0
+            top = (height - new_height) // 2
+        
+        right = left + new_width
+        bottom = top + new_height
+        
+        # 이미지 자르기
+        cropped_image = image.crop((left, top, right, bottom))
+        logger.info(f"이미지 자르기 완료: {cropped_image.size[0]}x{cropped_image.size[1]}")
+        
+        return cropped_image
 
     def _save_image(self, image: Image.Image, index: int) -> Path:
         """이미지 로컬 저장"""

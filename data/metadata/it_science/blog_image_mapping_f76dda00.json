@@ -1,0 +1,35 @@
+{
+  "blog_id": "f76dda00",
+  "blog_topic": "KT 차기 대표에 박윤영…해킹 수습·AI 사업 확장 시험대(종합)",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/KT_차기_대표에_박윤영해킹_수습AI_사업_확장_시험대종합_20251217_173806_v1.html",
+  "created_at": "2025-12-17T17:38:41.004711",
+  "evaluation_score": 85,
+  "category": "it_science",
+  "blog_category": "it_tech",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/imagen_20251217_173819_0.png",
+      "url": null,
+      "alt": "Network security concept with data protection shield and lock icons, digital art style",
+      "model": "gemini",
+      "search_keyword": "Network security concept with data protection shield and lock icons, digital art style"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/imagen_20251217_173828_1.png",
+      "url": null,
+      "alt": "Abstract representation of digital transformation and cloud computing, futuristic style",
+      "model": "gemini",
+      "search_keyword": "Abstract representation of digital transformation and cloud computing, futuristic style"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/imagen_20251217_173840_2.png",
+      "url": null,
+      "alt": "Team of business executives discussing strategy in a modern conference room, focus on leader, professional corporate photography",
+      "model": "gemini",
+      "search_keyword": "Team of business executives discussing strategy in a modern conference room, focus on leader, professional corporate photography"
+    }
+  ]
+}
