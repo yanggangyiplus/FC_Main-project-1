@@ -1598,7 +1598,9 @@ class NaverBlogPublisher:
                     logger.error(f"본문 입력 실패: {e}")
             
             # 3. 남은 이미지 삽입 (HTML 파싱 방식이 아닌 경우에만)
-            if images and not (is_html and 'PLACEHOLDER' in content):
+            # is_html 변수를 제거했으므로, PLACEHOLDER 기반 HTML 삽입이 아닌 경우에만 수행
+            # 요청: 본문 끝에 자동 이미지 삽입 금지 → 실시간 마커 삽입만 사용
+            if False and images and 'PLACEHOLDER' not in content:
                 logger.info(f"이미지 {len(images)}개 삽입 중...")
                 try:
                     sorted_images = sorted(images, key=lambda x: x.get('index', 0))

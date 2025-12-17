@@ -1,0 +1,35 @@
+{
+  "blog_id": "c5abd611",
+  "blog_topic": "정재헌 SKT CEO \"변화관리 최고책임자로 통신·AI혁신 견인하겠다\"",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/정재헌_SKT_CEO_변화관리_최고책임자로_통신AI혁신_견인하겠다_20251217_092520_v1.html",
+  "created_at": "2025-12-17T09:25:35.576459",
+  "evaluation_score": 85,
+  "category": "it_science",
+  "blog_category": "it_tech",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251217_092527_0.jpg",
+      "url": "https://pixabay.com/get/g95945069eb64b811ad14d8328ed832fa2c557b77f1d508d23a7b04f60f7cc9ccd7fa81dee930c56e7ac21c715e4848a740464fdeec43cce19260decf63d5ac3d_640.jpg",
+      "alt": "Network security concept with data protection shield and lock icons, digital art style",
+      "model": "pixabay",
+      "search_keyword": "network security"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251217_092529_1.jpg",
+      "url": "https://pixabay.com/get/g29d068b11d7f330eda287b72af2116e65bce4112cee38eed252adceb2f088794bcd0bad75cb425e96d4b421fa310d756_640.jpg",
+      "alt": "Abstract representation of digital transformation and cloud computing, futuristic style",
+      "model": "pixabay",
+      "search_keyword": "Cloud computing"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251217_092535_2.jpg",
+      "url": "https://pixabay.com/get/gebad00b3cadb48617f0df16b573c46fe650e8c562e74413f1084e0c5cdb981b8b2c951aecffd4db5ed868f7f196d744b7d02f4c368a6478ae372d2308c140934_640.jpg",
+      "alt": "Team of business executives discussing strategy in a modern conference room, focus on leader, professional corporate photography",
+      "model": "pixabay",
+      "search_keyword": "business meeting"
+    }
+  ]
+}

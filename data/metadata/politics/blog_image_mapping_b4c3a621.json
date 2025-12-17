@@ -1,0 +1,35 @@
+{
+  "blog_id": "b4c3a621",
+  "blog_topic": "탈모 치료제 건보 적용 검토…내년 1월 2027학년도 의대정원 결정",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/politics/탈모_치료제_건보_적용_검토내년_1월_2027학년도_의대정원_결정_20251216_201312_v1.html",
+  "created_at": "2025-12-16T20:13:20.429811",
+  "evaluation_score": 85,
+  "category": "politics",
+  "blog_category": "politics",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251216_201317_0.jpg",
+      "url": "https://pixabay.com/get/g260ccacf5534e877b2f0b344be4ef7f6839f346e926a4c092b31c4ca5a1eb224189f69b9beb46fea99a5c2e2ffc02e6aa7155ad5070597013909f9271870191c_640.jpg",
+      "alt": "Digital illustration of the scales of justice with a gavel and Korean flag in the background, dramatic lighting, photorealistic",
+      "model": "pixabay",
+      "search_keyword": "Justice scales"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251216_201318_1.jpg",
+      "url": "https://pixabay.com/get/g136da142bb494679e68d462625d744ae9cbf8c3f250f2666c92356cad86f9f6bb7e1e1fcf8993aba68916fb900323e20dc1d05a60219af09426a40572bead097_640.jpg",
+      "alt": "Conceptual artwork depicting a divided courtroom with symbols of justice and political ideologies, abstract digital painting",
+      "model": "pixabay",
+      "search_keyword": "Courtroom division"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251216_201320_2.jpg",
+      "url": "https://pixabay.com/get/gf84e2e4fa93726623d1428fff212469caaccf41d504c83085945dbec01c771493623bcebe51ceeb8d68ce5ce4708811fdfbd5b55d478e2247e678d38a5034cd3_640.jpg",
+      "alt": "Graphical representation of stock market volatility with fluctuating lines and charts, dark background, futuristic digital art",
+      "model": "pixabay",
+      "search_keyword": "stock market"
+    }
+  ]
+}

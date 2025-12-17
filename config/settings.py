@@ -62,7 +62,7 @@ SCRAPING_DELAY = int(os.getenv("SCRAPING_DELAY", "2"))
 NEWS_CATEGORIES = {
     "politics": "100",    # 정치 - https://news.naver.com/section/100
     "economy": "101",     # 경제 - https://news.naver.com/section/101
-    "it_science": "105"   # IT/과학 - https://news.naver.com/section/105
+    "it_science": "105"   # IT/기술 - https://news.naver.com/section/105
 }
 
 # 기사 수집 설정

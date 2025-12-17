@@ -1,0 +1,35 @@
+{
+  "blog_id": "13a7db8d",
+  "blog_topic": "국민의힘, 탈모약 건보 적용 검토에 “모퓰리즘 멈춰야”",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/politics/국민의힘_탈모약_건보_적용_검토에_모퓰리즘_멈춰야_20251216_201853_v1.html",
+  "created_at": "2025-12-16T20:19:01.624933",
+  "evaluation_score": 85,
+  "category": "politics",
+  "blog_category": "politics",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251216_201857_0.jpg",
+      "url": "https://pixabay.com/get/g3f4e0e9f308fda178d2b8288fc2b2791ad065aa55fbad6dd7af0c4ffb851ed4e35f9f14ee162a921471f7a18572d2c38346a8aafbb3391a6b94a57f151451af5_640.jpg",
+      "alt": "Digital illustration of the scales of justice with a gavel and Korean flag in the background, dramatic lighting, photorealistic",
+      "model": "pixabay",
+      "search_keyword": "Justice scales"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251216_201859_1.jpg",
+      "url": "https://pixabay.com/get/g1148798ddad6d05c5a0acd164fb2b61680808f2e0e580f17ab93d4315aa7411460793133f5a8508b1bb5a9586ac87917_640.jpg",
+      "alt": "Conceptual artwork depicting a divided courtroom with symbols of justice and political ideologies, abstract digital painting",
+      "model": "pixabay",
+      "search_keyword": "Courtroom, Justice, Politics"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251216_201901_2.jpg",
+      "url": "https://pixabay.com/get/gcecc28e91756a1ddb8d77a94fbf21ac35a168c0eba02ab2e900b930f8a9dac13440f5e39fbea4ec26cc32174eee21836fbe27401680891c6b58fce91461b30f2_640.jpg",
+      "alt": "Graphical representation of stock market volatility with fluctuating lines and charts, dark background, futuristic digital art",
+      "model": "pixabay",
+      "search_keyword": "stock market"
+    }
+  ]
+}

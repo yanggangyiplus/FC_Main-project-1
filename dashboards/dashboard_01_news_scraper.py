@@ -39,7 +39,7 @@ with st.sidebar:
         format_func=lambda x: {
             "politics": "정치 (Politics)",
             "economy": "경제 (Economy)",
-            "it_science": "IT/과학 (IT & Science)"
+            "it_science": "IT/기술 (IT & Technology)"
         }.get(x, x)
     )
  
@@ -126,7 +126,7 @@ with col1:
         category_names = {
             "politics": "정치 (Politics)",
             "economy": "경제 (Economy)",
-            "it_science": "IT/과학 (IT & Science)"
+            "it_science": "IT/기술 (IT & Technology)"
         }
         category_display = category_names.get(data.category, data.category)
         
@@ -220,7 +220,7 @@ category_filter = st.selectbox(
         "전체": "전체 (All)",
         "politics": "정치 (Politics)",
         "economy": "경제 (Economy)",
-        "it_science": "IT/과학 (IT & Science)"
+        "it_science": "IT/기술 (IT & Technology)"
     }.get(x, x)
 )
  
@@ -262,7 +262,7 @@ if SCRAPED_NEWS_DIR.exists():
                 cat_names = {
                     "politics": "정치 (Politics)",
                     "economy": "경제 (Economy)",
-                    "it_science": "IT/과학 (IT & Science)"
+                    "it_science": "IT/기술 (IT & Technology)"
                 }
                 cat_value = file_data.get('category', 'N/A')
                 st.metric("카테고리", cat_names.get(cat_value, cat_value))

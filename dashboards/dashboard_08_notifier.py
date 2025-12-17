@@ -71,7 +71,7 @@ with tab1:
     if notif_type == "워크플로우 시작":
         st.subheader("🚀 워크플로우 시작 알림")
  
-        categories_input = st.text_input("카테고리 (쉼표로 구분)", value="정치, 경제, IT/과학")
+        categories_input = st.text_input("카테고리 (쉼표로 구분)", value="정치, 경제, IT/기술")
  
         if st.button("📤 알림 전송", type="primary", disabled=not slack_enabled):
             categories = [c.strip() for c in categories_input.split(",")]
@@ -91,7 +91,7 @@ with tab1:
  
         with col1:
             topic = st.text_input("주제", value="AI 기술의 미래")
-            category = st.text_input("카테고리", value="IT/과학")
+            category = st.text_input("카테고리", value="IT/기술")
  
         with col2:
 
@@ -205,7 +205,7 @@ with tab2:
     if template_type == "워크플로우 시작":
         st.code("""🚀 *자동 블로그 워크플로우 시작*
  
-*처리 카테고리*: 정치, 경제, IT/과학
+*처리 카테고리*: 정치, 경제, IT/기술
 *시작 시각*: 2024-01-15 10:00:00
  
 진행 상황을 계속 알려드리겠습니다.
@@ -215,7 +215,7 @@ with tab2:
         st.code("""✅ *블로그 발행 성공!*
  
 *주제*: AI 기술의 미래
-*카테고리*: IT/과학
+*카테고리*: IT/기술
 *URL*: https://blog.naver.com/test/123456
  
 *통계*:

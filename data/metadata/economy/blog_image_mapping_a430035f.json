@@ -1,0 +1,35 @@
+{
+  "blog_id": "a430035f",
+  "blog_topic": "구윤철 \"국민성장펀드·초혁신 프로젝트로 잠재성장률 반등 총력\"",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/economy/구윤철_국민성장펀드초혁신_프로젝트로_잠재성장률_반등_총력_20251216_195302_v1.html",
+  "created_at": "2025-12-16T19:53:10.151987",
+  "evaluation_score": 85,
+  "category": "economy",
+  "blog_category": "economy",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251216_195307_0.jpg",
+      "url": "https://pixabay.com/get/g8b2e526e94a3776db1aa76e6a57c0426e750c57d38069927fa6153fc757789d2f002bf054f2539cec01fa7e70803b3f757407bb9895a024bb08c07f4ae811240_640.png",
+      "alt": "Abstract digital art representing investment growth and economic prosperity, vibrant colors, futuristic style",
+      "model": "pixabay",
+      "search_keyword": "- Investment\n- Growth\n- Prosperity"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251216_195308_1.jpg",
+      "url": "https://pixabay.com/get/g0cb03424a760bcab1ad00caba257eadae686432c49dad1ae3bfea3d8882cb079e7fc169d2b494ac15877b4f24703055a04ff0dde87488af09ece0693329aedf5_640.jpg",
+      "alt": "People collaborating on a project, brainstorming ideas, modern office, diverse team, soft lighting",
+      "model": "pixabay",
+      "search_keyword": "teamwork office collaboration"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251216_195310_2.jpg",
+      "url": "https://pixabay.com/get/gb50f9a3cf1ca60c3a81ed67e5b186f389c605075ad0657e84aaa8c53033ef64c3c51d2d3e92724dd60c86eccaea629a8c145c967dcd564b9f9570532fc4c9a0c_640.jpg",
+      "alt": "Data visualization of economic growth in different regions, connected network, global perspective, futuristic design",
+      "model": "pixabay",
+      "search_keyword": "Data visualization"
+    }
+  ]
+}

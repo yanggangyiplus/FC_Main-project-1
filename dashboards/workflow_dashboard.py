@@ -58,14 +58,14 @@ st.set_page_config(
 CATEGORY_MAP = {
     "politics": "정치 (Politics)",
     "economy": "경제 (Economy)",
-    "it_science": "IT/과학 (IT & Science)"
+    "it_science": "IT/기술 (IT & Technology)"
 }
 
 # 뉴스 카테고리 -> 네이버 블로그 카테고리 매핑
 NEWS_TO_BLOG_CATEGORY = {
     "politics": "politics",  # 정치 -> 정치
     "economy": "economy",    # 경제 -> 경제
-    "it_science": "it_tech"  # IT/과학 -> IT/기술
+    "it_science": "it_tech"  # IT/기술 -> IT/기술
 }
 
 # 초기화
