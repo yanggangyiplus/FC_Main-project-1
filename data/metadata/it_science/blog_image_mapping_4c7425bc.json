@@ -1,0 +1,31 @@
+{
+  "blog_id": "4c7425bc",
+  "blog_topic": "KT 새 수장에 'KT맨' 박윤영 낙점…\"DX·B2B 성과 입증\"",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/KT_새_수장에_KT맨_박윤영_낙점DXB2B_성과_입증_20251216_190513_v1.html",
+  "created_at": "2025-12-17T17:56:21.886354",
+  "evaluation_score": 88,
+  "category": "it_science",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/imagen_20251217_175553_0.png",
+      "url": "",
+      "alt": "",
+      "model": "gemini-2.5-flash-image"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/imagen_20251217_175607_1.png",
+      "url": "",
+      "alt": "",
+      "model": "gemini-2.5-flash-image"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/imagen_20251217_175621_2.png",
+      "url": "",
+      "alt": "",
+      "model": "gemini-2.5-flash-image"
+    }
+  ]
+}

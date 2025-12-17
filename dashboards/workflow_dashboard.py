@@ -128,7 +128,22 @@ with st.sidebar:
         format_func=lambda x: "Gemini (기본, 생성)" if x == "gemini" else "Pixabay (검색/다운로드)",
         help="Gemini: Google AI 이미지를 직접 생성. Pixabay: 무료 스톡 이미지 검색/다운로드."
     )
-    st.info("추천: Gemini 이미지 생성. 문제 발생 시 Pixabay로 전환하세요.")
+    
+    image_aspect_ratio = st.selectbox(
+        "이미지 비율",
+        options=["16:9", "1:1", "3:4", "4:3", "9:16"],
+        index=0,
+        format_func=lambda x: {
+            "16:9": "16:9 (가로형, 블로그 추천)",
+            "1:1": "1:1 (정사각형)",
+            "3:4": "3:4 (세로형)",
+            "4:3": "4:3 (가로형)",
+            "9:16": "9:16 (세로형, 모바일)"
+        }[x],
+        help="이미지 가로/세로 비율을 선택하세요."
+    )
+    
+    st.info("💡 추천: Gemini + 16:9 비율 (블로그에 최적화)")
     
     temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1, key="workflow_temperature")
     n_articles = st.slider("참조 기사 수", 1, 20, 10, key="workflow_n_articles")
@@ -473,8 +488,12 @@ if start_workflow:
                         placeholders = image_prompts_data.get('placeholders', [])
                         st.info(f"이미지 {len(placeholders)}개 생성 예정")
                         
-                        # 이미지 생성기 초기화 (카테고리 포함, 선택 모델)
-                        image_generator = ImageGenerator(model=image_model, category=category)
+                        # 이미지 생성기 초기화 (카테고리, 모델, 비율 포함)
+                        image_generator = ImageGenerator(
+                            model=image_model, 
+                            category=category,
+                            aspect_ratio=image_aspect_ratio
+                        )
                         
                         generated_images = []
                         for i, placeholder in enumerate(placeholders):

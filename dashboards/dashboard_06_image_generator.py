@@ -81,34 +81,62 @@ with st.sidebar:
  
     st.markdown("---")
     
-    # 이미지 사이즈 선택
-    st.subheader("📐 이미지 사이즈")
+    # 이미지 크기/비율 선택
+    st.subheader("📐 이미지 크기 설정")
     
-    # 모델별 지원 사이즈
-    if selected_model == "z-image-turbo":
+    # 모델별 지원 옵션
+    if selected_model == "gemini":
+        # Gemini는 비율(aspect ratio)만 지원
+        aspect_ratio_options = {
+            "16:9 (가로형, 블로그 추천)": "16:9",
+            "1:1 (정사각형)": "1:1",
+            "3:4 (세로형)": "3:4",
+            "4:3 (가로형)": "4:3",
+            "9:16 (세로형, 모바일)": "9:16"
+        }
+        selected_aspect_display = st.selectbox(
+            "이미지 비율",
+            options=list(aspect_ratio_options.keys()),
+            index=0,
+            help="Gemini는 비율만 지정 가능합니다. 16:9가 블로그에 가장 적합합니다."
+        )
+        selected_aspect_ratio = aspect_ratio_options[selected_aspect_display]
+        st.caption(f"선택된 비율: {selected_aspect_ratio}")
+        selected_image_size = None  # Gemini는 크기 지정 안함
+        
+    elif selected_model == "z-image-turbo":
+        # Z-Image-Turbo는 픽셀 크기 지정
         size_options = {
             "🧪 TEST (작고 낮은 해상도)": "512x512",
             "⚖️ 중간 품질": "768x768",
             "✨ 고품질": "1024x1024"
         }
-        default_index = 2  # 고품질이 기본
-    else:  # gemini, pixabay 기본 해상도
+        selected_size_display = st.selectbox(
+            "해상도 선택",
+            options=list(size_options.keys()),
+            index=2,
+            help="TEST는 빠른 테스트용, 중간 품질은 균형잡힌 선택, 고품질은 최고 해상도입니다."
+        )
+        selected_image_size = size_options[selected_size_display]
+        st.caption(f"선택된 사이즈: {selected_image_size}")
+        selected_aspect_ratio = "16:9"  # 기본값
+        
+    else:  # pixabay
+        # Pixabay는 픽셀 크기 지정
         size_options = {
             "🧪 TEST (작고 낮은 해상도)": "256x256",
             "⚖️ 중간 품질": "512x512",
             "✨ 고품질": "768x768"
         }
-        default_index = 1  # 중간 품질이 기본
-    
-    selected_size_display = st.selectbox(
-        "해상도 선택",
-        options=list(size_options.keys()),
-        index=default_index,
-        help="TEST는 빠른 테스트용, 중간 품질은 균형잡힌 선택, 고품질은 최고 해상도입니다."
-    )
-    selected_image_size = size_options[selected_size_display]
-    
-    st.caption(f"선택된 사이즈: {selected_image_size}")
+        selected_size_display = st.selectbox(
+            "해상도 선택",
+            options=list(size_options.keys()),
+            index=1,
+            help="TEST는 빠른 테스트용, 중간 품질은 균형잡힌 선택, 고품질은 최고 해상도입니다."
+        )
+        selected_image_size = size_options[selected_size_display]
+        st.caption(f"선택된 사이즈: {selected_image_size}")
+        selected_aspect_ratio = "16:9"  # 기본값
     
     # 모델 정보
     st.markdown("---")
@@ -339,7 +367,13 @@ with tab0:
                             with st.spinner(f"이미지 {current_idx + 1} 생성 중... (30초~1분 소요)"):
                                 try:
                                     current_category = selected_category if selected_category != "전체" else ""
-                                    generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size, category=current_category)
+                                    generator = ImageGenerator(
+                                        model=selected_model, 
+                                        use_google_drive=use_google_drive, 
+                                        image_size=selected_image_size, 
+                                        category=current_category,
+                                        aspect_ratio=selected_aspect_ratio
+                                    )
                                     result = generator.generate_single_image(current_ph['alt'], index=current_idx)
                                     
                                     if result.get('local_path'):
@@ -469,7 +503,13 @@ with tab0:
                         
                         try:
                             current_category = selected_category if selected_category != "전체" else ""
-                            generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size, category=current_category)
+                            generator = ImageGenerator(
+                                model=selected_model, 
+                                use_google_drive=use_google_drive, 
+                                image_size=selected_image_size, 
+                                category=current_category,
+                                aspect_ratio=selected_aspect_ratio
+                            )
                             result = generator.generate_single_image(ph['alt'], index=i)
                             results.append(result)
                             
@@ -602,7 +642,13 @@ with tab1:
                 with st.spinner("이미지 생성 중... (30초~1분 소요)"):
                     try:
                         current_category = selected_category if selected_category != "전체" else ""
-                        generator = ImageGenerator(model=selected_model, use_google_drive=use_google_drive, image_size=selected_image_size, category=current_category)
+                        generator = ImageGenerator(
+                            model=selected_model, 
+                            use_google_drive=use_google_drive, 
+                            image_size=selected_image_size, 
+                            category=current_category,
+                            aspect_ratio=selected_aspect_ratio
+                        )
                         result = generator.generate_single_image(prompt, index=0)
  
                         st.session_state.single_image_result = result
