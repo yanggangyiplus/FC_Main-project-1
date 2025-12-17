@@ -10,17 +10,53 @@ import streamlit as st
 def hide_streamlit_menu():
     """
     Streamlit 자동 생성 메뉴(pages 목록) 숨기기
+    다양한 Streamlit 버전에 대응하는 CSS 선택자 사용
     """
     hide_menu_style = """
     <style>
-    /* Streamlit 자동 생성 페이지 메뉴 숨기기 */
+    /* Streamlit 자동 생성 페이지 메뉴 숨기기 - 다중 선택자 */
     [data-testid="stSidebarNav"] {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+        overflow: hidden !important;
+    }
+    
+    /* Streamlit 1.x 버전 대응 */
+    .stSidebarNav {
+        display: none !important;
+    }
+    
+    /* 네비게이션 ul 리스트 숨기기 */
+    [data-testid="stSidebarNav"] ul {
+        display: none !important;
+    }
+    
+    /* 사이드바 내 자동 생성 링크 숨기기 */
+    section[data-testid="stSidebar"] nav {
+        display: none !important;
+    }
+    
+    /* 사이드바 페이지 링크 컨테이너 숨기기 */
+    div[data-testid="stSidebarNavItems"] {
+        display: none !important;
+    }
+    
+    /* 구버전 Streamlit 대응 - 클래스 기반 */
+    .css-1544g2n {
         display: none !important;
     }
     
     /* 사이드바 상단 여백 조정 */
     [data-testid="stSidebar"] > div:first-child {
         padding-top: 1rem;
+    }
+    
+    /* 사이드바 콘텐츠 영역 상단 여백 */
+    section[data-testid="stSidebar"] > div {
+        padding-top: 0 !important;
     }
     </style>
     """
