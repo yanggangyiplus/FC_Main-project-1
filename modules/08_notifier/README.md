@@ -27,7 +27,7 @@ notifier = SlackNotifier()
 
 notifier.send_success_notification(
     topic="AI 기술의 미래",
-    category="IT/과학",
+    category="IT/기술",
     blog_url="https://blog.naver.com/...",
     attempts=1,
     duration_seconds=180
@@ -49,7 +49,7 @@ notifier.send_failure_notification(
 ```python
 # 시작
 notifier.send_workflow_start_notification(
-    categories=["정치", "경제", "IT/과학"]
+    categories=["정치", "경제", "IT/기술"]
 )
 
 # ... 워크플로우 실행 ...
@@ -105,7 +105,7 @@ SLACK_CHANNEL_ID=C01234567AB
 ✅ 블로그 발행 성공!
 
 주제: AI 기술의 미래
-카테고리: IT/과학
+카테고리: IT/기술
 URL: https://blog.naver.com/test/123456
 
 통계:

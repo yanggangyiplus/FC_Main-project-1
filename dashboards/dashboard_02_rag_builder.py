@@ -19,7 +19,7 @@ from config.settings import SCRAPED_NEWS_DIR, CHROMA_COLLECTION_NAME
 CATEGORY_NAMES = {
     "politics": "정치 (Politics)",
     "economy": "경제 (Economy)",
-    "it_science": "IT/과학 (IT & Science)"
+    "it_science": "IT/기술 (IT & Technology)"
 }
  
 st.set_page_config(

@@ -33,7 +33,7 @@ st.markdown("---")
 CATEGORY_MAP = {
     "politics": "정치 (Politics)",
     "economy": "경제 (Economy)",
-    "it_science": "IT/과학 (IT & Science)",
+    "it_science": "IT/기술 (IT & Technology)",
     "test": "테스트 (Test)"
 }
 
@@ -339,7 +339,7 @@ with tab2:
         st.markdown("""
         | 날짜 | 제목 | 카테고리 | 상태 | URL |
         |------|------|----------|------|-----|
-        | 2024-01-15 | AI 기술의 미래 | IT/과학 | ✅ 성공 | [링크](https://blog.naver.com/...) |
+        | 2024-01-15 | AI 기술의 미래 | IT/기술 | ✅ 성공 | [링크](https://blog.naver.com/...) |
         | 2024-01-14 | 경제 동향 분석 | 경제 | ✅ 성공 | [링크](https://blog.naver.com/...) |
         | 2024-01-13 | 정치 이슈 정리 | 정치 | ❌ 실패 | - |
         """)

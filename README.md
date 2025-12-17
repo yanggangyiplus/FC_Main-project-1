@@ -8,7 +8,7 @@
 네이버 뉴스의 헤드라인 기사를 수집하여 **RAG(Retrieval-Augmented Generation)** 기반으로 블로그 글을 자동 생성하고 발행하는 **엔드투엔드 자동화 시스템**입니다.
 
 ## ✨ 주요 기능
-- 🔍 네이버 뉴스 자동 스크래핑 (정치, 경제, IT/과학)
+- 🔍 네이버 뉴스 자동 스크래핑 (정치, 경제, IT/기술)
 - 🧠 RAG 기반 컨텍스트 검색 (ChromaDB + Sentence Transformers)
 - ✍️ LLM 기반 블로그 자동 생성 (LM Studio / OpenAI / Gemini)
 - ⭐ AI 품질 평가 및 자동 재생성 (Critic & QA Agent)

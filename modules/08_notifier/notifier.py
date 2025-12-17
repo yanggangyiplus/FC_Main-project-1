@@ -263,7 +263,7 @@ if __name__ == "__main__":
     print("성공 알림 전송...")
     success = notifier.send_success_notification(
         topic="AI 기술의 미래",
-        category="IT/과학",
+        category="IT/기술",
         blog_url="https://blog.naver.com/test/123456",
         attempts=1,
         duration_seconds=180
@@ -284,7 +284,7 @@ if __name__ == "__main__":
     # 워크플로우 시작 알림
     print("\n워크플로우 시작 알림...")
     start = notifier.send_workflow_start_notification(
-        categories=["정치", "경제", "IT/과학"]
+        categories=["정치", "경제", "IT/기술"]
     )
     print(f"전송 결과: {start}")
 

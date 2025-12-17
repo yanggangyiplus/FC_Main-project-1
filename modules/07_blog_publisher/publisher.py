@@ -477,10 +477,11 @@ class NaverBlogPublisher:
         
         # 본문 설정 (HTML이 있으면 HTML 사용, 없으면 텍스트만)
         if content is None:
-            if html and ('PLACEHOLDER' in html or '<img' in html):
+            # HTML에 PLACEHOLDER, img 태그, 또는 마커(###DIVIDER###, ###IMG###)가 있으면 HTML 사용
+            if html and ('PLACEHOLDER' in html or '<img' in html or '###DIVIDER' in html or '###IMG' in html):
                 # HTML을 사용하여 이미지 위치 포함하여 입력
                 content = html  # HTML을 그대로 사용
-                logger.info("HTML을 본문으로 사용 (이미지 위치 포함)")
+                logger.info("HTML을 본문으로 사용 (마커/이미지 위치 포함)")
             elif blog_content:
                 content = blog_content
             else:
@@ -504,6 +505,36 @@ class NaverBlogPublisher:
                 logger.warning("이미지 매핑 정보를 찾을 수 없습니다. 이미지 없이 진행합니다.")
         
         logger.info(f"블로그 발행 시작: '{title}' (본문 길이: {len(content) if content else 0}, 이미지 {len(images)}개)")
+        
+        # #region agent log - PUBLISH_START: publish 메소드 진입 확인
+        debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
+        try:
+            import os
+            os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
+            with open(debug_log_path, 'a', encoding='utf-8') as f:
+                log_entry = json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'pre-fix',
+                    'hypothesisId': 'PUBLISH_START',
+                    'location': 'publisher.py:506',
+                    'message': 'publish 메소드 시작',
+                    'data': {
+                        'title': title[:50] if title else '',
+                        'content_length': len(content) if content else 0,
+                        'content_is_html': bool(html),
+                        'images_count': len(images),
+                        'category': category
+                    },
+                    'timestamp': int(time.time() * 1000)
+                }, ensure_ascii=False)
+                f.write(log_entry + '\n')
+                f.flush()
+            print(f"[DEBUG] publish 시작 - 제목: {title[:30]}, 본문길이: {len(content) if content else 0}")
+        except Exception as e:
+            print(f"[DEBUG ERROR] 로그 작성 실패: {e}")
+            import traceback
+            traceback.print_exc()
+        # #endregion
 
         if self.driver is None:
             self._init_driver()
@@ -651,6 +682,35 @@ class NaverBlogPublisher:
         Returns:
             결과 딕셔너리
         """
+        # #region agent log - START: 함수 진입 확인
+        debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
+        try:
+            import os
+            os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
+            with open(debug_log_path, 'a', encoding='utf-8') as f:
+                log_entry = json.dumps({
+                    'sessionId': 'debug-session',
+                    'runId': 'pre-fix',
+                    'hypothesisId': 'START',
+                    'location': 'publisher.py:654',
+                    'message': '_attempt_publish 함수 시작',
+                    'data': {
+                        'title': title[:50] if title else '',
+                        'content_length': len(content),
+                        'images_count': len(images),
+                        'category': category
+                    },
+                    'timestamp': int(time.time() * 1000)
+                }, ensure_ascii=False)
+                f.write(log_entry + '\n')
+                f.flush()
+            print(f"[DEBUG] _attempt_publish 시작 - 제목: {title[:30]}, 본문길이: {len(content)}")
+        except Exception as e:
+            print(f"[DEBUG ERROR] 로그 작성 실패: {e}")
+            import traceback
+            traceback.print_exc()
+        # #endregion
+        
         try:
             # 블로그 글쓰기 페이지로 이동
             # 카테고리 선택
@@ -722,23 +782,13 @@ class NaverBlogPublisher:
                 logger.error(f"제목 입력 실패: {e}")
                 raise
 
-            # 2. 내용 입력 (HTML 파싱하여 텍스트만 추출)
+            # 2. 내용 입력 (마커 패턴 처리)
             logger.info(f"내용 입력 중 (길이: {len(content)}자)...")
             
-            # HTML인지 확인 - 완전한 HTML 문서 또는 HTML 태그 포함 여부 체크
-            is_html = False
+            # 마커 패턴이 있는지 확인 (###DIVIDER###, ###IMG### 등)
+            has_markers = False
             if content:
-                is_html = (
-                    '<!DOCTYPE' in content or 
-                    '<html' in content or 
-                    '<head' in content or
-                    '<body' in content or
-                    'PLACEHOLDER' in content or 
-                    '<img' in content or 
-                    '<h1' in content or
-                    '<h2' in content or
-                    '<p>' in content
-                )
+                has_markers = ('###DIVIDER' in content or '###IMG' in content)
             
             if not content:
                 logger.warning("본문 내용이 없습니다. 건너뜁니다.")
@@ -857,64 +907,89 @@ class NaverBlogPublisher:
                     except Exception as e:
                         logger.warning(f"가운데 정렬 설정 실패 (계속 진행): {e}")
                     
-                    if is_html:
-                        # HTML 파싱하여 텍스트만 추출
-                        logger.info("HTML 파싱하여 텍스트 추출 중...")
-                        soup = BeautifulSoup(content, 'html.parser')
+                    # #region agent log - 마커체크: has_markers 값 확인
+                    debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
+                    try:
+                        with open(debug_log_path, 'a', encoding='utf-8') as f:
+                            log_entry = json.dumps({
+                                'sessionId': 'debug-session',
+                                'runId': 'pre-fix',
+                                'hypothesisId': '마커체크',
+                                'location': 'publisher.py:868',
+                                'message': '마커 패턴 체크',
+                                'data': {
+                                    'has_markers': has_markers,
+                                    'content_type': type(content).__name__,
+                                    'content_sample': content[:100],
+                                    'divider_count': content.count('###DIVIDER'),
+                                    'img_count': content.count('###IMG')
+                                },
+                                'timestamp': int(time.time() * 1000)
+                            }, ensure_ascii=False)
+                            f.write(log_entry + '\n')
+                            f.flush()
+                        print(f"[DEBUG] has_markers={has_markers}, DIVIDER={content.count('###DIVIDER')}, IMG={content.count('###IMG')}")
+                    except Exception as e:
+                        print(f"[DEBUG ERROR] 로그 작성 실패: {e}")
+                        import traceback
+                        traceback.print_exc()
+                    # #endregion
+                    
+                    if has_markers:
+                        # 마커 패턴이 있는 콘텐츠 처리
+                        logger.info(f"마커 패턴 발견! 콘텐츠에서 마커 처리 시작...")
+                        logger.info(f"DIVIDER 마커: {content.count('###DIVIDER')}개, IMG 마커: {content.count('###IMG')}개")
                         
-                        # body 태그 찾기 (없으면 전체 사용)
-                        body = soup.find('body')
-                        if not body:
-                            body = soup
-                        
-                        # 이미지 매핑 생성 (나중에 사용할 수 있도록 먼저 정의)
+                        # 이미지 매핑 생성
                         sorted_images = sorted(images, key=lambda x: x.get('index', 0)) if images else []
+                        logger.info(f"사용 가능한 이미지: {len(sorted_images)}개")
                         
-                        # 이미지가 있으면 마커로 대체
-                        image_index = 0
-                        if sorted_images:
-                            logger.info(f"이미지 {len(sorted_images)}개를 마커로 변환 중...")
-                            # PLACEHOLDER가 있는 모든 img 태그를 마커로 대체
-                            for img in body.find_all('img'):
-                                src = img.get('src', '')
-                                if 'PLACEHOLDER' in src or not src:
-                                    # 이미지를 독특한 마커로 대체
-                                    marker = f"###IMG{image_index + 1}###"
-                                    img.replace_with(marker)
-                                    image_index += 1
-                                    logger.debug(f"이미지 태그를 {marker}로 변환")
+                        # HTML 태그가 있으면 텍스트만 추출, 없으면 그대로 사용
+                        if '<' in content and '>' in content:
+                            soup = BeautifulSoup(content, 'html.parser')
+                            # body 태그 찾기 (없으면 전체 사용)
+                            body = soup.find('body')
+                            if not body:
+                                body = soup
+                            # style, script, head, h1 태그 제거
+                            for tag in body.find_all(['style', 'script', 'head', 'h1']):
+                                tag.decompose()
+                            text_content = body.get_text(separator='\n', strip=True)
+                            logger.info("HTML에서 텍스트 추출 완료")
+                        else:
+                            text_content = content
+                            logger.info("순수 텍스트 콘텐츠 사용")
                         
-                        logger.info(f"이미지 마커 변환 완료: {image_index}개")
+                        # #region agent log - B: 텍스트 추출 후 마커 확인
+                        try:
+                            with open(debug_log_path, 'a', encoding='utf-8') as f:
+                                log_entry = json.dumps({
+                                    'sessionId': 'debug-session',
+                                    'runId': 'pre-fix',
+                                    'hypothesisId': 'B',
+                                    'location': 'publisher.py:885',
+                                    'message': '텍스트 추출 완료',
+                                    'data': {
+                                        'text_sample': text_content[:800],
+                                        'divider_count': text_content.count('###DIVIDER'),
+                                        'img_count': text_content.count('###IMG')
+                                    },
+                                    'timestamp': int(time.time() * 1000)
+                                }, ensure_ascii=False)
+                                f.write(log_entry + '\n')
+                                f.flush()
+                            print(f"[DEBUG] 텍스트 추출 완료 - DIVIDER={text_content.count('###DIVIDER')}, IMG={text_content.count('###IMG')}")
+                        except Exception as e:
+                            print(f"[DEBUG ERROR] B 로그 작성 실패: {e}")
+                        # #endregion
                         
-                        # 텍스트 추출 (style, script, head 태그 제거)
-                        for tag in body.find_all(['style', 'script', 'head']):
-                            tag.decompose()
+                        # 디버깅: 마커 포함 여부 확인
+                        divider_in_text = text_content.count('###DIVIDER')
+                        img_in_text = text_content.count('###IMG')
+                        logger.info(f"추출된 텍스트에서 발견된 마커: DIVIDER={divider_in_text}개, IMG={img_in_text}개")
                         
-                        # h2 태그를 구분선 마커로 대체 (서론, 본론, 결론 구분용)
-                        h2_tags = body.find_all('h2')
-                        logger.info(f"h2 태그 {len(h2_tags)}개 발견")
-                        divider_count = 0
-                        for i, h2 in enumerate(h2_tags):
-                            h2_text = h2.get_text(strip=True)
-                            if i == 0:
-                                # 첫 번째 h2(서론)는 그냥 제거
-                                logger.debug(f"첫 번째 h2 제거: '{h2_text}'")
-                                h2.decompose()
-                            else:
-                                # 두 번째 h2부터는 구분선 마커로 대체 (본론, 결론 전)
-                                divider_marker = f"\n\n###DIVIDER{divider_count + 1}###\n\n"
-                                logger.debug(f"h2 '{h2_text}'를 {divider_marker.strip()}로 변환")
-                                h2.replace_with(divider_marker)
-                                divider_count += 1
-                        
-                        logger.info(f"h2 태그 변환 완료: 구분선 마커 {divider_count}개 생성")
-                        
-                        # h1, h3 제목 태그 제거
-                        for tag in body.find_all(['h1', 'h3']):
-                            tag.decompose()
-                        
-                        # 텍스트 추출
-                        text_content = body.get_text(separator='\n', strip=True)
+                        # 디버깅: 추출된 텍스트 일부 출력
+                        logger.debug(f"추출된 텍스트 샘플:\n{text_content[:500]}")
                         
                         # 네이버 블로그 포맷팅: 한 문장 당 한 줄 + 문단/이미지 전후 빈 줄
                         import re
@@ -994,8 +1069,13 @@ class NaverBlogPublisher:
                         # 본문 입력 - send_keys로 직접 입력 (마커 정확도 향상)
                         from selenium.webdriver.common.keys import Keys
                         from selenium.webdriver.common.action_chains import ActionChains
+                        import unicodedata
                         
                         logger.info("본문 텍스트를 send_keys로 직접 입력 중 (마커 발견 시 즉시 삽입)...")
+                        
+                        # 마커 통계 카운트
+                        divider_count = 0
+                        img_count = 0
                         
                         # 줄 단위로 입력하면서 마커 발견 시 즉시 처리
                         lines = text_content.split('\n')
@@ -1007,18 +1087,103 @@ class NaverBlogPublisher:
                             "button[data-log='dot.horizt']"
                         ]
                         
+                        debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
                         for i, line in enumerate(lines):
-                            line_stripped = line.strip()
+                            # 보이지 않는 특수문자 제거 (zero-width space, BOM 등)
+                            import unicodedata
+                            
+                            # #region agent log - D: unicodedata 필터링 전후 비교
+                            if '###' in line or 'DIVIDER' in line or 'IMG' in line:
+                                try:
+                                    with open(debug_log_path, 'a', encoding='utf-8') as f:
+                                        log_entry = json.dumps({
+                                            'sessionId': 'debug-session',
+                                            'runId': 'pre-fix',
+                                            'hypothesisId': 'D',
+                                            'location': 'publisher.py:1007',
+                                            'message': '마커 의심 라인 처리',
+                                            'data': {
+                                                'line_num': i,
+                                                'original_line': line,
+                                                'has_###': '###' in line,
+                                                'has_DIVIDER': 'DIVIDER' in line,
+                                                'has_IMG': 'IMG' in line
+                                            },
+                                            'timestamp': int(time.time() * 1000)
+                                        }, ensure_ascii=False)
+                                        f.write(log_entry + '\n')
+                                        f.flush()
+                                    print(f"[DEBUG] 마커 의심 라인 {i}: {line[:50]}")
+                                except Exception as e:
+                                    print(f"[DEBUG ERROR] D1 로그 작성 실패: {e}")
+                            # #endregion
+                            
+                            line_stripped = ''.join(char for char in line if unicodedata.category(char) not in ['Cc', 'Cf', 'Zs', 'Zl', 'Zp'] or char in [' ', '\t'])
+                            line_stripped = line_stripped.strip()
+                            
+                            # #region agent log - D: 필터링 후 결과
+                            if '###' in line or 'DIVIDER' in line or 'IMG' in line:
+                                try:
+                                    with open(debug_log_path, 'a', encoding='utf-8') as f:
+                                        log_entry = json.dumps({
+                                            'sessionId': 'debug-session',
+                                            'runId': 'pre-fix',
+                                            'hypothesisId': 'D',
+                                            'location': 'publisher.py:1010',
+                                            'message': '필터링 후 결과',
+                                            'data': {
+                                                'line_num': i,
+                                                'filtered_line': line_stripped,
+                                                'still_has_###': '###' in line_stripped
+                                            },
+                                            'timestamp': int(time.time() * 1000)
+                                        }, ensure_ascii=False)
+                                        f.write(log_entry + '\n')
+                                        f.flush()
+                                    print(f"[DEBUG] 필터링 후 {i}: {line_stripped}")
+                                except Exception as e:
+                                    print(f"[DEBUG ERROR] D2 로그 작성 실패: {e}")
+                            # #endregion
                             
                             if line_stripped:  # 빈 줄이 아니면
-                                # 마커인지 확인
-                                if line_stripped.startswith('###') and line_stripped.endswith('###'):
-                                    logger.info(f"마커 발견: {line_stripped}")
+                                # 마커인지 확인 (정규표현식으로 더 정확하게)
+                                marker_match = re.match(r'^###(DIVIDER|IMG)(\d+)?###$', line_stripped)
+                                
+                                # #region agent log - E: 정규표현식 매칭 결과
+                                if '###' in line_stripped or 'DIVIDER' in line_stripped or 'IMG' in line_stripped:
+                                    try:
+                                        with open(debug_log_path, 'a', encoding='utf-8') as f:
+                                            log_entry = json.dumps({
+                                                'sessionId': 'debug-session',
+                                                'runId': 'pre-fix',
+                                                'hypothesisId': 'E',
+                                                'location': 'publisher.py:1014',
+                                                'message': '정규표현식 매칭 시도',
+                                                'data': {
+                                                    'line_num': i,
+                                                    'line_stripped': line_stripped,
+                                                    'match_result': bool(marker_match),
+                                                    'pattern': r'^###(DIVIDER|IMG)(\d+)?###$'
+                                                },
+                                                'timestamp': int(time.time() * 1000)
+                                            }, ensure_ascii=False)
+                                            f.write(log_entry + '\n')
+                                            f.flush()
+                                        print(f"[DEBUG] 정규표현식 매칭 {i}: {line_stripped} -> {bool(marker_match)}")
+                                    except Exception as e:
+                                        print(f"[DEBUG ERROR] E 로그 작성 실패: {e}")
+                                # #endregion
+                                
+                                if marker_match:
+                                    logger.info(f"✅ 마커 발견: '{line_stripped}' (원본: '{line}')")
                                     
                                     # 마커 타입 확인
-                                    if line_stripped.startswith('###D'):
+                                    marker_type = marker_match.group(1)
+                                    
+                                    if marker_type == 'DIVIDER':
                                         # 구분선 삽입
-                                        logger.info("구분선 삽입 중...")
+                                        divider_count += 1
+                                        logger.info(f"🔲 구분선 삽입 중 ({divider_count}번째)...")
                                         divider_btn = None
                                         for selector in divider_btn_selectors:
                                             try:
@@ -1031,14 +1196,15 @@ class NaverBlogPublisher:
                                         if divider_btn:
                                             self.driver.execute_script("arguments[0].click();", divider_btn)
                                             time.sleep(1)
-                                            logger.info(f"구분선 삽입 완료: {line_stripped}")
+                                            logger.info(f"✅ 구분선 {divider_count} 삽입 완료: {line_stripped}")
                                         else:
-                                            logger.warning("구분선 버튼을 찾을 수 없음")
+                                            logger.warning(f"❌ 구분선 버튼을 찾을 수 없음")
                                     
-                                    elif line_stripped.startswith('###I'):
+                                    elif marker_type == 'IMG':
                                         # 이미지 삽입
+                                        img_count += 1
                                         try:
-                                            img_num = int(line_stripped.replace('###IMG', '').replace('###', ''))
+                                            img_num = int(marker_match.group(2)) if marker_match.group(2) else 1
                                             img_idx = img_num - 1
                                             
                                             if img_idx < len(sorted_images):
@@ -1046,14 +1212,14 @@ class NaverBlogPublisher:
                                                 local_path = img_info.get('local_path', '')
                                                 
                                                 if local_path and Path(local_path).exists():
-                                                    logger.info(f"이미지 {img_num} 삽입 중...")
+                                                    logger.info(f"🖼️ 이미지 {img_num} 삽입 중 ({img_count}번째)...")
                                                     insert_success = self._insert_image_at_cursor(local_path, img_info)
                                                     time.sleep(1.5)
                                                     
                                                     if insert_success:
-                                                        logger.info(f"이미지 {img_num} 삽입 완료: {line_stripped}")
+                                                        logger.info(f"✅ 이미지 {img_num} 삽입 완료: {line_stripped}")
                                                     else:
-                                                        logger.warning(f"이미지 {img_num} 삽입 실패")
+                                                        logger.warning(f"❌ 이미지 {img_num} 삽입 실패")
                                                 else:
                                                     logger.warning(f"이미지 파일 없음: {local_path}")
                                             else:
@@ -1063,9 +1229,12 @@ class NaverBlogPublisher:
                                     
                                     # 마커는 입력하지 않음 (이미 요소 삽입했으므로)
                                 else:
-                                    # 일반 텍스트 입력
-                                    ActionChains(self.driver).send_keys(line).perform()
-                                    time.sleep(0.03)
+                                    # 일반 텍스트 입력 (특수문자 제거된 버전 사용)
+                                    if line_stripped:
+                                        ActionChains(self.driver).send_keys(line_stripped).perform()
+                                        time.sleep(0.03)
+                                        if i % 10 == 0:  # 10줄마다 로그
+                                            logger.debug(f"텍스트 입력 중 (줄 {i+1}/{len(lines)}): {line_stripped[:50]}...")
                             
                             # 줄바꿈 (마지막 줄 제외)
                             if i < len(lines) - 1:
@@ -1073,7 +1242,7 @@ class NaverBlogPublisher:
                                 time.sleep(0.03)
                         
                         time.sleep(1)
-                        logger.info(f"본문 입력 완료 (텍스트 + 실시간 구분선/이미지 삽입)")
+                        logger.info(f"✅ 본문 입력 완료! 구분선 {divider_count}개, 이미지 {img_count}개 삽입됨")
                         
                         # 아래 코드는 더 이상 필요 없음 (실시간 처리로 대체)
                         '''
@@ -1429,7 +1598,9 @@ class NaverBlogPublisher:
                     logger.error(f"본문 입력 실패: {e}")
             
             # 3. 남은 이미지 삽입 (HTML 파싱 방식이 아닌 경우에만)
-            if images and not (is_html and 'PLACEHOLDER' in content):
+            # is_html 변수를 제거했으므로, PLACEHOLDER 기반 HTML 삽입이 아닌 경우에만 수행
+            # 요청: 본문 끝에 자동 이미지 삽입 금지 → 실시간 마커 삽입만 사용
+            if False and images and 'PLACEHOLDER' not in content:
                 logger.info(f"이미지 {len(images)}개 삽입 중...")
                 try:
                     sorted_images = sorted(images, key=lambda x: x.get('index', 0))

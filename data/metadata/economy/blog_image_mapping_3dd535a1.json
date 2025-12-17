@@ -1,0 +1,35 @@
+{
+  "blog_id": "3dd535a1",
+  "blog_topic": "영풍·MBK, 고려아연 유증에 제동..美제련소 진출 '발목잡나'",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/economy/영풍MBK_고려아연_유증에_제동美제련소_진출_발목잡나_20251217_094327_v1.html",
+  "created_at": "2025-12-17T09:43:34.684428",
+  "evaluation_score": 85,
+  "category": "economy",
+  "blog_category": "economy",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251217_094331_0.jpg",
+      "url": "https://pixabay.com/get/g45079e5930c0e6f3cb0be183d6fe0498cc6df8882857c09abcf7279acf2a1d97417e43ebba219fbcfffb0b220b0f1c940c31e46f03f74b4befbf53879425f1c3_640.jpg",
+      "alt": "Abstract digital art representing investment growth and economic prosperity, vibrant colors, futuristic style",
+      "model": "pixabay",
+      "search_keyword": "- Investment growth\n- Digital art\n- Economic prosperity"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251217_094333_1.jpg",
+      "url": "https://pixabay.com/get/g4e42233d875fb86c46c1579611e813044f9f4e268b60ec82efe9e079e6c434ab3747f5154f96c243532becb90bf6d8990523bc0638af95f6992a838cfe839ab2_640.jpg",
+      "alt": "People collaborating on a project, brainstorming ideas, modern office, diverse team, soft lighting",
+      "model": "pixabay",
+      "search_keyword": "teamwork office collaboration"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251217_094334_2.jpg",
+      "url": "https://pixabay.com/get/g0739d6480313e37c90a84425051d7c17e37a83f62693f35b9f5d77f2c543cd0af0620ddc58d39930864ab4c81fc96cf38a95de12077f9397d7501aa9f83a89a9_640.jpg",
+      "alt": "Data visualization of economic growth in different regions, connected network, global perspective, futuristic design",
+      "model": "pixabay",
+      "search_keyword": "Data visualization"
+    }
+  ]
+}

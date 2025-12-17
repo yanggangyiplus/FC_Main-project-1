@@ -1,0 +1,35 @@
+{
+  "blog_id": "7394dec6",
+  "blog_topic": "공급망 새판짜는 월가 출신들… “제2, 제3의 고려아연도 있다”",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/economy/공급망_새판짜는_월가_출신들_제2_제3의_고려아연도_있다_20251217_093337_v1.html",
+  "created_at": "2025-12-17T09:33:45.245198",
+  "evaluation_score": 85,
+  "category": "economy",
+  "blog_category": "economy",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251217_093341_0.jpg",
+      "url": "https://pixabay.com/get/gf8c5b1843172ac17f8046b66da52abafd8fb584e5339cf857b153377691f709df0cf98f8512644a7811f19b9dc2f254b1c119b1a8c72bf8a95fa7a3363e16e1a_640.jpg",
+      "alt": "Abstract digital art representing investment growth and economic prosperity, vibrant colors, futuristic style",
+      "model": "pixabay",
+      "search_keyword": "- investment growth\n- digital art\n- economic prosperity"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251217_093343_1.jpg",
+      "url": "https://pixabay.com/get/g940e8eab808c0c5ce9fec8f524450ccdadd023844ef007736200e86b3d3d9aaee4b9481401f62c9e617b5fdce7b052a7c43bfad8e3a6191906cd115c5422dacd_640.jpg",
+      "alt": "People collaborating on a project, brainstorming ideas, modern office, diverse team, soft lighting",
+      "model": "pixabay",
+      "search_keyword": "teamwork office collaboration"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251217_093345_2.jpg",
+      "url": "https://pixabay.com/get/g4b375bbfc0978ae6ba25b5b58bde6058300574a50807d315d5e3f217b55c301bb489933a28dc12ccb24ad9e39a56ca9268deb9e45edb5d957d92740339c3b828_640.jpg",
+      "alt": "Data visualization of economic growth in different regions, connected network, global perspective, futuristic design",
+      "model": "pixabay",
+      "search_keyword": "Economic growth network"
+    }
+  ]
+}

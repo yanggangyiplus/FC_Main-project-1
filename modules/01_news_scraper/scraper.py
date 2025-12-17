@@ -68,7 +68,7 @@ SELECTORS = {
 CATEGORY_IDS = {
     "politics": "100",    # 정치
     "economy": "101",     # 경제
-    "it_science": "105",  # IT/과학
+    "it_science": "105",  # IT/기술
 }
 
 
@@ -529,7 +529,7 @@ if __name__ == "__main__":
     scraper = NaverNewsScraper(headless=False)
     
     try:
-        # IT/과학 카테고리 스크래핑
+        # IT/기술 카테고리 스크래핑
         data = scraper.scrape_category(
             category_name="it_science",
             top_n_topics=3,      # 상위 3개 주제

@@ -95,7 +95,7 @@ python tests/test_integration.py
 python main.py --category it_science --topic "최신 AI 기술 트렌드"
 ```
 
-### 전체 카테고리 실행 (정치, 경제, IT/과학)
+### 전체 카테고리 실행 (정치, 경제, IT/기술)
 ```bash
 python main.py
 ```
