@@ -12,7 +12,7 @@ from datetime import datetime
 sys.path.append(str(Path(__file__).parent.parent))
 
 import importlib
-# 동적 import
+# 동적 import - 모듈별 클래스 로딩
 scraper_module = importlib.import_module("modules.01_news_scraper.scraper")
 rag_module = importlib.import_module("modules.02_rag_builder.rag_builder")
 blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_generator")
@@ -21,6 +21,7 @@ google_imagen_module = importlib.import_module("modules.05_image_generator.googl
 pixabay_module = importlib.import_module("modules.05_image_generator.pixabay_generator")
 humanizer_module = importlib.import_module("modules.06_humanizer.humanizer")
 publisher_module = importlib.import_module("modules.07_blog_publisher.publisher")
+notifier_module = importlib.import_module("modules.08_notifier.notifier")
 
 NaverNewsScraper = scraper_module.NaverNewsScraper
 RAGBuilder = rag_module.RAGBuilder
@@ -31,6 +32,7 @@ GoogleImagenGenerator = google_imagen_module.GoogleImagenGenerator
 PixabayGenerator = pixabay_module.PixabayGenerator
 Humanizer = humanizer_module.Humanizer
 NaverBlogPublisher = publisher_module.NaverBlogPublisher
+SlackNotifier = notifier_module.SlackNotifier
 
 from config.settings import (
     SCRAPED_NEWS_DIR, QUALITY_THRESHOLD,
@@ -68,10 +70,16 @@ NEWS_TO_BLOG_CATEGORY = {
     "it_science": "it_tech"  # IT/과학 -> IT/기술
 }
 
-# 초기화
+# 초기화 함수들
 @st.cache_resource
 def get_resources():
+    """RAG 빌더와 토픽 매니저 초기화"""
     return RAGBuilder(), TopicManager()
+
+@st.cache_resource
+def get_notifier() -> SlackNotifier:
+    """Slack 알림 발송용 Notifier 인스턴스를 생성합니다."""
+    return SlackNotifier()
 
 rag_builder, topic_manager = get_resources()
 
@@ -255,7 +263,9 @@ st.markdown("---")
 # 워크플로우 실행
 if start_workflow:
     st.header("🔄 워크플로우 실행 중...")
-    
+    # 알림 및 통계를 위한 워크플로우 시작 시각 기록
+    workflow_start_time = datetime.now()
+
     progress_bar = st.progress(0)
     status_text = st.empty()
     
@@ -725,13 +735,45 @@ if start_workflow:
                     publisher.close()
                     
                     if result['success']:
+                        # 발행 성공 처리
                         st.session_state.workflow_publish_result = result
                         st.session_state.step7_done = True
                         st.success(f"✅ 발행 성공! (시도 {result['attempts']}회)")
                         st.markdown(f"**발행 URL:** [{result['url']}]({result['url']})")
                         st.balloons()
+
+                        # Slack 알림 전송 (성공)
+                        try:
+                            notifier = get_notifier()
+                            duration_seconds = int((datetime.now() - workflow_start_time).total_seconds())
+                            notifier.send_success_notification(
+                                topic=st.session_state.workflow_topic,
+                                category=CATEGORY_MAP.get(category, category),
+                                blog_url=result.get("url", ""),
+                                attempts=result.get("attempts", 1),
+                                duration_seconds=duration_seconds,
+                            )
+                        except Exception as notify_err:
+                            # 알림 실패는 워크플로우 결과에 영향을 주지 않음
+                            st.warning(f"⚠️ Slack 알림 전송 실패(무시됨): {notify_err}")
                     else:
-                        st.error(f"❌ 발행 실패: {result.get('error', '알 수 없는 오류')}")
+                        # 발행 실패 처리
+                        error_msg = result.get('error', '알 수 없는 오류')
+                        st.error(f"❌ 발행 실패: {error_msg}")
+
+                        # Slack 알림 전송 (실패)
+                        try:
+                            notifier = get_notifier()
+                            duration_seconds = int((datetime.now() - workflow_start_time).total_seconds())
+                            notifier.send_failure_notification(
+                                topic=st.session_state.workflow_topic,
+                                category=CATEGORY_MAP.get(category, category),
+                                error=error_msg,
+                                attempts=result.get("attempts", 1),
+                                duration_seconds=duration_seconds,
+                            )
+                        except Exception as notify_err:
+                            st.warning(f"⚠️ Slack 알림 전송 실패(무시됨): {notify_err}")
                 except Exception as e:
                     st.error(f"❌ 발행 실패: {e}")
                     import traceback

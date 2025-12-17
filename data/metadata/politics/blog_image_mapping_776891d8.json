@@ -1,0 +1,36 @@
+{
+  "blog_id": "776891d8",
+  "blog_topic": "민주, 쿠팡 김범석 겨냥 '외국인 증인 입국 금지법' 발의",
+  "html_file": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\generated_blogs\\politics\\민주_쿠팡_김범석_겨냥_외국인_증인_입국_금지법_발의_20251217_151349_v1.html",
+  "created_at": "2025-12-17T15:14:27.883961",
+  "evaluation_score": 82,
+  "category": "politics",
+  "blog_category": "politics",
+  "image_model": "google-imagen",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_151411_0.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_151411_0.png",
+      "prompt": "A dramatic image of a stormy ocean with waves crashing against a large political compass, divided into opposing sections labeled \"Conservative\" and \"Liberal\", with a tangled web of ropes representing complex issues and a spotlight shining on a broken gavel, no text, high quality.",
+      "alt": "A split image showing a political debate on one side and a business scandal on the other, digital art style.",
+      "model": "google-imagen"
+    },
+    {
+      "index": 1,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_151420_1.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_151420_1.png",
+      "prompt": "A symbolic image of a tug-of-war rope between a gavel representing legal investigation and a luxury hotel building, with scattered receipts and a magnifying glass on the ground, neutral background, no text, high quality.",
+      "alt": "A gavel hitting a sounding block in a courtroom, photorealistic style.",
+      "model": "google-imagen"
+    },
+    {
+      "index": 2,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_151427_2.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_151427_2.png",
+      "prompt": "A symbolic image of a cracked gavel shattering over a divided party symbol (e.g., a donkey and an elephant abstractly intertwined), with splinters flying against a backdrop of blurred news headlines about political infighting, no text, high quality.",
+      "alt": "A conceptual image of a political compass with various issues and events marked, digital art style.",
+      "model": "google-imagen"
+    }
+  ]
+}

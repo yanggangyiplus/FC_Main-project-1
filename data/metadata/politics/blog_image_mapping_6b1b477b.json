@@ -1,0 +1,28 @@
+{
+  "blog_id": "6b1b477b",
+  "blog_topic": "與, 내란재판부 끝내 \"Go\"…외부추천 배제에도 \"추진 자체가 위법\"",
+  "html_file": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\generated_blogs\\politics\\與_내란재판부_끝내_Go외부추천_배제에도_추진_자체가_위법_20251217_172309_v1.html",
+  "created_at": "2025-12-17T17:23:40.408162",
+  "evaluation_score": 85,
+  "category": "politics",
+  "blog_category": "politics",
+  "image_model": "google-imagen",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_172329_0.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_172329_0.png",
+      "prompt": "A conceptual image of two scales, one representing the Democratic party's proposed specialized court system and the other representing the Constitution, with a crack appearing on the Constitution's scale, courtroom setting, symbolic representation, no text, high quality.",
+      "alt": "A gavel hitting a sound block in a courtroom with blurred figures in the background, symbolizing the legal process of a trial, photorealistic style",
+      "model": "google-imagen"
+    },
+    {
+      "index": 1,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_172339_1.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_172339_1.png",
+      "prompt": "A photorealistic image of a gavel striking down on a legal document labeled \"Treason Trial Special Tribunal Act,\" with scales of justice tilted precariously in the background and a silhouette of the National Assembly building, dramatic lighting, no text, high quality.",
+      "alt": "Scales of justice with a blurred image of the Korean National Assembly in the background, representing the balance of law and politics, digital art style",
+      "model": "google-imagen"
+    }
+  ]
+}

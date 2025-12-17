@@ -1,0 +1,28 @@
+{
+  "blog_id": "10c6f6dd",
+  "blog_topic": "정은경 \"유전적 탈모 건보 적용, 재정에 상당한 영향 있을 것\"",
+  "html_file": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\generated_blogs\\politics\\정은경_유전적_탈모_건보_적용_재정에_상당한_영향_있을_것_20251217_180129_v1.html",
+  "created_at": "2025-12-17T18:02:00.934907",
+  "evaluation_score": 84,
+  "category": "politics",
+  "blog_category": "politics",
+  "image_model": "google-imagen",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_180146_0.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_180146_0.png",
+      "prompt": "A minimalist image of a magnifying glass focusing on a strand of hair falling onto a health insurance card, with scattered pills and a prescription pad blurred in the background, clean and clinical aesthetic, no text, high quality.",
+      "alt": "A diverse group of people looking at digital screens displaying graphs and charts about healthcare policies and insurance coverage, photorealistic style",
+      "model": "google-imagen"
+    },
+    {
+      "index": 1,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_180200_1.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_180200_1.png",
+      "prompt": "A stylized image of a gradually receding hairline depicted as a shrinking forest line on a topographical map overlaying a pile of prescription pill bottles and stacked coins, data graphs indicating increasing medical expenses in the background, no text, high quality",
+      "alt": "A person looking in the mirror, noticing hair loss, with a frustrated expression, digital art style",
+      "model": "google-imagen"
+    }
+  ]
+}

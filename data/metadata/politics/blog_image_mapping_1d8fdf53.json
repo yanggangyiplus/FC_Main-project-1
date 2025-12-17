@@ -1,0 +1,36 @@
+{
+  "blog_id": "1d8fdf53",
+  "blog_topic": "탈모 약 값 비싸지 않다... 의료계 현장 반응",
+  "html_file": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\generated_blogs\\politics\\탈모_약_값_비싸지_않다_의료계_현장_반응_20251217_173506_v1.html",
+  "created_at": "2025-12-17T17:36:00.749854",
+  "evaluation_score": 85,
+  "category": "politics",
+  "blog_category": "politics",
+  "image_model": "google-imagen",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_173527_0.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_173527_0.png",
+      "prompt": "A minimalist image of scattered pills next to a price tag showing \"$20\" and a health insurance card, on a neutral background, flat lay, no text, high quality.",
+      "alt": "Close-up of diverse group of medical professionals in a modern clinic discussing patient care, photorealistic",
+      "model": "google-imagen"
+    },
+    {
+      "index": 1,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_173546_1.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_173546_1.png",
+      "prompt": "A minimalist image of scattered hair follicles forming a question mark above prescription pill bottles, a receding hairline icon in the background, a healthy sprout growing near the pills, no text, high quality.",
+      "alt": "A person receiving a scalp massage at a wellness center, soft lighting, serene atmosphere, photorealistic",
+      "model": "google-imagen"
+    },
+    {
+      "index": 2,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_173600_2.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\politics\\imagen_20251217_173600_2.png",
+      "prompt": "A vector illustration of a blooming plant growing from a pill capsule with interlocked gear icons forming the soil, symbolizing hair growth and combined medical/technological progress, bright colors, clean design, no text, high quality.",
+      "alt": "Digital art of a diverse group of people with healthy, full hair, smiling confidently, vibrant colors",
+      "model": "google-imagen"
+    }
+  ]
+}

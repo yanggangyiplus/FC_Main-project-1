@@ -113,6 +113,7 @@ def render_sidebar(current_page: str = ""):
             "p5_image_generator.py": "🎨 이미지 생성",
             "p6_humanizer.py": "✨ 인간화",
             "p7_blog_publisher.py": "📤 블로그 발행",
+            "p8_notifier.py": "🔔 알림 설정",
         }
         
         current_name = page_names.get(current_page, "")
@@ -138,6 +139,7 @@ def render_sidebar(current_page: str = ""):
             ("🎨", "이미지 생성", "pages/p5_image_generator.py"),
             ("✨", "인간화", "pages/p6_humanizer.py"),
             ("📤", "블로그 발행", "pages/p7_blog_publisher.py"),
+            ("🔔", "알림 설정", "pages/p8_notifier.py"),
         ]
         
         for icon, name, file in modules:
