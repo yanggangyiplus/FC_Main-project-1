@@ -1,0 +1,19 @@
+{
+  "blog_topic": "LG전자, CES에서 마이크로 RGB TV 첫 선…자연스러운 화질·AI 조정까지",
+  "html_file": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\generated_blogs\\economy\\LG전자_CES에서_마이크로_RGB_TV_첫_선자연스러운_화질AI_조정까지_20251217_111531_v1.html",
+  "placeholders": [
+    {
+      "index": 0,
+      "alt": "A close-up shot of the LG Micro RGB Evo TV screen displaying vibrant and realistic colors, high dynamic range, photorealistic style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"A close-up shot of the LG Micro RGB Evo TV screen displaying vibrant and realistic colors, high dynamic range, photorealistic style\" class=\"blog-image\">"
+    },
+    {
+      "index": 1,
+      "alt": "A futuristic living room setup with the LG Micro RGB Evo TV mounted on the wall, displaying a nature documentary, digital art style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"A futuristic living room setup with the LG Micro RGB Evo TV mounted on the wall, displaying a nature documentary, digital art style\" class=\"blog-image\">"
+    }
+  ],
+  "created_at": "2025-12-17T11:15:35.419600",
+  "evaluation_score": 85,
+  "category": "economy"
+}

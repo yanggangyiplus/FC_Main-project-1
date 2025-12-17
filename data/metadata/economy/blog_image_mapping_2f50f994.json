@@ -1,0 +1,20 @@
+{
+  "blog_id": "2f50f994",
+  "blog_topic": "M2서 ETF 빠진다···“가치저장 기능 낮아”",
+  "html_file": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\generated_blogs\\economy\\M2서_ETF_빠진다가치저장_기능_낮아_20251217_024222_v1.html",
+  "created_at": "2025-12-17T02:42:49.904434",
+  "evaluation_score": 84,
+  "category": "economy",
+  "blog_category": "economy",
+  "image_model": "google-imagen",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\economy\\imagen_20251217_024242_0.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\economy\\imagen_20251217_024242_0.png",
+      "prompt": "A stylized image of a winding road leading up a steep financial graph, with an ETF icon detaching and floating away, suggesting a change in market direction, cool color palette, no text, high quality.",
+      "alt": "Digital illustration of a graph showing M2 money supply with a downward trend line, representing the exclusion of ETFs, digital art style",
+      "model": "google-imagen"
+    }
+  ]
+}

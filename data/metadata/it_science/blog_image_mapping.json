@@ -1,0 +1,36 @@
+{
+  "blog_id": "e4e43f9b",
+  "blog_topic": "‘3수’끝에 꿈 이룬 박윤영…KT 안정화·혁신 모두 숙제",
+  "html_file": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\generated_blogs\\it_science\\3수끝에_꿈_이룬_박윤영KT_안정화혁신_모두_숙제_20251217_022922_v1.html",
+  "created_at": "2025-12-17T02:30:11.546593",
+  "evaluation_score": 85,
+  "category": "it_science",
+  "blog_category": "it_tech",
+  "image_model": "google-imagen",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\it_science\\imagen_20251217_022941_0.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\it_science\\imagen_20251217_022941_0.png",
+      "prompt": "A vector illustration of a fractured Korean peninsula map pieced together with puzzle pieces representing political parties, surrounded by newspaper clippings icons and a rising stock market chart, neutral color palette, clean design, no text, high quality.",
+      "alt": "A dynamic digital artwork depicting the Korean peninsula with divided political symbols, symbolizing the current state of political division and key issues in South Korea, digital art style",
+      "model": "google-imagen"
+    },
+    {
+      "index": 1,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\it_science\\imagen_20251217_023000_1.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\it_science\\imagen_20251217_023000_1.png",
+      "prompt": "A symbolic image of two tectonic plates colliding beneath a divided political map, with cracks forming, and a military medal resting on a tattered national flag nearby, dramatic lighting, no text, high quality",
+      "alt": "A photorealistic scene of 박세현씨 saluting his father 박지만 at his 해병대 graduation ceremony, with a tearful expression and a US marine officer presenting an award, photorealistic",
+      "model": "google-imagen"
+    },
+    {
+      "index": 2,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\it_science\\imagen_20251217_023010_2.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\it_science\\imagen_20251217_023010_2.png",
+      "prompt": "A symbolic image of a courtroom gavel striking down on a stack of documents representing political funding and legal statutes, scales of justice in the background, dramatic lighting, no text, high quality.",
+      "alt": "A digital rendering of a courtroom scene with shadows looming over scales of justice, symbolizing the contentious debate surrounding the creation of a special tribunal for sedition, digital art style",
+      "model": "google-imagen"
+    }
+  ]
+}

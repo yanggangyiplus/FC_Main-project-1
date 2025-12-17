@@ -1,0 +1,37 @@
+{
+  "blog_id": "879e86da",
+  "blog_topic": "폴더블폰 시장에 뛰어드는 애플, 혁신일까 모험일까…세가지 승부처",
+  "html_file": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\generated_blogs\\폴더블폰_시장에_뛰어드는_애플_혁신일까_모험일까세가지_승부처_20251216_165342_v1.html",
+  "created_at": "2025-12-16T18:04:01.295066",
+  "evaluation_score": 89,
+  "source": "pixabay",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\pixabay_20251216_180344_0.jpg",
+      "url": "https://pixabay.com/get/g53762f7b8becf2598a15a9e0361e767859ba8b60470dc88430b2249564059763609592413974acfac00bc122af91fa59ac3179454f23efa7b898a227267cce37_1280.jpg",
+      "alt": "",
+      "pixabay_id": 8062388,
+      "photographer": "BuyMeACoffee",
+      "pixabay_page_url": "https://pixabay.com/photos/cat-kitten-animal-pet-domestic-cat-8062388/"
+    },
+    {
+      "index": 1,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\pixabay_20251216_180352_1.jpg",
+      "url": "https://pixabay.com/get/g43665ac14c5595448c60ea08b41d7d22d868cbb3d4331eb5e74342fa58eae82091d9a144f82b5e60d15d203411fd326be8349703e08b481bc677c8bb2d8bec9f_1280.jpg",
+      "alt": "",
+      "pixabay_id": 4138563,
+      "photographer": "ireneadekker",
+      "pixabay_page_url": "https://pixabay.com/photos/tower-fortress-greece-castle-4138563/"
+    },
+    {
+      "index": 2,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\pixabay_20251216_180359_2.jpg",
+      "url": "https://pixabay.com/get/gaf07c5883203f7b581f777541ff51502278affb260cd3e6fdc45297ae239d237669e983c3ec621b34e9d61755d5e82b4ae0238732264baa832bd323e3b7227e0_1280.jpg",
+      "alt": "",
+      "pixabay_id": 815297,
+      "photographer": "bertvthul",
+      "pixabay_page_url": "https://pixabay.com/photos/avenue-trees-path-sunbeams-sunrays-815297/"
+    }
+  ]
+}

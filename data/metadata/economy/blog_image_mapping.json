@@ -1,0 +1,28 @@
+{
+  "blog_id": "d7e5f77e",
+  "blog_topic": "LG전자, CES에서 마이크로 RGB TV 첫 선…자연스러운 화질·AI 조정까지",
+  "html_file": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\generated_blogs\\economy\\LG전자_CES에서_마이크로_RGB_TV_첫_선자연스러운_화질AI_조정까지_20251217_111531_v1.html",
+  "created_at": "2025-12-17T11:16:01.634853",
+  "evaluation_score": 85,
+  "category": "economy",
+  "blog_category": "economy",
+  "image_model": "google-imagen",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\economy\\imagen_20251217_111546_0.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\economy\\imagen_20251217_111546_0.png",
+      "prompt": "A futuristic image of a vibrant micro RGB display emitting pure, saturated colors with a circuit board pattern subtly visible beneath the screen, showcasing the blend of Micro RGB tech and LG OLED DNA, sleek modern design, no text, high quality.",
+      "alt": "A close-up shot of the LG Micro RGB Evo TV screen displaying vibrant and realistic colors, high dynamic range, photorealistic style",
+      "model": "google-imagen"
+    },
+    {
+      "index": 1,
+      "local_path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\economy\\imagen_20251217_111601_1.png",
+      "path": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\images\\economy\\imagen_20251217_111601_1.png",
+      "prompt": "A futuristic image of a vibrant LG Micro LED RGB TV showcasing a stunning nature scene, surrounded by abstract representations of neural network AI processing and stylized graphs depicting the relationship between memory prices and TV costs, emphasizing vertical integration with interconnected geometric shapes, no text, high quality.",
+      "alt": "A futuristic living room setup with the LG Micro RGB Evo TV mounted on the wall, displaying a nature documentary, digital art style",
+      "model": "google-imagen"
+    }
+  ]
+}

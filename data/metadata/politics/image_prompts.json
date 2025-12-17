@@ -1,19 +1,19 @@
 {
-  "blog_topic": "국회, 오늘 본회의서 '은행법 개정안' 표결…필리버스터 계속",
-  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/politics/국회_오늘_본회의서_은행법_개정안_표결필리버스터_계속_20251214_005551_v1.html",
+  "blog_topic": "李대통령 \"탈모약, 생존의 문제…건보 적용확대 검토하라\"",
+  "html_file": "F:\\CLASSHUB\\OneDrive\\Desktop\\FC_Main-project-1\\data\\generated_blogs\\politics\\李대통령_탈모약_생존의_문제건보_적용확대_검토하라_20251217_021619_v1.html",
   "placeholders": [
     {
       "index": 0,
-      "alt": "A modern data center with glowing servers and blue lights, digital art style",
-      "tag": "<img src=\"PLACEHOLDER\" alt=\"A modern data center with glowing servers and blue lights, digital art style\" class=\"blog-image\">"
+      "alt": "A group of diverse people protesting with signs advocating for the health insurance coverage of hair loss treatments, photorealistic style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"A group of diverse people protesting with signs advocating for the health insurance coverage of hair loss treatments, photorealistic style\" class=\"blog-image\">"
     },
     {
       "index": 1,
-      "alt": "Business professionals analyzing charts on large screens, photorealistic",
-      "tag": "<img src=\"PLACEHOLDER\" alt=\"Business professionals analyzing charts on large screens, photorealistic\" class=\"blog-image\">"
+      "alt": "Close-up of a person's head with thinning hair, viewed from above, emphasizing the anxiety and concern of hair loss, photorealistic style",
+      "tag": "<img src=\"PLACEHOLDER\" alt=\"Close-up of a person's head with thinning hair, viewed from above, emphasizing the anxiety and concern of hair loss, photorealistic style\" class=\"blog-image\">"
     }
   ],
-  "created_at": "2025-12-14T01:00:19.864202",
-  "evaluation_score": 85,
+  "created_at": "2025-12-17T02:16:25.047519",
+  "evaluation_score": 78,
   "category": "politics"
 }
