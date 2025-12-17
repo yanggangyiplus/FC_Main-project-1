@@ -69,15 +69,16 @@ with st.sidebar:
     model = st.selectbox(
         "LLM 모델",
         options=[
-            "lm-studio (로컬)",
+            "gemini-2.0-flash-exp",
             "gpt-4o-mini",
             "gpt-4o",
             "gpt-3.5-turbo", 
             "claude-3-5-sonnet-20241022",
-            "claude-3-opus-20240229"
+            "claude-3-opus-20240229",
+            "lm-studio (로컬)"
         ],
-        index=0,  # 기본값: lm-studio (로컬)
-        help="💡 lm-studio: 로컬에서 실행되는 무료 LLM (LM Studio 실행 필요)"
+        index=0,  # 기본값: Gemini
+        help="기본: Gemini 2.0 Flash Exp"
     )
 
     # 모델명 정리 (괄호 제거)

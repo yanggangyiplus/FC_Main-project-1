@@ -53,6 +53,15 @@ GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID")
 
+# 이메일 알림 (발행 성공/실패 통지)
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_FROM = os.getenv("EMAIL_FROM", EMAIL_USER or "")
+# 쉼표로 여러 수신자 지정 가능
+EMAIL_TO = [addr.strip() for addr in os.getenv("EMAIL_TO", "").split(",") if addr.strip()]
+
 # 스크래핑 설정
 HEADLESS_MODE = os.getenv("HEADLESS_MODE", "true").lower() == "true"
 SCRAPING_DELAY = int(os.getenv("SCRAPING_DELAY", "2"))
@@ -124,9 +133,12 @@ LM_STUDIO_MODEL_NAME = os.getenv("LM_STUDIO_MODEL_NAME", "local-model")  # LM St
 LM_STUDIO_CONTEXT_LENGTH = int(os.getenv("LM_STUDIO_CONTEXT_LENGTH", "4096"))  # LM Studio 모델 컨텍스트 길이 (기본값: 4096)
 MAX_CONTEXT_CHARS = int(os.getenv("MAX_CONTEXT_CHARS", "12000"))  # 컨텍스트 최대 문자 수 (대략 3000 토큰, 1 토큰 ≈ 4자)
 
-# 이미지 설정 - Pixabay API (무료 이미지 다운로드)
+# 이미지 설정 - Gemini 이미지 생성 + Pixabay 다운로드
 IMAGE_SIZE = "1024x1024"
 IMAGES_PER_BLOG = 3  # 블로그당 이미지 수
+# Gemini 이미지 생성 모델 (Google AI Studio / Nano Banana)
+# 기본값: gemini-2.5-flash-image
+GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
 # 블로그 발행용 데이터 저장 (5번 모듈 → 7번 모듈 연결용)
 BLOG_PUBLISH_DATA_FILE = METADATA_DIR / "blog_publish_data.json"  # 블로그 주제와 본문 텍스트 저장

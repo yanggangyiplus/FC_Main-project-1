@@ -1,0 +1,35 @@
+{
+  "blog_id": "9cf21e42",
+  "blog_topic": "송언석 \"통일교 특검법 준비 마쳐…개혁신당과 협의할 것\"",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/politics/송언석_통일교_특검법_준비_마쳐개혁신당과_협의할_것_20251217_105015_v1.html",
+  "created_at": "2025-12-17T10:50:22.459682",
+  "evaluation_score": 85,
+  "category": "politics",
+  "blog_category": "politics",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251217_105019_0.jpg",
+      "url": "https://pixabay.com/get/g4425d567e471cc209b7cc9513dc8bffe20a1b99004d9319d5ce6afc8e9670c6093347ec82db3ff357c2f3d27cf6a3d5c3dfcbb093de3d2f625634a06add80ede_640.jpg",
+      "alt": "Digital illustration of the scales of justice with a gavel and Korean flag in the background, dramatic lighting, photorealistic",
+      "model": "pixabay",
+      "search_keyword": "Justice scales"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251217_105021_1.jpg",
+      "url": "https://pixabay.com/get/gf0b11722edc67fc3b416c60f6ca8079249491239283d36fbd49eab15537cdd419791ff35050d838217b01857b180efc7_640.jpg",
+      "alt": "Conceptual artwork depicting a divided courtroom with symbols of justice and political ideologies, abstract digital painting",
+      "model": "pixabay",
+      "search_keyword": "Courtroom, Justice, Politics"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/politics/image_20251217_105022_2.jpg",
+      "url": "https://pixabay.com/get/g563b7a59c13bf3de59e7f4a2bb175bd7b121dcf46ccca78987f80c21d0cdff34aff9088b028eb7da84127efeec964ec1415eebf9b080ab59290953ad1af8f103_640.jpg",
+      "alt": "Graphical representation of stock market volatility with fluctuating lines and charts, dark background, futuristic digital art",
+      "model": "pixabay",
+      "search_keyword": "stock market"
+    }
+  ]
+}

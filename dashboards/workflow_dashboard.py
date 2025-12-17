@@ -77,33 +77,6 @@ rag_builder, topic_manager = get_resources()
 
 # 사이드바 설정
 with st.sidebar:
-    st.header("🧭 네비게이션")
-    
-    # 메인 대시보드
-    if st.button("🏠 메인 대시보드", use_container_width=True):
-        st.switch_page("dashboards/main_dashboard.py")
-    
-    st.markdown("---")
-    st.subheader("📋 모듈별 대시보드")
-    
-    modules = [
-        ("📰", "뉴스 스크래핑", "dashboard_01_news_scraper.py"),
-        ("🗄️", "RAG 구축", "dashboard_02_rag_builder.py"),
-        ("✍️", "블로그 생성", "dashboard_03_blog_generator.py"),
-        ("🎯", "품질 평가", "dashboard_04_critic_qa.py"),
-        ("✨", "인간화", "dashboard_05_humanizer.py"),
-        ("🎨", "이미지 생성", "dashboard_06_image_generator.py"),
-        ("📤", "블로그 발행", "dashboard_07_blog_publisher.py"),
-    ]
-    
-    for icon, name, file in modules:
-        if st.button(f"{icon} {name}", use_container_width=True, key=f"nav_{name}"):
-            try:
-                st.switch_page(f"dashboards/{file}")
-            except:
-                st.info(f"💡 {file} 파일을 찾을 수 없습니다.")
-    
-    st.markdown("---")
     st.header("⚙️ 설정")
     
     # 모델 선택
@@ -147,9 +120,15 @@ with st.sidebar:
         key="workflow_humanizer_model"
     )
     
-    st.subheader("🎨 이미지 다운로드 설정")
-    st.info("📌 Pixabay API를 사용하여 무료 이미지 다운로드 (Gemini로 키워드 자동 개선)")
-    image_model = "pixabay"  # 고정값
+    st.subheader("🎨 이미지 생성/다운로드 설정")
+    image_model = st.selectbox(
+        "이미지 모델",
+        options=["gemini", "pixabay"],
+        index=0,
+        format_func=lambda x: "Gemini (기본, 생성)" if x == "gemini" else "Pixabay (검색/다운로드)",
+        help="Gemini: Google AI 이미지를 직접 생성. Pixabay: 무료 스톡 이미지 검색/다운로드."
+    )
+    st.info("추천: Gemini 이미지 생성. 문제 발생 시 Pixabay로 전환하세요.")
     
     temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1, key="workflow_temperature")
     n_articles = st.slider("참조 기사 수", 1, 20, 10, key="workflow_n_articles")
@@ -494,8 +473,8 @@ if start_workflow:
                         placeholders = image_prompts_data.get('placeholders', [])
                         st.info(f"이미지 {len(placeholders)}개 생성 예정")
                         
-                        # 이미지 생성기 초기화 (카테고리 포함, Gemini 사용)
-                        image_generator = ImageGenerator(use_gemini=True, category=category)
+                        # 이미지 생성기 초기화 (카테고리 포함, 선택 모델)
+                        image_generator = ImageGenerator(model=image_model, category=category)
                         
                         generated_images = []
                         for i, placeholder in enumerate(placeholders):
@@ -513,7 +492,7 @@ if start_workflow:
                                     'local_path': result.get('local_path'),
                                     'url': result.get('url'),
                                     'alt': placeholder.get('alt', ''),
-                                    'model': 'pixabay',
+                                    'model': image_model,
                                     'search_keyword': result.get('search_keyword', '')
                                 })
                                 st.success(f"✅ 이미지 {i+1} 다운로드 완료 (키워드: {result.get('search_keyword', '')})")

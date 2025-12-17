@@ -1,18 +1,110 @@
 """
-Slack 알림 모듈
+Slack 및 이메일 알림 모듈
 """
+import smtplib
+import ssl
+from email.message import EmailMessage
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 from pathlib import Path
-
 import sys
+
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from config.settings import SLACK_BOT_TOKEN, SLACK_CHANNEL_ID
+from config.settings import (
+    SLACK_BOT_TOKEN,
+    SLACK_CHANNEL_ID,
+    EMAIL_HOST,
+    EMAIL_PORT,
+    EMAIL_USER,
+    EMAIL_PASSWORD,
+    EMAIL_FROM,
+    EMAIL_TO,
+)
 from config.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+class EmailNotifier:
+    """SMTP 이메일 알림"""
+
+    def __init__(self):
+        self.enabled = bool(
+            EMAIL_HOST and EMAIL_USER and EMAIL_PASSWORD and EMAIL_FROM and EMAIL_TO
+        )
+        if not self.enabled:
+            logger.warning("이메일 환경변수가 설정되지 않아 이메일 알림이 비활성화됩니다.")
+
+    def _send_email(self, subject: str, body: str) -> bool:
+        if not self.enabled:
+            return False
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = EMAIL_FROM
+        msg["To"] = ", ".join(EMAIL_TO)
+        msg.set_content(body)
+        try:
+            context = ssl.create_default_context()
+            if EMAIL_PORT == 465:
+                with smtplib.SMTP_SSL(EMAIL_HOST, EMAIL_PORT, context=context) as server:
+                    server.login(EMAIL_USER, EMAIL_PASSWORD)
+                    server.send_message(msg)
+            else:
+                with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
+                    server.starttls(context=context)
+                    server.login(EMAIL_USER, EMAIL_PASSWORD)
+                    server.send_message(msg)
+            logger.info("이메일 알림 전송 완료")
+            return True
+        except Exception as e:
+            logger.error(f"이메일 전송 실패: {e}")
+            return False
+
+    def send_publish_success(
+        self,
+        topic: str,
+        category: str,
+        blog_url: str,
+        attempts: int,
+        duration_seconds: int,
+    ) -> bool:
+        duration_min = duration_seconds // 60
+        duration_sec = duration_seconds % 60
+        subject = f"[블로그 발행 성공] {topic}"
+        body = (
+            f"✅ 블로그 발행 성공\n\n"
+            f"주제: {topic}\n"
+            f"카테고리: {category}\n"
+            f"URL: {blog_url}\n\n"
+            f"시도 횟수: {attempts}회\n"
+            f"소요 시간: {duration_min}분 {duration_sec}초\n"
+            f"발행 시각: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        )
+        return self._send_email(subject, body)
+
+    def send_publish_failure(
+        self,
+        topic: str,
+        category: str,
+        error: str,
+        attempts: int,
+        duration_seconds: int,
+    ) -> bool:
+        duration_min = duration_seconds // 60
+        duration_sec = duration_seconds % 60
+        subject = f"[블로그 발행 실패] {topic}"
+        body = (
+            f"❌ 블로그 발행 실패\n\n"
+            f"주제: {topic}\n"
+            f"카테고리: {category}\n"
+            f"오류: {error}\n\n"
+            f"시도 횟수: {attempts}회\n"
+            f"소요 시간: {duration_min}분 {duration_sec}초\n"
+            f"실패 시각: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        )
+        return self._send_email(subject, body)
 
 
 class SlackNotifier:

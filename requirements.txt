@@ -11,9 +11,15 @@ sentence-transformers==2.3.1
 # LLM 및 LangChain
 langchain==0.1.9
 langchain-openai>=0.1.0
-langchain-google-genai>=0.0.6
+# google-generativeai 0.5.x와 호환되는 버전으로 고정
+langchain-google-genai==1.0.4
 langgraph==0.0.20
 openai>=1.12.0
+# Gemini SDK
+# langchain-google-genai는 0.5.x를 요구하지만,
+# 이미지 생성용 google-genai 클라이언트는 별도 패키지
+google-generativeai==0.5.4
+google-genai==0.3.0
 
 # 이미지 처리 (Pixabay 이미지 다운로드)
 Pillow==10.2.0

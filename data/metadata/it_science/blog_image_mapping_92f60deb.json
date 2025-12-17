@@ -1,0 +1,35 @@
+{
+  "blog_id": "92f60deb",
+  "blog_topic": "해지·정지된 번호로 위장한 스팸 문자, 발송 단계에서 걸러낸다",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/해지정지된_번호로_위장한_스팸_문자_발송_단계에서_걸러낸다_20251217_140403_v1.html",
+  "created_at": "2025-12-17T14:04:36.005738",
+  "evaluation_score": 90,
+  "category": "it_science",
+  "blog_category": "it_tech",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/imagen_20251217_140413_0.png",
+      "url": null,
+      "alt": "Network security concept with data protection shield and lock icons, digital art style",
+      "model": "gemini",
+      "search_keyword": "Network security concept with data protection shield and lock icons, digital art style"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/imagen_20251217_140424_1.png",
+      "url": null,
+      "alt": "Abstract representation of digital transformation and cloud computing, futuristic style",
+      "model": "gemini",
+      "search_keyword": "Abstract representation of digital transformation and cloud computing, futuristic style"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/imagen_20251217_140435_2.png",
+      "url": null,
+      "alt": "Team of business executives discussing strategy in a modern conference room, focus on leader, professional corporate photography",
+      "model": "gemini",
+      "search_keyword": "Team of business executives discussing strategy in a modern conference room, focus on leader, professional corporate photography"
+    }
+  ]
+}
