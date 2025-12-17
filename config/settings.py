@@ -53,6 +53,15 @@ GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
 SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID")
 
+# 이메일 알림 (발행 성공/실패 통지)
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USER = os.getenv("EMAIL_USER")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_FROM = os.getenv("EMAIL_FROM", EMAIL_USER or "")
+# 쉼표로 여러 수신자 지정 가능
+EMAIL_TO = [addr.strip() for addr in os.getenv("EMAIL_TO", "").split(",") if addr.strip()]
+
 # 스크래핑 설정
 HEADLESS_MODE = os.getenv("HEADLESS_MODE", "true").lower() == "true"
 SCRAPING_DELAY = int(os.getenv("SCRAPING_DELAY", "2"))

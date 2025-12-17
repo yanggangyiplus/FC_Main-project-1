@@ -1,0 +1,35 @@
+{
+  "blog_id": "72faaad9",
+  "blog_topic": "김동원·김동선, 한화에너지 지분 1.1조 매각…승계·IPO 속도",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/economy/김동원김동선_한화에너지_지분_11조_매각승계IPO_속도_20251217_103613_v1.html",
+  "created_at": "2025-12-17T10:36:20.561709",
+  "evaluation_score": 82,
+  "category": "economy",
+  "blog_category": "economy",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251217_103617_0.jpg",
+      "url": "https://pixabay.com/get/g660fe1ee65d7a5bf273aa85ca65a65195ad9e129c62b0a4de05411c841a27ed97c3d8dd5fce8bc5415a24d7e7b04f09e6e4f369356567fa9b02567375c1aed43_640.jpg",
+      "alt": "Abstract digital art representing investment growth and economic prosperity, vibrant colors, futuristic style",
+      "model": "pixabay",
+      "search_keyword": "- Investment growth\n- Digital art\n- Economic prosperity"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251217_103619_1.jpg",
+      "url": "https://pixabay.com/get/g3ed415bedb653b8ca629f0a3177d499702e0672881a7ed808d22276b5e7a6d7b5caf706b75ff397ae4344e85c2cb5e3106e1f8fe9333c14e1c607f46d3d3abb1_640.jpg",
+      "alt": "People collaborating on a project, brainstorming ideas, modern office, diverse team, soft lighting",
+      "model": "pixabay",
+      "search_keyword": "teamwork"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/economy/image_20251217_103620_2.jpg",
+      "url": "https://pixabay.com/get/gd5fe2e765e5d533ded5c26bb974aa2173b871ab84089eb4d860a9d1c7e92cf85aee32a3a5c052959d60d48cab7e97879c5ca970ecad1f410dd667c60eb0f5858_640.jpg",
+      "alt": "Data visualization of economic growth in different regions, connected network, global perspective, futuristic design",
+      "model": "pixabay",
+      "search_keyword": "Data visualization"
+    }
+  ]
+}

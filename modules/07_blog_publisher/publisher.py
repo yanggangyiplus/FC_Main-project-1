@@ -16,6 +16,7 @@ from pathlib import Path
 import sys
 import json
 import base64
+import importlib
 from bs4 import BeautifulSoup
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config.settings import (
@@ -26,6 +27,9 @@ from config.settings import (
     NAVER_BLOG_CATEGORIES
 )
 from config.logger import get_logger
+# 08_notifier는 숫자로 시작하므로 importlib로 로드
+_notifier_mod = importlib.import_module("modules.08_notifier.notifier")
+EmailNotifier = _notifier_mod.EmailNotifier
 
 logger = get_logger(__name__)
 
@@ -419,6 +423,9 @@ class NaverBlogPublisher:
                 "attempts": int
             }
         """
+        start_time = time.time()
+        email_notifier = EmailNotifier()
+
         # 블로그 발행 데이터 자동 로드 (5번 모듈에서 저장된 데이터)
         # category 파라미터가 있으면 카테고리별 데이터 로드
         # category가 블로그 카테고리(it_tech, economy, politics)이면 뉴스 카테고리로 변환 필요
@@ -560,6 +567,24 @@ class NaverBlogPublisher:
                 if result['success']:
                     logger.info(f"발행 성공! (시도 {attempt}회)")
                     result['attempts'] = attempt
+                    # 이메일 알림: 발행 성공
+                    try:
+                        duration = int(time.time() - start_time)
+                        topic_for_notify = (
+                            title
+                            or blog_title
+                            or (publish_data.get('blog_topic', '') if publish_data else '')
+                        )
+                        category_for_notify = category or (publish_data.get('category') if publish_data else '')
+                        email_notifier.send_publish_success(
+                            topic=topic_for_notify or "블로그 주제 미정",
+                            category=category_for_notify or "미지정",
+                            blog_url=result.get('url', 'URL 미발견'),
+                            attempts=attempt,
+                            duration_seconds=duration
+                        )
+                    except Exception as notify_err:
+                        logger.warning(f"이메일 알림(성공) 실패: {notify_err}")
                     return result
                 else:
                     logger.warning(f"발행 실패 (시도 {attempt}회): {result['error']}")
@@ -573,12 +598,31 @@ class NaverBlogPublisher:
 
         # 모든 시도 실패
         logger.error(f"발행 최종 실패 (총 {max_retries}회 시도)")
-        return {
+        failure_result = {
             "success": False,
             "url": None,
             "error": f"{max_retries}회 시도 모두 실패",
             "attempts": max_retries
         }
+        # 이메일 알림: 발행 실패
+        try:
+            duration = int(time.time() - start_time)
+            topic_for_notify = (
+                title
+                or blog_title
+                or (publish_data.get('blog_topic', '') if publish_data else '')
+            )
+            category_for_notify = category or (publish_data.get('category') if publish_data else '')
+            email_notifier.send_publish_failure(
+                topic=topic_for_notify or "블로그 주제 미정",
+                category=category_for_notify or "미지정",
+                error=failure_result["error"],
+                attempts=max_retries,
+                duration_seconds=duration
+            )
+        except Exception as notify_err:
+            logger.warning(f"이메일 알림(실패) 실패: {notify_err}")
+        return failure_result
 
     def _insert_image_at_cursor(self, local_path: str, img_info: Dict[str, Any]) -> bool:
         """

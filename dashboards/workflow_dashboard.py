@@ -94,6 +94,7 @@ with st.sidebar:
         ("✨", "인간화", "dashboard_05_humanizer.py"),
         ("🎨", "이미지 생성", "dashboard_06_image_generator.py"),
         ("📤", "블로그 발행", "dashboard_07_blog_publisher.py"),
+        ("📧", "알림/메일", "dashboard_08_notifier.py"),
     ]
     
     for icon, name, file in modules:
