@@ -73,9 +73,8 @@ rag_builder, topic_manager = get_resources()
 with st.sidebar:
     st.header("🧭 네비게이션")
     
-    # 메인 대시보드
-    if st.button("🏠 메인 대시보드", use_container_width=True):
-        st.switch_page("dashboards/main_dashboard.py")
+    # 메인 대시보드 (현재 페이지가 통합 워크플로우)
+    st.info("📍 현재: 통합 워크플로우 대시보드")
     
     st.markdown("---")
     st.subheader("📋 모듈별 대시보드")
