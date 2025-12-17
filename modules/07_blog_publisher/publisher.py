@@ -782,23 +782,13 @@ class NaverBlogPublisher:
                 logger.error(f"제목 입력 실패: {e}")
                 raise
 
-            # 2. 내용 입력 (HTML 파싱하여 텍스트만 추출)
+            # 2. 내용 입력 (마커 패턴 처리)
             logger.info(f"내용 입력 중 (길이: {len(content)}자)...")
             
-            # HTML인지 확인 - 완전한 HTML 문서 또는 HTML 태그 포함 여부 체크
-            is_html = False
+            # 마커 패턴이 있는지 확인 (###DIVIDER###, ###IMG### 등)
+            has_markers = False
             if content:
-                is_html = (
-                    '<!DOCTYPE' in content or 
-                    '<html' in content or 
-                    '<head' in content or
-                    '<body' in content or
-                    'PLACEHOLDER' in content or 
-                    '<img' in content or 
-                    '<h1' in content or
-                    '<h2' in content or
-                    '<p>' in content
-                )
+                has_markers = ('###DIVIDER' in content or '###IMG' in content)
             
             if not content:
                 logger.warning("본문 내용이 없습니다. 건너뜁니다.")
@@ -917,78 +907,58 @@ class NaverBlogPublisher:
                     except Exception as e:
                         logger.warning(f"가운데 정렬 설정 실패 (계속 진행): {e}")
                     
-                    # #region agent log - HTML체크: is_html 값 확인
+                    # #region agent log - 마커체크: has_markers 값 확인
                     debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
                     try:
                         with open(debug_log_path, 'a', encoding='utf-8') as f:
                             log_entry = json.dumps({
                                 'sessionId': 'debug-session',
                                 'runId': 'pre-fix',
-                                'hypothesisId': 'HTML체크',
+                                'hypothesisId': '마커체크',
                                 'location': 'publisher.py:868',
-                                'message': 'is_html 체크',
+                                'message': '마커 패턴 체크',
                                 'data': {
-                                    'is_html': is_html,
+                                    'has_markers': has_markers,
                                     'content_type': type(content).__name__,
-                                    'content_starts_with': '<!DOCTYPE' if content.startswith('<!DOCTYPE') else content[:50]
+                                    'content_sample': content[:100],
+                                    'divider_count': content.count('###DIVIDER'),
+                                    'img_count': content.count('###IMG')
                                 },
                                 'timestamp': int(time.time() * 1000)
                             }, ensure_ascii=False)
                             f.write(log_entry + '\n')
                             f.flush()
-                        print(f"[DEBUG] is_html={is_html}, content 시작: {content[:50]}")
+                        print(f"[DEBUG] has_markers={has_markers}, DIVIDER={content.count('###DIVIDER')}, IMG={content.count('###IMG')}")
                     except Exception as e:
                         print(f"[DEBUG ERROR] 로그 작성 실패: {e}")
                         import traceback
                         traceback.print_exc()
                     # #endregion
                     
-                    if is_html:
-                        # HTML 파싱하여 텍스트만 추출
-                        logger.info("HTML 파싱하여 텍스트 추출 중...")
-                        soup = BeautifulSoup(content, 'html.parser')
+                    if has_markers:
+                        # 마커 패턴이 있는 콘텐츠 처리
+                        logger.info(f"마커 패턴 발견! 콘텐츠에서 마커 처리 시작...")
+                        logger.info(f"DIVIDER 마커: {content.count('###DIVIDER')}개, IMG 마커: {content.count('###IMG')}개")
                         
-                        # body 태그 찾기 (없으면 전체 사용)
-                        body = soup.find('body')
-                        if not body:
-                            body = soup
-                        
-                        # 이미지 매핑 생성 (나중에 사용할 수 있도록 먼저 정의)
+                        # 이미지 매핑 생성
                         sorted_images = sorted(images, key=lambda x: x.get('index', 0)) if images else []
                         logger.info(f"사용 가능한 이미지: {len(sorted_images)}개")
                         
-                        # ⚠️ 새로운 방식: 마커가 이미 HTML에 포함되어 있음!
-                        # BlogGenerator가 이미 ###DIVIDER1###, ###IMG1### 등의 마커를 생성함
-                        # 따라서 img 태그 변환이나 h2 태그 변환이 불필요함
-                        
-                        # 텍스트 추출 (style, script, head, h1 태그 제거)
-                        for tag in body.find_all(['style', 'script', 'head', 'h1']):
-                            tag.decompose()
-                        
-                        logger.info("HTML에서 텍스트 추출 중... (마커는 이미 포함되어 있음)")
-                        
-                        # #region agent log - A: HTML 원본 샘플
-                        debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
-                        try:
-                            with open(debug_log_path, 'a', encoding='utf-8') as f:
-                                log_entry = json.dumps({
-                                    'sessionId': 'debug-session',
-                                    'runId': 'pre-fix',
-                                    'hypothesisId': 'A',
-                                    'location': 'publisher.py:882',
-                                    'message': 'HTML body 샘플 (마커 확인)',
-                                    'data': {'html_sample': str(body)[:1000]},
-                                    'timestamp': int(time.time() * 1000)
-                                }, ensure_ascii=False)
-                                f.write(log_entry + '\n')
-                                f.flush()
-                            print(f"[DEBUG] HTML body 샘플: {str(body)[:100]}")
-                        except Exception as e:
-                            print(f"[DEBUG ERROR] A 로그 작성 실패: {e}")
-                        # #endregion
-                        
-                        # 텍스트 추출
-                        text_content = body.get_text(separator='\n', strip=True)
+                        # HTML 태그가 있으면 텍스트만 추출, 없으면 그대로 사용
+                        if '<' in content and '>' in content:
+                            soup = BeautifulSoup(content, 'html.parser')
+                            # body 태그 찾기 (없으면 전체 사용)
+                            body = soup.find('body')
+                            if not body:
+                                body = soup
+                            # style, script, head, h1 태그 제거
+                            for tag in body.find_all(['style', 'script', 'head', 'h1']):
+                                tag.decompose()
+                            text_content = body.get_text(separator='\n', strip=True)
+                            logger.info("HTML에서 텍스트 추출 완료")
+                        else:
+                            text_content = content
+                            logger.info("순수 텍스트 콘텐츠 사용")
                         
                         # #region agent log - B: 텍스트 추출 후 마커 확인
                         try:
