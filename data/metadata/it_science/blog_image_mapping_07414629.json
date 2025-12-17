@@ -1,0 +1,35 @@
+{
+  "blog_id": "07414629",
+  "blog_topic": "카카오톡 친구목록 복원 시작…업데이트 순차 진행",
+  "html_file": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/generated_blogs/it_science/카카오톡_친구목록_복원_시작업데이트_순차_진행_20251217_110101_v1.html",
+  "created_at": "2025-12-17T11:01:08.181793",
+  "evaluation_score": 89,
+  "category": "it_science",
+  "blog_category": "it_tech",
+  "images": [
+    {
+      "index": 0,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251217_110105_0.jpg",
+      "url": "https://pixabay.com/get/g84eb1e6dd59135507993cdf16abe320ce6bbc131ee4f94d0db823bd05e57f4f483a513074ace79b6f64a7d904d4c7c94542689659aa16c624fdadee72ca5b0ec_640.jpg",
+      "alt": "Network security concept with data protection shield and lock icons, digital art style",
+      "model": "gemini",
+      "search_keyword": "network security"
+    },
+    {
+      "index": 1,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251217_110106_1.jpg",
+      "url": "https://pixabay.com/get/g1d416c35848bba096a7a50cdf47edb32edfcf4237568d4b92bf51b2e0823cbb2f056cc1cc08280efc6c98a0f6ccc81cb_640.jpg",
+      "alt": "Abstract representation of digital transformation and cloud computing, futuristic style",
+      "model": "gemini",
+      "search_keyword": "Cloud computing"
+    },
+    {
+      "index": 2,
+      "local_path": "/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/data/images/it_science/image_20251217_110108_2.jpg",
+      "url": "https://pixabay.com/get/g378a51cad361efb0e9f4835c737604f097eb84b6dd35678ce9717fa3e8d48c23c0733252d3f7bab2a0b9b24173dabb051a7ec975c26fec3e7da9cd699951ea6c_640.jpg",
+      "alt": "Team of business executives discussing strategy in a modern conference room, focus on leader, professional corporate photography",
+      "model": "gemini",
+      "search_keyword": "business meeting"
+    }
+  ]
+}

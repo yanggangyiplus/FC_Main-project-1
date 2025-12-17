@@ -45,14 +45,14 @@ st.markdown("---")
 @st.cache_resource
 def get_rag_builder():
     try:
-    return RAGBuilder()
+        return RAGBuilder()
     except Exception as e:
         st.error(f"❌ RAG Builder 초기화 실패: {e}")
         return None
  
 # 초기화 시도
 try:
-rag_builder = get_rag_builder()
+    rag_builder = get_rag_builder()
 except Exception as e:
     st.error(f"❌ RAG Builder 로드 실패: {e}")
     rag_builder = None
@@ -169,14 +169,14 @@ with tab1:
                                     st.caption(f"  {j}. {article.get('title', 'N/A')[:60]}...")
                 else:
                     # 기존 구조: articles 배열
-                col_a, col_b, col_c = st.columns(3)
-                with col_a:
+                    col_a, col_b, col_c = st.columns(3)
+                    with col_a:
                         cat_value = data.get('category', 'N/A')
                         st.metric("카테고리", CATEGORY_NAMES.get(cat_value, cat_value))
-                with col_b:
-                    st.metric("기사 수", len(data.get('articles', [])))
-                with col_c:
-                    st.metric("수집 시각", data.get('scraped_at', 'N/A')[:19])
+                    with col_b:
+                        st.metric("기사 수", len(data.get('articles', [])))
+                    with col_c:
+                        st.metric("수집 시각", data.get('scraped_at', 'N/A')[:19])
  
             # 추가 실행
             if st.session_state.get('add_file'):

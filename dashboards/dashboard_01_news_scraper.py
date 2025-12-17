@@ -145,9 +145,9 @@ with col1:
                 
                 # 기사 리스트
                 for j, article in enumerate(topic.articles, 1):
-                col_a, col_b = st.columns([3, 1])
- 
-                with col_a:
+                    col_a, col_b = st.columns([3, 1])
+
+                    with col_a:
                         st.markdown(f"**{j}. {article.title}**")
                         st.caption(f"📅 {article.published_at[:19]}")
                         st.markdown(f"[기사 링크]({article.url})")
@@ -172,10 +172,10 @@ with col1:
                                     )
  
                 with col_b:
-                        st.metric("👍 반응", article.reaction_count)
-                        st.metric("💬 댓글", article.comment_count)
-                    
-                    st.markdown("---")
+                    st.metric("👍 반응", article.reaction_count)
+                    st.metric("💬 댓글", article.comment_count)
+                
+                st.markdown("---")
  
 with col2:
     st.header("📈 통계")

@@ -27,7 +27,7 @@ image_gen_module = importlib.import_module("modules.06_image_generator.image_gen
 blog_gen_module = importlib.import_module("modules.03_blog_generator.blog_generator")
 ImageGenerator = image_gen_module.ImageGenerator
 BlogGenerator = blog_gen_module.BlogGenerator
-from config.settings import IMAGES_DIR, IMAGE_MODEL, IMAGE_SIZE, IMAGE_PROMPTS_FILE, GENERATED_BLOGS_DIR, BLOG_IMAGE_MAPPING_FILE, METADATA_DIR, NEWS_CATEGORIES
+from config.settings import IMAGES_DIR, IMAGE_SIZE, IMAGE_PROMPTS_FILE, GENERATED_BLOGS_DIR, BLOG_IMAGE_MAPPING_FILE, METADATA_DIR, NEWS_CATEGORIES
  
 st.set_page_config(
     page_title="이미지 생성기 대시보드",
@@ -62,16 +62,16 @@ with st.sidebar:
  
     # 이미지 생성 모델 선택
     model_options = {
-        "🆓 Hugging Face (무료, 기본)": "huggingface",
+        "🌟 Gemini (기본)": "gemini",
+        "🖼️ Pixabay (검색/다운로드)": "pixabay",
         "🚀 Z-Image-Turbo (로컬, GPU 필요)": "z-image-turbo",
-        "💰 DALL-E 3 (유료)": "dall-e-3",
     }
     
     selected_model_display = st.selectbox(
         "이미지 생성 모델",
         options=list(model_options.keys()),
-        index=0,  # Hugging Face가 기본
-        help="Hugging Face는 무료로 사용 가능합니다 (API 키 선택)"
+        index=0,  # Gemini가 기본
+        help="Gemini 모델을 기본으로 사용합니다. 필요 시 다른 모델 선택"
     )
     selected_model = model_options[selected_model_display]
     
@@ -92,14 +92,7 @@ with st.sidebar:
             "✨ 고품질": "1024x1024"
         }
         default_index = 2  # 고품질이 기본
-    elif selected_model == "dall-e-3":
-        size_options = {
-            "🧪 TEST (작고 낮은 해상도)": "1024x1024",
-            "⚖️ 중간 품질": "1024x1792",  # 세로형
-            "✨ 고품질": "1792x1024"  # 가로형
-        }
-        default_index = 0  # DALL-E는 1024x1024가 기본
-    else:  # huggingface
+    else:  # gemini, pixabay 기본 해상도
         size_options = {
             "🧪 TEST (작고 낮은 해상도)": "256x256",
             "⚖️ 중간 품질": "512x512",
@@ -120,32 +113,34 @@ with st.sidebar:
     # 모델 정보
     st.markdown("---")
     st.markdown("**모델 정보**")
-    if selected_model == "huggingface":
-        from config.settings import HUGGINGFACE_MODEL, HUGGINGFACE_API_KEY
-        st.code(HUGGINGFACE_MODEL, language=None)
-        
-        # Z-Image-Turbo 모델 특별 안내
-        if "z-image" in HUGGINGFACE_MODEL.lower() or "tongyi" in HUGGINGFACE_MODEL.lower():
-            st.warning("""
-            ⚠️ **Z-Image-Turbo는 Hugging Face Inference API를 지원하지 않습니다!**
-            
-            이 모델은 로컬 실행 전용입니다 (diffusers 라이브러리 + GPU 필요).
-            현재 설정으로는 작동하지 않습니다.
-            
-            💡 **해결 방법:**
-            - `.env` 파일에서 다른 모델로 변경:
-              `HUGGINGFACE_MODEL=runwayml/stable-diffusion-v1-5`
-            - 또는 "Z-Image-Turbo (로컬)" 모델 선택
-            - 또는 DALL-E 3 사용 (유료)
-            """)
-        
-        if HUGGINGFACE_API_KEY:
-            st.success("✅ API 키 설정됨")
+    if selected_model == "gemini":
+        st.info("""
+        🌟 **Gemini 이미지 생성**
+        - Google AI의 Imagen 모델 사용
+        - 블로그 내용과 연관된 고품질 이미지 생성
+        - 자동 프롬프트 생성 (LLM 기반)
+        - GOOGLE_API_KEY 필요
+        """)
+        from config.settings import GOOGLE_API_KEY
+        if GOOGLE_API_KEY:
+            st.success("✅ Google API 키 설정됨")
         else:
-            st.info("ℹ️ API 키 없이 무료 사용 (제한적)")
+            st.error("❌ GOOGLE_API_KEY 필요 (.env 파일에 추가)")
+    elif selected_model == "pixabay":
+        st.info("""
+        🖼️ **Pixabay 이미지 검색**
+        - 무료 스톡 이미지 다운로드
+        - Gemini로 키워드 자동 개선
+        - 실제 사진/일러스트 제공
+        - PIXABAY_API_KEY 필요
+        """)
+        from config.settings import PIXABAY_API_KEY
+        if PIXABAY_API_KEY:
+            st.success("✅ Pixabay API 키 설정됨")
+        else:
+            st.error("❌ PIXABAY_API_KEY 필요 (.env 파일에 추가)")
     elif selected_model == "z-image-turbo":
-        from config.settings import HUGGINGFACE_MODEL
-        st.code(HUGGINGFACE_MODEL, language=None)
+        st.code("Z-Image-Turbo (로컬 실행)", language=None)
         
         # GPU 확인
         try:
@@ -181,13 +176,6 @@ with st.sidebar:
         - 📸 사실적인 이미지 생성에 최적화
         - 💻 로컬 실행 (GPU 권장)
         """)
-    elif selected_model == "dall-e-3":
-        st.code("DALL-E 3", language=None)
-        from config.settings import OPENAI_API_KEY
-        if OPENAI_API_KEY:
-            st.success("✅ OpenAI API 키 설정됨")
-        else:
-            st.error("❌ OPENAI_API_KEY 필요")
  
     st.markdown("---")
  
@@ -649,9 +637,6 @@ with tab1:
  
                 if result.get('url'):
                     st.markdown(f"**URL:** [{result['url']}]({result['url']})")
- 
-                if result.get('original_dalle_url'):
-                    st.markdown(f"**원본 DALL-E URL:** [링크]({result['original_dalle_url']})")
  
     else:
         # 플레이스홀더 배치로 여러 이미지 생성
