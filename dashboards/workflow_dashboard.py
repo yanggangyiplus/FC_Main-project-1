@@ -42,11 +42,17 @@ from config.settings import (
 import requests
 from bs4 import BeautifulSoup
 
+# 공통 사이드바 컴포넌트
+from components.sidebar import render_sidebar, hide_streamlit_menu
+
 st.set_page_config(
     page_title="통합 워크플로우",
     page_icon="🚀",
     layout="wide"
 )
+
+# Streamlit 자동 메뉴 숨기기
+hide_streamlit_menu()
 
 # 카테고리 매핑 (뉴스 카테고리 -> 블로그 카테고리)
 CATEGORY_MAP = {
@@ -69,34 +75,11 @@ def get_resources():
 
 rag_builder, topic_manager = get_resources()
 
-# 사이드바 설정
+# 공통 사이드바 렌더링 (네비게이션)
+render_sidebar(current_page="workflow_dashboard.py")
+
+# 사이드바 설정 (추가 옵션들)
 with st.sidebar:
-    st.header("🧭 네비게이션")
-    
-    # 메인 대시보드 (현재 페이지가 통합 워크플로우)
-    st.info("📍 현재: 통합 워크플로우 대시보드")
-    
-    st.markdown("---")
-    st.subheader("📋 모듈별 대시보드")
-    
-    modules = [
-        ("📰", "뉴스 스크래핑", "dashboard_01_news_scraper.py"),
-        ("🗄️", "RAG 구축", "dashboard_02_rag_builder.py"),
-        ("✍️", "블로그 생성", "dashboard_03_blog_generator.py"),
-        ("🎯", "품질 평가", "dashboard_04_critic_qa.py"),
-        ("🎨", "이미지 생성", "dashboard_05_image_generator.py"),
-        ("✨", "인간화", "dashboard_06_humanizer.py"),
-        ("📤", "블로그 발행", "dashboard_07_blog_publisher.py"),
-    ]
-    
-    for icon, name, file in modules:
-        if st.button(f"{icon} {name}", use_container_width=True, key=f"nav_{name}"):
-            try:
-                st.switch_page(f"dashboards/{file}")
-            except:
-                st.info(f"💡 {file} 파일을 찾을 수 없습니다.")
-    
-    st.markdown("---")
     st.header("⚙️ 설정")
     
     # 모델 선택
