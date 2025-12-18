@@ -903,8 +903,12 @@ if start_workflow:
                     images_to_publish = st.session_state.get('workflow_generated_images', None)
                     if images_to_publish:
                         st.info(f"📷 이미지 {len(images_to_publish)}개 전달")
+                        logger.info(f"🔍 [DASHBOARD] 이미지 세션에서 로드: {len(images_to_publish)}개")
+                        for idx, img in enumerate(images_to_publish):
+                            logger.info(f"🔍 [DASHBOARD] Image {idx}: {img}")
                     else:
                         st.warning("⚠️ 이미지 정보 없음")
+                        logger.warning("🔍 [DASHBOARD] workflow_generated_images가 세션에 없음!")
 
                     # ✅ 블로그 발행 (images 전달, publisher가 자동으로 publish_data 로드)
                     result = publisher.publish(

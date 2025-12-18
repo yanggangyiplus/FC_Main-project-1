@@ -1139,6 +1139,11 @@ class NaverBlogPublisher:
                         
                         # 이미지 매핑 생성
                         sorted_images = sorted(images, key=lambda x: x.get('index', 0)) if images else []
+                        logger.info(f"🔍 [DEBUG] images 파라미터: {images is not None}, 길이: {len(images) if images else 0}")
+                        logger.info(f"🔍 [DEBUG] sorted_images 길이: {len(sorted_images)}")
+                        if images:
+                            for idx, img in enumerate(images):
+                                logger.info(f"🔍 [DEBUG] Image {idx}: index={img.get('index')}, local_path={img.get('local_path', 'N/A')[:50] if img.get('local_path') else 'None'}")
                         logger.info(f"사용 가능한 이미지: {len(sorted_images)}개")
                         
                         # HTML 태그가 있으면 텍스트만 추출, 없으면 그대로 사용
