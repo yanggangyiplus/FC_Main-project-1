@@ -806,6 +806,14 @@ if start_workflow:
             else:
                 st.warning("⚠️ 이미지 플레이스홀더가 없습니다. 블로그에 ###IMG1###, ###IMG2### 마커가 포함되어야 합니다.")
         
+        # ✅ 이미지 정보를 세션 상태에 저장 (스코프 문제 해결)
+        if 'generated_images' in locals() and generated_images:
+            st.session_state.workflow_generated_images = generated_images
+            logger.info(f"이미지 정보 세션 저장: {len(generated_images)}개")
+        else:
+            st.session_state.workflow_generated_images = []
+            logger.warning("생성된 이미지가 없습니다")
+
         st.session_state.workflow_logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ 이미지 생성 완료")
         st.session_state.pipeline_status["image"] = "done"
         update_progress_display()  # 실시간 업데이트
@@ -891,12 +899,19 @@ if start_workflow:
                         json.dump(publish_data, f, ensure_ascii=False, indent=2)
                     st.info(f"💾 발행 데이터 저장: {publish_data_file}")
 
+                    # ✅ 이미지 정보 로드 (세션 상태에서)
+                    images_to_publish = st.session_state.get('workflow_generated_images', None)
+                    if images_to_publish:
+                        st.info(f"📷 이미지 {len(images_to_publish)}개 전달")
+                    else:
+                        st.warning("⚠️ 이미지 정보 없음")
+
                     # ✅ 블로그 발행 (images 전달, publisher가 자동으로 publish_data 로드)
                     result = publisher.publish(
                         html=html_content,
                         title=blog_title,
                         category=selected_category,
-                        images=generated_images if 'generated_images' in locals() and generated_images else None,
+                        images=images_to_publish,
                         use_base64=True
                     )
 

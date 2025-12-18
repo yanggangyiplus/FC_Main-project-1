@@ -844,7 +844,14 @@ class NaverBlogPublisher:
                 "economy": "economy",
                 "politics": "politics"
             }
-            blog_category = news_to_blog_mapping.get(category, category) if category else None
+
+            # ✅ 카테고리 변환 (None이면 기본값 사용하지 않음)
+            if category:
+                blog_category = news_to_blog_mapping.get(category, category)
+                logger.info(f"카테고리 매핑: {category} → {blog_category}")
+            else:
+                blog_category = None
+                logger.warning("카테고리가 지정되지 않았습니다")
 
             # 카테고리 선택
             if blog_category and blog_category in NAVER_BLOG_CATEGORIES:
