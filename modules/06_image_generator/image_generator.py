@@ -327,38 +327,8 @@ Background Info:
             return self._generate_basic_prompt(blog_topic, image_index)
 
     def _generate_basic_prompt(self, topic: str, index: int) -> str:
-        """
-        기본 프롬프트 생성 (Prompt Builder LLM 없이)
-        Imagen 4 최적화 포맷 사용
-        """
-        # 카테고리 기반 시각적 힌트
-        category = getattr(self, 'category', '') or ''
-        category_visuals = {
-            'it_science': 'modern tech facility with servers and screens',
-            'economy': 'contemporary financial district with glass buildings',
-            'politics': 'formal government building with flags',
-            'society': 'vibrant urban street with diverse crowd',
-            'world': 'international cityscape at dusk',
-            'culture': 'modern cultural venue with artistic lighting',
-            'sports': 'professional sports arena with dramatic lighting',
-        }
-        visual_context = category_visuals.get(category, 'modern professional environment')
-        
-        # 촬영 스타일 다양화
-        shot_variations = [
-            ("wide establishing shot", "golden hour lighting", "expansive atmosphere"),
-            ("medium composition with depth", "soft diffused daylight", "focused atmosphere"),
-            ("detailed close-up view", "dramatic side lighting", "intimate atmosphere"),
-            ("cinematic widescreen frame", "moody overcast lighting", "contemplative atmosphere"),
-        ]
-        shot, lighting, mood = shot_variations[index % len(shot_variations)]
-        
-        prompt = (
-            f"A cinematic, realistic editorial image depicting {visual_context} "
-            f"in the context of {topic}, {shot}, with {lighting}, {mood}, "
-            f"ultra-detailed, no text, no watermarks, photorealistic, 8k quality"
-        )
-        return prompt
+        logger.error(f"[ImageGen] Prompt Builder가 실패하여 이미지 생성 불가. (Topic: {topic}, Index: {index})")
+        raise ValueError("Prompt Builder 실패로 인해 이미지 생성을 건너뜝니다.")
 
     def generate_image(self, prompt: str, index: int = 0) -> Dict[str, Any]:
         """
