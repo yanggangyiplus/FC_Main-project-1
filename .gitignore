@@ -145,10 +145,32 @@ env.bak/
 venv.bak/
 
 # 프로젝트 특화 데이터
+# ChromaDB (벡터 DB)
 data/chroma_db/
-data/scraped_news/*.json
-data/generated_blogs/*.html
-data/images/*
+
+# 스크랩된 뉴스 (자동 생성)
+data/scraped_news/**/*.json
+!data/scraped_news/**/.gitkeep
+
+# 생성된 블로그 (자동 생성)
+data/generated_blogs/**/*.html
+data/generated_blogs/**/*.meta.json
+!data/generated_blogs/**/.gitkeep
+
+# 생성된 이미지 (자동 생성)
+data/images/**/*
+!data/images/**/.gitkeep
+!data/images/**/README.md
+
+# 메타데이터 (자동 생성/업데이트되는 파일들)
+data/metadata/**/blog_publish_data.json
+data/metadata/topic_history.json
+data/metadata/**/image_prompts.json
+data/metadata/**/blog_image_mapping.json
+
+# 임시 파일
+data/temp/**/*
+!data/temp/**/.gitkeep
 
 # Google Credentials
 config/google_credentials.json
