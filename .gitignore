@@ -153,6 +153,9 @@ data/images/*
 # Google Credentials
 config/google_credentials.json
 
+# Streamlit secrets (배포 환경용 - 절대 커밋 금지)
+.streamlit/secrets.toml
+
 # 로그
 logs/*.log
 

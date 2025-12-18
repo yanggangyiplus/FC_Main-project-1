@@ -1,304 +1,385 @@
 """
-RAG Builder 대시보드
-벡터 데이터베이스 구축 및 검색 기능 테스트
+📚 RAG 벡터DB 구축 대시보드 - Premium Edition
+뉴스 데이터 임베딩 및 벡터 데이터베이스 구축
+
+기능:
+- 카테고리별 벡터DB 구축
+- 임베딩 진행 상황 시각화
+- 벡터DB 통계 및 상태 확인
+- 검색 테스트 (RAG 쿼리)
 """
 import streamlit as st
 import sys
 from pathlib import Path
 import json
- 
-sys.path.append(str(Path(__file__).parent.parent))
- 
+from datetime import datetime
 import importlib
-# 숫자로 시작하는 모듈 이름은 동적 import 사용
+
+sys.path.append(str(Path(__file__).parent.parent))
+
+# UI 컴포넌트
+from dashboards.ui_components import (
+    render_page_header, render_section_header, render_card,
+    render_metric_card, render_status_badge, render_alert,
+    render_stats_row, COLORS
+)
+
+# 모듈 import
 rag_module = importlib.import_module("modules.02_rag_builder.rag_builder")
 RAGBuilder = rag_module.RAGBuilder
-from config.settings import SCRAPED_NEWS_DIR, CHROMA_COLLECTION_NAME
 
-# 카테고리 한국어 변환
-CATEGORY_NAMES = {
-    "politics": "정치 (Politics)",
-    "economy": "경제 (Economy)",
-    "it_science": "IT/기술 (IT & Technology)"
-}
- 
+from config.settings import SCRAPED_NEWS_DIR, VECTORDB_DIR
+
+# ========================================
+# 페이지 설정
+# ========================================
 st.set_page_config(
-    page_title="RAG Builder 대시보드",
-    page_icon="🗄️",
+    page_title="RAG 벡터DB 구축 대시보드",
+    page_icon="📚",
     layout="wide"
 )
- 
-st.title("🗄️ RAG Builder 대시보드")
-st.markdown("---")
 
-# 카테고리 선택
-selected_category = st.selectbox(
-    "📂 카테고리 선택",
-    options=["전체", "politics", "economy", "it_science"],
-    format_func=lambda x: "전체" if x == "전체" else CATEGORY_NAMES.get(x, x),
-    index=0
-)
+# 커스텀 CSS
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    .main .block-container {
+        padding-top: 2rem;
+        max-width: 1400px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-st.markdown("---")
- 
-# RAG Builder 초기화
+# ========================================
+# 카테고리 설정
+# ========================================
+CATEGORY_NAMES = {
+    "it_science": "💻 IT/기술",
+    "economy": "💰 경제",
+    "politics": "🏛️ 정치"
+}
+
+# ========================================
+# 리소스 초기화
+# ========================================
 @st.cache_resource
 def get_rag_builder():
-    try:
-        return RAGBuilder()
-    except Exception as e:
-        st.error(f"❌ RAG Builder 초기화 실패: {e}")
-        return None
- 
-# 초기화 시도
-try:
-    rag_builder = get_rag_builder()
-except Exception as e:
-    st.error(f"❌ RAG Builder 로드 실패: {e}")
-    rag_builder = None
+    return RAGBuilder()
 
-# RAG Builder 없이 페이지 표시 불가 시 안내
-if rag_builder is None:
-    st.warning("⚠️ RAG Builder를 초기화할 수 없습니다. 다음을 시도해보세요:")
-    st.code("""
-# ChromaDB 캐시 삭제
-rm -rf data/chroma_db
+rag_builder = get_rag_builder()
 
-# 또는 다른 터미널에서 실행 중인 프로세스 종료 후 재시작
-    """)
-    st.stop()
- 
+# ========================================
+# 세션 상태
+# ========================================
+if 'rag_logs' not in st.session_state:
+    st.session_state.rag_logs = []
+if 'rag_stats' not in st.session_state:
+    st.session_state.rag_stats = {
+        "total_builds": 0,
+        "success_count": 0,
+        "failed_count": 0,
+        "total_vectors": 0
+    }
+
+# ========================================
 # 사이드바
+# ========================================
 with st.sidebar:
-    st.header("⚙️ 설정")
- 
-    # 컬렉션 통계
-    stats = rag_builder.get_collection_stats()
-    st.metric("컬렉션 이름", stats['collection_name'])
-    st.metric("총 문서 수", stats['total_documents'])
-    st.metric("임베딩 모델", stats['embedding_model'][:30] + "...")
- 
+    st.markdown("## ⚙️ RAG 설정")
+    
     st.markdown("---")
- 
-    # 위험한 작업
-    st.warning("⚠️ 위험한 작업")
-    if st.button("🗑️ 컬렉션 초기화", type="secondary"):
-        if st.session_state.get('confirm_clear', False):
-            rag_builder.clear_collection()
-            st.success("컬렉션이 초기화되었습니다.")
-            st.session_state.confirm_clear = False
-            st.rerun()
-        else:
-            st.session_state.confirm_clear = True
-            st.error("한 번 더 클릭하면 모든 데이터가 삭제됩니다!")
- 
-# 탭 생성
-tab1, tab2, tab3 = st.tabs(["📥 데이터 추가", "🔍 검색", "📊 통계"])
- 
-# 탭 1: 데이터 추가
-with tab1:
-    st.header("📥 데이터 추가")
- 
-    # JSON 파일 선택 (카테고리별 필터링)
-    if SCRAPED_NEWS_DIR.exists():
-        # 카테고리별 또는 전체 파일 검색
-        if selected_category == "전체":
-            json_files = sorted(list(SCRAPED_NEWS_DIR.glob("**/*.json")), reverse=True)
-            # 루트에 있는 기존 파일도 포함
-            root_files = sorted(list(SCRAPED_NEWS_DIR.glob("*.json")), reverse=True)
-            json_files = sorted(set(json_files) | set(root_files), key=lambda x: x.stat().st_mtime, reverse=True)
-        else:
-            category_dir = SCRAPED_NEWS_DIR / selected_category
-            if category_dir.exists():
-                json_files = sorted(list(category_dir.glob("*.json")), reverse=True)
-            else:
-                # 기존 파일 (카테고리 폴더 없을 때)
-                json_files = [f for f in SCRAPED_NEWS_DIR.glob("*.json") if f.name.startswith(selected_category)]
-                json_files = sorted(json_files, reverse=True)
- 
-        if json_files:
-            col1, col2 = st.columns([3, 1])
- 
-            with col1:
-                selected_file = st.selectbox(
-                    "스크래핑된 JSON 파일 선택",
-                    options=json_files,
-                    format_func=lambda x: f"[{x.parent.name}] {x.name}" if x.parent != SCRAPED_NEWS_DIR else x.name
-                )
- 
-            with col2:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("➕ 추가", type="primary", use_container_width=True):
-                    st.session_state.add_file = selected_file
- 
-            # 파일 정보 표시
-            if selected_file and selected_file.exists():
-                with open(selected_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
- 
-                # 새로운 데이터 구조 처리
-                if 'topics' in data:
-                    # 새 구조: topics 배열
-                    total_articles = sum(len(t.get('articles', [])) for t in data.get('topics', []))
-                    num_topics = len(data.get('topics', []))
-                    
-                    col_a, col_b, col_c, col_d = st.columns(4)
-                    with col_a:
-                        cat_value = data.get('category', 'N/A')
-                        st.metric("카테고리", CATEGORY_NAMES.get(cat_value, cat_value))
-                    with col_b:
-                        st.metric("주제 수", num_topics)
-                    with col_c:
-                        st.metric("기사 수", total_articles)
-                    with col_d:
-                        st.metric("수집 시각", data.get('scraped_at', 'N/A')[:19])
-                    
-                    # 주제별 상세 정보
-                    st.markdown("---")
-                    st.subheader("📋 주제 목록")
-                    for i, topic in enumerate(data.get('topics', []), 1):
-                        with st.expander(f"🔹 {i}. {topic.get('topic_title', 'N/A')[:50]}... ({len(topic.get('articles', []))}개 기사)"):
-                            st.markdown(f"**요약:** {topic.get('topic_summary', 'N/A')[:100]}...")
-                            st.markdown(f"**관련기사 수:** {topic.get('related_articles_count', 0)}개")
-                            
-                            # 기사 제목 리스트
-                            articles = topic.get('articles', [])
-                            if articles:
-                                st.markdown("**수집된 기사:**")
-                                for j, article in enumerate(articles, 1):
-                                    st.caption(f"  {j}. {article.get('title', 'N/A')[:60]}...")
-                else:
-                    # 기존 구조: articles 배열
-                    col_a, col_b, col_c = st.columns(3)
-                    with col_a:
-                        cat_value = data.get('category', 'N/A')
-                        st.metric("카테고리", CATEGORY_NAMES.get(cat_value, cat_value))
-                    with col_b:
-                        st.metric("기사 수", len(data.get('articles', [])))
-                    with col_c:
-                        st.metric("수집 시각", data.get('scraped_at', 'N/A')[:19])
- 
-            # 추가 실행
-            if st.session_state.get('add_file'):
-                file_to_add = st.session_state.add_file
-                st.session_state.add_file = None
- 
-                with st.spinner("벡터화 및 저장 중..."):
-                    try:
-                        count = rag_builder.add_articles_from_json(file_to_add)
-                        st.success(f"✅ {count}개 기사가 추가되었습니다!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ 오류 발생: {str(e)}")
-        else:
-            st.info("스크래핑된 JSON 파일이 없습니다. 먼저 뉴스 스크래퍼를 실행하세요.")
+    
+    # 모델 정보
+    st.markdown("### 🤖 임베딩 모델")
+    st.info("**🔤 Sentence Transformers**\n- multilingual-e5-large\n- 다국어 지원")
+    
+    st.markdown("---")
+    
+    # 카테고리 선택
+    st.markdown("### 📂 카테고리")
+    selected_category = st.selectbox(
+        "구축 대상",
+        options=list(CATEGORY_NAMES.keys()),
+        format_func=lambda x: CATEGORY_NAMES[x]
+    )
+    
+    st.markdown("---")
+    
+    # 빌드 옵션
+    st.markdown("### 🔧 빌드 옵션")
+    chunk_size = st.slider("청크 크기", 100, 1000, 500, 100, help="텍스트 분할 단위")
+    force_rebuild = st.checkbox("강제 재빌드", value=False, help="기존 벡터DB 덮어쓰기")
+    
+    st.markdown("---")
+    
+    # 통계
+    st.markdown("### 📊 구축 통계")
+    st.metric("총 구축 횟수", st.session_state.rag_stats["total_builds"])
+    st.metric("총 벡터 수", f"{st.session_state.rag_stats['total_vectors']:,}")
+
+# ========================================
+# 메인 화면
+# ========================================
+
+# 페이지 헤더
+render_page_header(
+    title="RAG 벡터DB 구축 콘솔",
+    description="뉴스 데이터를 임베딩하여 고성능 검색 시스템 구축",
+    icon="📚"
+)
+
+# ========================================
+# KPI 대시보드
+# ========================================
+render_section_header("📊 벡터DB 현황", "카테고리별 벡터 데이터베이스 상태", "")
+
+# 카테고리별 벡터DB 통계
+category_vector_stats = []
+for cat_key, cat_name in CATEGORY_NAMES.items():
+    cat_dir = SCRAPED_NEWS_DIR / cat_key
+    if cat_dir.exists():
+        json_files = list(cat_dir.glob("*.json"))
+        
+        # 벡터DB 존재 여부 확인
+        vector_db_path = VECTORDB_DIR / cat_key
+        has_vectordb = vector_db_path.exists() and list(vector_db_path.glob("*"))
+        
+        category_vector_stats.append({
+            "label": cat_name,
+            "value": f"{len(json_files)} docs",
+            "icon": "✅" if has_vectordb else "❌",
+            "color": "success" if has_vectordb else "secondary"
+        })
     else:
-        st.info("스크래핑 디렉토리가 존재하지 않습니다.")
- 
-# 탭 2: 검색
-with tab2:
-    st.header("🔍 유사 기사 검색")
- 
-    col_search1, col_search2 = st.columns([3, 1])
- 
-    with col_search1:
-        query = st.text_input("검색 쿼리", placeholder="예: 인공지능 기술 발전")
- 
-    with col_search2:
-        n_results = st.number_input("결과 수", min_value=1, max_value=20, value=5)
- 
-    if st.button("🔎 검색", type="primary"):
+        category_vector_stats.append({
+            "label": cat_name,
+            "value": "0 docs",
+            "icon": "❌",
+            "color": "secondary"
+        })
+
+render_stats_row(category_vector_stats)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ========================================
+# RAG 빌드 제어
+# ========================================
+render_section_header("🏗️ 벡터DB 구축", "새로운 벡터 데이터베이스 생성", "")
+
+col1, col2, col3 = st.columns([2, 1, 1])
+
+with col1:
+    if st.button("🚀 RAG 구축 시작", type="primary", use_container_width=True):
+        # 소스 데이터 확인
+        category_dir = SCRAPED_NEWS_DIR / selected_category
+        
+        if not category_dir.exists() or not list(category_dir.glob("*.json")):
+            render_alert("❌ 뉴스 데이터가 없습니다. 먼저 뉴스를 수집하세요.", "error")
+        else:
+            json_files = list(category_dir.glob("*.json"))
+            
+            with st.spinner(f"📚 {len(json_files)}개 문서 임베딩 중..."):
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                try:
+                    status_text.text("🔄 벡터DB 초기화 중...")
+                    progress_bar.progress(20)
+                    
+                    # RAG 구축 - 각 JSON 파일 처리
+                    status_text.text(f"🔄 {CATEGORY_NAMES[selected_category]} 임베딩 중...")
+                    
+                    total_added = 0
+                    for idx, json_file in enumerate(json_files):
+                        progress_bar.progress(20 + int((idx / len(json_files)) * 60))
+                        added_count = rag_builder.add_articles_from_json(json_file)
+                        total_added += added_count
+                    
+                    progress_bar.progress(80)
+                    status_text.text("💾 벡터DB 저장 중...")
+                    
+                    if total_added > 0:
+                        # 통계 업데이트
+                        st.session_state.rag_stats["total_builds"] += 1
+                        st.session_state.rag_stats["success_count"] += 1
+                        st.session_state.rag_stats["total_vectors"] += total_added
+                        
+                        st.session_state.rag_logs.append(
+                            f"[{datetime.now().strftime('%H:%M:%S')}] 완료: {total_added}개 문서 임베딩"
+                        )
+                        
+                        progress_bar.progress(100)
+                        status_text.empty()
+                        
+                        render_alert(f"✅ RAG 구축 완료!\n- 문서 수: {total_added}개\n- 카테고리: {CATEGORY_NAMES[selected_category]}", "success")
+                        st.rerun()
+                    else:
+                        st.session_state.rag_stats["failed_count"] += 1
+                        st.session_state.rag_logs.append(
+                            f"[{datetime.now().strftime('%H:%M:%S')}] 실패: 구축 오류"
+                        )
+                        render_alert("❌ RAG 구축에 실패했습니다.", "error")
+                        
+                except Exception as e:
+                    st.session_state.rag_stats["failed_count"] += 1
+                    st.session_state.rag_logs.append(
+                        f"[{datetime.now().strftime('%H:%M:%S')}] 오류: {str(e)}"
+                    )
+                    render_alert(f"❌ 오류: {str(e)}", "error")
+
+with col2:
+    if st.button("🔍 검색 테스트", use_container_width=True):
+        st.session_state.show_search_test = True
+
+with col3:
+    if st.button("🔄 새로고침", use_container_width=True):
+        st.rerun()
+
+# 검색 테스트
+if st.session_state.get('show_search_test', False):
+    st.markdown("<br>", unsafe_allow_html=True)
+    render_section_header("🔍 RAG 검색 테스트", "벡터DB 검색 성능 확인", "")
+    
+    query = st.text_input("🔍 검색 쿼리", placeholder="예: 최신 AI 기술 동향")
+    
+    if st.button("검색 실행"):
         if query:
-            with st.spinner("검색 중..."):
+            with st.spinner("🔍 검색 중..."):
                 try:
-                    results = rag_builder.search_similar_articles(query, n_results=n_results)
- 
-                    if results['documents'][0]:
-                        st.success(f"✅ {len(results['documents'][0])}개 결과 발견")
- 
-                        for i, (doc, metadata) in enumerate(zip(results['documents'][0], results['metadatas'][0]), 1):
-                            with st.expander(f"🔹 {i}. {metadata['title']}", expanded=(i == 1)):
-                                col_a, col_b = st.columns([3, 1])
- 
-                                with col_a:
-                                    st.markdown(f"**제목:** {metadata['title']}")
+                    # search_similar_articles 메서드 사용 (올바른 메서드명)
+                    results = rag_builder.search_similar_articles(query, n_results=5)
+                    
+                    if results and results['documents'][0]:
+                        documents = results['documents'][0]
+                        metadatas = results['metadatas'][0]
+                        
+                        # 선택한 카테고리로 필터링
+                        filtered_results = []
+                        for doc, metadata in zip(documents, metadatas):
+                            if metadata.get('category') == selected_category:
+                                filtered_results.append((doc, metadata))
+                        
+                        if filtered_results:
+                            st.success(f"✅ {len(filtered_results)}개 결과 발견")
+                            
+                            for idx, (doc, metadata) in enumerate(filtered_results, 1):
+                                with st.expander(f"📄 결과 {idx}: {metadata.get('title', '제목 없음')}"):
                                     st.markdown(f"**주제:** {metadata.get('topic_title', 'N/A')}")
-                                    st.markdown(f"**URL:** [{metadata['url']}]({metadata['url']})")
-                                    st.markdown(f"**발행:** {metadata['published_at']}")
-                                    cat_value = metadata.get('category', 'N/A')
-                                    st.markdown(f"**카테고리:** {CATEGORY_NAMES.get(cat_value, cat_value)}")
+                                    st.markdown(f"**발행일:** {metadata.get('published_at', 'N/A')}")
+                                    st.markdown(f"**URL:** {metadata.get('url', 'N/A')}")
                                     st.markdown("---")
-                                    
-                                    # 본문 미리보기 + 더보기 기능
-                                    st.markdown(f"**내용:** ({len(doc)}자)")
-                                    preview_text = doc[:500] + "..." if len(doc) > 500 else doc
-                                    st.text(preview_text)
-                                    
-                                    # 500자 이상일 때 "더보기" 버튼 표시
-                                    if len(doc) > 500:
-                                        show_full_key = f"show_full_{i}_{metadata.get('url', '')[:20]}"
-                                        if st.checkbox("📖 전체 본문 보기", key=show_full_key):
-                                            st.text_area(
-                                                "전체 본문",
-                                                doc,
-                                                height=400,
-                                                key=f"full_text_{i}_{metadata.get('url', '')[:20]}"
-                                            )
- 
-                                with col_b:
-                                    st.metric("관련기사", metadata.get('related_articles_count', 0))
-                                    st.metric("💬 댓글", metadata.get('comment_count', 0))
-                                    st.metric("👍 반응", metadata.get('reaction_count', 0))
+                                    st.markdown(doc[:500] + "..." if len(doc) > 500 else doc)
+                        else:
+                            st.info(f"'{CATEGORY_NAMES[selected_category]}' 카테고리에서 검색 결과가 없습니다.")
                     else:
-                        st.warning("검색 결과가 없습니다.")
- 
+                        st.info("검색 결과가 없습니다.")
+                        
                 except Exception as e:
-                    st.error(f"❌ 검색 오류: {str(e)}")
+                    render_alert(f"❌ 검색 오류: {str(e)}", "error")
+                    import traceback
+                    st.code(traceback.format_exc())
         else:
-            st.warning("검색 쿼리를 입력하세요.")
- 
-# 탭 3: 통계
+            render_alert("⚠️ 검색어를 입력하세요.", "warning")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ========================================
+# 탭
+# ========================================
+tab1, tab2, tab3 = st.tabs(["📊 상세 통계", "🔍 구축 로그", "📖 사용 가이드"])
+
+with tab1:
+    st.markdown("### 카테고리별 상세 현황")
+    
+    detailed_stats = []
+    
+    # ChromaDB에서 실제 저장된 문서 수 확인
+    try:
+        collection = rag_builder.collection
+        all_metadata = collection.get()['metadatas']
+        
+        # 카테고리별 문서 수 계산
+        category_counts = {}
+        for metadata in all_metadata:
+            cat = metadata.get('category', '')
+            if cat:
+                category_counts[cat] = category_counts.get(cat, 0) + 1
+        
+        for cat_key, cat_name in CATEGORY_NAMES.items():
+            cat_dir = SCRAPED_NEWS_DIR / cat_key
+            json_files_count = len(list(cat_dir.glob("*.json"))) if cat_dir.exists() else 0
+            vectordb_count = category_counts.get(cat_key, 0)
+            
+            has_data = vectordb_count > 0
+            
+            detailed_stats.append({
+                "카테고리": cat_name,
+                "소스 파일": json_files_count,
+                "벡터DB 문서": vectordb_count,
+                "상태": "🟢 정상" if has_data else "🔴 미구축"
+            })
+    except Exception as e:
+        # ChromaDB 오류 시 파일 기반으로 표시
+        for cat_key, cat_name in CATEGORY_NAMES.items():
+            cat_dir = SCRAPED_NEWS_DIR / cat_key
+            json_files_count = len(list(cat_dir.glob("*.json"))) if cat_dir.exists() else 0
+            
+            detailed_stats.append({
+                "카테고리": cat_name,
+                "소스 파일": json_files_count,
+                "벡터DB 문서": "확인 실패",
+                "상태": "⚠️ 확인 필요"
+            })
+    
+    import pandas as pd
+    st.dataframe(pd.DataFrame(detailed_stats), use_container_width=True, hide_index=True)
+
+with tab2:
+    st.markdown("### RAG 구축 로그")
+    
+    if st.session_state.rag_logs:
+        from dashboards.ui_components import render_log_container
+        render_log_container(st.session_state.rag_logs, "최근 로그", "400px")
+    else:
+        st.info("아직 로그가 없습니다.")
+    
+    if st.button("🗑️ 로그 지우기"):
+        st.session_state.rag_logs = []
+        st.rerun()
+
 with tab3:
-    st.header("📊 컬렉션 통계")
- 
-    stats = rag_builder.get_collection_stats()
- 
-    col_stat1, col_stat2, col_stat3 = st.columns(3)
- 
-    with col_stat1:
-        st.metric("컬렉션 이름", stats['collection_name'])
- 
-    with col_stat2:
-        st.metric("총 문서 수", stats['total_documents'])
- 
-    with col_stat3:
-        st.metric("임베딩 모델", "multilingual-MiniLM")
- 
-    st.markdown("---")
- 
-    # 컨텍스트 생성 테스트
-    st.subheader("📝 컨텍스트 생성 테스트")
-    st.info("💡 블로그 생성 시 사용할 컨텍스트를 미리 확인할 수 있습니다.")
- 
-    topic = st.text_input("주제 입력", placeholder="예: AI와 반도체 산업")
- 
-    if st.button("📄 컨텍스트 생성"):
-        if topic:
-            with st.spinner("컨텍스트 생성 중..."):
-                try:
-                    context = rag_builder.get_context_for_topic(topic, n_results=5)
- 
-                    if context:
-                        st.success("✅ 컨텍스트 생성 완료")
-                        st.text_area("생성된 컨텍스트", context, height=400)
-                    else:
-                        st.warning("관련 기사를 찾을 수 없습니다.")
- 
-                except Exception as e:
-                    st.error(f"❌ 오류: {str(e)}")
-        else:
-            st.warning("주제를 입력하세요.")
- 
-# 푸터
+    st.markdown("### 📖 RAG 시스템 사용 가이드")
+    
+    st.markdown("""
+    #### 1️⃣ RAG란?
+    **Retrieval-Augmented Generation**의 약자로, 검색 기반 생성 시스템입니다.
+    
+    #### 2️⃣ 작동 원리
+    1. 뉴스 데이터를 벡터(숫자 배열)로 변환
+    2. 유사도 검색 가능한 벡터DB에 저장
+    3. 질문이 들어오면 관련 문서 검색
+    4. 검색된 문서를 바탕으로 AI가 답변 생성
+    
+    #### 3️⃣ 사용 순서
+    1. **뉴스 수집**: News Scraper에서 기사 수집
+    2. **RAG 구축**: 이 대시보드에서 벡터DB 생성
+    3. **블로그 생성**: Blog Generator에서 RAG 활용
+    
+    #### 4️⃣ 주의사항
+    - 뉴스 데이터가 많을수록 RAG 성능 향상
+    - 카테고리별로 별도 벡터DB 구축
+    - 데이터 업데이트 시 재빌드 권장
+    """)
+
+# ========================================
+# Footer
+# ========================================
+st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown("---")
-st.caption("RAG Builder 대시보드 v2.0 | Auto blog")
+st.caption("📚 RAG System • Powered by Sentence Transformers • Chroma VectorDB")

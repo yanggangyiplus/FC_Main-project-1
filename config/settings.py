@@ -37,17 +37,14 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 
 # API Keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")  # Google Gemini API
-PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")  # Pixabay 무료 이미지 API
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")  # Google Gemini API (LLM + Imagen)
+# 미사용 제거됨: PIXABAY_API_KEY (Google Imagen으로 대체됨)
+# 미사용 제거됨: GOOGLE_DRIVE_* (기능 미구현)
 
 # 네이버 계정
 NAVER_ID = os.getenv("NAVER_ID")
 NAVER_PASSWORD = os.getenv("NAVER_PASSWORD")
 NAVER_BLOG_URL = os.getenv("NAVER_BLOG_URL")
-
-# 구글 드라이브
-GOOGLE_DRIVE_CREDENTIALS_PATH = os.getenv("GOOGLE_DRIVE_CREDENTIALS_PATH", "./config/google_credentials.json")
-GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 
 # Slack
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
@@ -114,16 +111,16 @@ CHROMA_COLLECTION_NAME = "news_articles"
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 # LLM 설정 - LM Studio, OpenAI (gpt-*), Gemini (gemini-*) 지원
-DEFAULT_LLM_MODEL = "gemini-2.0-flash-exp"  # 기본 모델 (Gemini 최신 모델)
+DEFAULT_LLM_MODEL = "gemini-2.5-flash"  # 기본 모델 (Gemini 2.5 Flash)
 TEMPERATURE = 0.7
 
 # 모듈별 최적 Gemini 모델 설정 (각 모듈의 특성에 맞게 최적화)
-# ✅ 확인된 작동 모델: gemini-2.0-flash-exp
+# ✅ 사용 모델: gemini-2.5-flash (2024년 12월 기준 최신)
 MODULE_LLM_MODELS = {
-    "blog_generator": "gemini-2.0-flash-exp",   # 블로그 생성: 긴 콘텐츠, 창의성 필요
-    "critic_qa": "gemini-2.0-flash-exp",        # 품질 평가: 정확한 추론, 일관성 중요  
-    "humanizer": "gemini-2.0-flash-exp",        # 문체 개선: 빠르고 창의적
-    "image_keyword": "gemini-2.0-flash-exp"     # 이미지 키워드: 간단하고 빠른 처리
+    "blog_generator": "gemini-2.5-flash",   # 블로그 생성: 긴 콘텐츠, 창의성 필요
+    "critic_qa": "gemini-2.5-flash",        # 품질 평가: 정확한 추론, 일관성 중요
+    "humanizer": "gemini-2.5-flash",        # 문체 개선: 빠르고 창의적
+    "image_keyword": "gemini-2.5-flash"     # 이미지 키워드/프롬프트: 간단하고 빠른 처리
 }
 
 # LM Studio (로컬 LLM) 설정
@@ -133,11 +130,12 @@ LM_STUDIO_MODEL_NAME = os.getenv("LM_STUDIO_MODEL_NAME", "local-model")  # LM St
 LM_STUDIO_CONTEXT_LENGTH = int(os.getenv("LM_STUDIO_CONTEXT_LENGTH", "4096"))  # LM Studio 모델 컨텍스트 길이 (기본값: 4096)
 MAX_CONTEXT_CHARS = int(os.getenv("MAX_CONTEXT_CHARS", "12000"))  # 컨텍스트 최대 문자 수 (대략 3000 토큰, 1 토큰 ≈ 4자)
 
-# 이미지 설정 - Gemini 이미지 생성 + Pixabay 다운로드
+# 이미지 설정 - Gemini 2.5 Flash Image (Nano Banana)
 IMAGE_SIZE = "1024x1024"
 IMAGES_PER_BLOG = 3  # 블로그당 이미지 수
-# Gemini 이미지 생성 모델 (Google AI Studio / Nano Banana)
-# 기본값: gemini-2.5-flash-image
+# 이미지 생성 모델 (Nano Banana - Gemini 2.5 Flash Image 정식 버전)
+# - gemini-2.5-flash-image: 정식 버전 (2025년 10월 2일 출시)
+# - gemini-2.5-flash-preview-05-20: 중단됨 (2025년 10월 31일)
 GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
 
 # 블로그 발행용 데이터 저장 (5번 모듈 → 7번 모듈 연결용)

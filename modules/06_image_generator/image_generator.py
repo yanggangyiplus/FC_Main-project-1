@@ -1,6 +1,6 @@
 """
-Google Imagen API 이미지 생성기
-- Google Generative AI의 Imagen 모델을 사용하여 이미지 생성
+Google Gemini Image Generator (Nano Banana)
+- Google Generative AI의 Gemini 2.5 Flash Image 모델을 사용하여 이미지 생성
 - 블로그 주제와 내용에서 이미지 프롬프트 자동 생성
 - GOOGLE_API_KEY 사용
 """
@@ -12,7 +12,7 @@ import re
 import base64
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from config.settings import GOOGLE_API_KEY, IMAGES_DIR
+from config.settings import GOOGLE_API_KEY, IMAGES_DIR, GEMINI_IMAGE_MODEL, MODULE_LLM_MODELS
 from config.logger import get_logger
 
 # Google GenAI import
@@ -48,16 +48,15 @@ logger = get_logger(__name__)
 
 class GoogleImagenGenerator:
     """
-    Google Imagen API를 사용한 이미지 생성 클래스
-    - Imagen 4.0 모델 사용
+    Google Gemini Image API를 사용한 이미지 생성 클래스
+    - Gemini 2.5 Flash Image (Nano Banana) 모델 사용
     - 블로그 내용에서 이미지 프롬프트 자동 생성
     - LLM으로 한국어 → 영어 프롬프트 변환
     """
     
-    # Gemini 이미지 생성 모델 (Imagen API)
-    # - gemini-2.5-flash-image: Imagen 기반 빠른 이미지 생성 (권장)
-    # - imagen-3.0-fast: 빠른 생성
-    IMAGEN_MODEL = "gemini-2.5-flash-image"
+    # 이미지 생성 모델 (Nano Banana - Gemini 2.5 Flash Image)
+    # - gemini-2.5-flash-image: 정식 버전 (2025년 10월 2일 출시)
+    IMAGEN_MODEL = GEMINI_IMAGE_MODEL  # config/settings.py에서 로드
     
     # 지원되는 비율
     ASPECT_RATIOS = ["1:1", "3:4", "4:3", "9:16", "16:9"]
@@ -65,7 +64,7 @@ class GoogleImagenGenerator:
     def __init__(
         self,
         category: str = "",
-        aspect_ratio: str = None,   # None으로 변경하여 kwargs에서 우선 처리
+        aspect_ratio: str = "16:9",
         use_llm: bool = True,
         model: str = None,          # 호환성: 기존 ImageGenerator(model=...)
         image_size: str = None,     # 호환성: 사용하지 않지만 받아서 무시
@@ -77,9 +76,6 @@ class GoogleImagenGenerator:
             aspect_ratio: 이미지 비율 (기본: 16:9 - 블로그에 적합)
             use_llm: LLM으로 프롬프트 생성 여부
         """
-        # kwargs에서 aspect_ratio 추출 (호환성)
-        if aspect_ratio is None:
-            aspect_ratio = kwargs.get('aspect_ratio', '16:9')
         # API 키 확인
         if not GOOGLE_API_KEY:
             raise ValueError(
@@ -104,9 +100,6 @@ class GoogleImagenGenerator:
         self.use_llm = use_llm
         self.llm = None
         
-        # 비율 설정 로깅
-        logger.info(f"이미지 생성기 초기화: 비율={self.aspect_ratio}, 카테고리={category or '없음'}")
-        
         # Google GenAI 클라이언트 초기화
         self.client = genai.Client(api_key=GOOGLE_API_KEY)
         logger.info(f"Google Imagen 클라이언트 초기화 완료")
@@ -114,12 +107,13 @@ class GoogleImagenGenerator:
         # LLM 초기화 (프롬프트 생성용)
         if use_llm and GEMINI_AVAILABLE and GOOGLE_API_KEY:
             try:
+                prompt_model = MODULE_LLM_MODELS.get("image_keyword", "gemini-2.5-flash")
                 self.llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash-exp",
+                    model=prompt_model,
                     temperature=0.7,
                     google_api_key=GOOGLE_API_KEY
                 )
-                logger.info("Gemini LLM 초기화 완료 (프롬프트 생성용)")
+                logger.info(f"Gemini LLM 초기화 완료 (프롬프트 생성용, 모델: {prompt_model})")
             except Exception as e:
                 logger.warning(f"LLM 초기화 실패: {e}")
                 self.llm = None
@@ -179,34 +173,79 @@ class GoogleImagenGenerator:
                 # HTML 태그 제거 후 전체 내용 사용
                 section_content = re.sub(r'<[^>]+>', ' ', blog_content)[:500]
             
-            llm_prompt = f"""블로그의 특정 섹션에 맞는 이미지 프롬프트를 생성하세요.
+            # RAG 컨텍스트에서 배경 정보 추출
+            rag_info = getattr(self, '_rag_context', '')[:1500] if hasattr(self, '_rag_context') else ''
+            
+            # 카테고리별 이미지 테마 동적 선택
+            category = getattr(self, 'category', '') or ''
+            category_themes = {
+                'it_science': ['tech facility', 'digital infrastructure', 'corporate headquarters', 'data visualization'],
+                'economy': ['financial district', 'stock market floor', 'corporate boardroom', 'business meeting'],
+                'politics': ['government building', 'press conference', 'parliamentary session', 'diplomatic meeting'],
+                'society': ['urban street scene', 'public gathering', 'community space', 'social event'],
+                'world': ['international landmark', 'global city skyline', 'diplomatic venue', 'world map visualization'],
+                'culture': ['cultural venue', 'art exhibition', 'entertainment event', 'creative space'],
+                'sports': ['stadium', 'athletic competition', 'sports facility', 'victory celebration'],
+            }
+            themes = category_themes.get(category, ['professional setting', 'modern environment', 'urban scene', 'corporate space'])
+            theme_hint = themes[image_index % len(themes)]
+            
+            # 이미지별 시각적 초점 다양화
+            visual_focuses = [
+                "wide establishing shot showing the overall scene and environment",
+                "medium shot focusing on the key subject with surrounding context", 
+                "detail shot highlighting specific symbolic elements",
+                "atmospheric shot emphasizing mood and emotion"
+            ]
+            focus_hint = visual_focuses[image_index % len(visual_focuses)]
+            
+            llm_prompt = f"""You are an expert visual storyteller. Create an image prompt that DIRECTLY represents the SPECIFIC TOPIC and CONTEXT of this blog section.
 
-블로그 제목: {blog_topic}
+Blog Title: {blog_topic}
 
-이 이미지가 들어갈 섹션 내용:
+Section Content (the image will appear RIGHT AFTER this text):
 "{section_content}"
 
-요구사항:
-1. 위 섹션 내용과 직접적으로 관련된 시각적 장면 묘사
-2. 영어로만 작성
-3. 1~2 문장으로 프롬프트만 출력 (설명 없이)
-4. 형식: "16:9 wide horizontal format. A [스타일] image of [구체적 장면], [세부사항], high quality"
-5. 추상적 개념보다 구체적인 시각적 요소 사용
-6. **반드시 프롬프트 앞에 "16:9 wide horizontal format"을 포함**
+Background Context (for reference only):
+{rag_info[:600] if rag_info else 'No additional context'}
 
-⚠️ 중요 제한사항 (반드시 준수):
-- 이미지 프롬프트와 상관없는 사진 및 요소는 절대로 생성하지마.
+CRITICAL TASK:
+1. IDENTIFY the specific company, brand, product, or event mentioned in the section
+2. Create an image that DIRECTLY relates to that specific entity or topic
+3. The viewer should immediately understand "This is about [specific company/topic]" when seeing the image
 
-예시 (경제/재정 관련):
-16:9 wide horizontal format. A photorealistic image of bills and financial statements spread on a kitchen table with a calculator and piggy bank, warm indoor lighting, modern home setting, high quality
+REQUIREMENTS:
+- Write ONLY the prompt in English (no explanations)
+- Be SPECIFIC to the actual topic - NOT generic stock photos
+- Include: specific visual elements related to the company/topic, context, mood, lighting
+- Format: "A [cinematic/dramatic/etc.] [style] of [SPECIFIC scene related to the topic], [context details], [lighting], [mood], 8k quality"
+- Visual composition hint: {focus_hint}
 
-예시 (정치/정책 관련):
-16:9 wide horizontal format. A photorealistic image of a government building exterior with national flags, official atmosphere, professional photography style, high quality
+CRITICAL RULES:
+1. If the section mentions a COMPANY (KT, Samsung, Naver, Coupang, etc.):
+   - Include visual elements that represent that company's industry
+   - Example: Telecom company → cell towers, network infrastructure, data centers
+   - Example: E-commerce → warehouse, delivery boxes, logistics facility
+   
+2. If the section mentions a SPECIFIC ISSUE (data breach, fire, lawsuit, policy, etc.):
+   - Include visual elements that represent that issue
+   - Example: Data breach → broken padlock, warning lights, digital security imagery
+   - Example: Government policy → official buildings, press conference, formal setting
 
-예시 (생활비/가계):
-16:9 wide horizontal format. A minimalist image of a budget planner notebook with coins, receipts, and a small plant on a wooden desk, soft natural lighting, high quality
+3. Combine company context + issue context for maximum relevance
 
-프롬프트:"""
+EXAMPLES:
+
+For "쿠팡 개인정보 유출" (Coupang data breach):
+A dramatic shot of a modern e-commerce headquarters building with orange accents, a giant broken digital padlock hologram projected on the facade, scattered delivery boxes in the foreground, corporate crisis atmosphere with blue and orange lighting, 8k quality
+
+For "정부 AI 정책 발표" (Government AI policy announcement):
+A modern government press conference room with digital displays showing AI-related graphics, reporters with cameras, official atmosphere with technology elements, formal yet innovative mood, 8k quality
+
+For "삼성전자 반도체 실적" (Samsung semiconductor performance):
+A pristine semiconductor fabrication facility with advanced chip manufacturing equipment, robotic arms handling silicon wafers, cool blue lighting, high-tech precision atmosphere, 8k quality
+
+Now create the perfect image prompt that DIRECTLY represents the specific topic of the section above:"""
 
             response = self.llm.invoke(llm_prompt)
             prompt = response.content.strip()
@@ -224,11 +263,14 @@ class GoogleImagenGenerator:
             
             # 프롬프트가 너무 길면 자르기
             if len(prompt) > 400:
-                prompt = prompt[:400].rsplit(',', 1)[0] + ", high quality"
+                prompt = prompt[:400].rsplit(',', 1)[0]
             
-            # 프롬프트에 "no text" 없으면 추가
+            # 🔧 텍스트 금지 및 품질 설정 (간소화)
+            no_text_suffix = ", no text, no writing, photorealistic, 8k quality"
             if "no text" not in prompt.lower():
-                prompt = prompt.rstrip('.') + ", high quality"
+                prompt = prompt.rstrip('.').rstrip(',') + no_text_suffix
+            elif "8k" not in prompt.lower():
+                prompt = prompt.rstrip('.').rstrip(',') + ", photorealistic, 8k quality"
             
             logger.info(f"LLM 프롬프트 생성 완료 ({len(prompt)}자): {prompt[:80]}...")
             return prompt
@@ -240,9 +282,9 @@ class GoogleImagenGenerator:
     def _generate_basic_prompt(self, topic: str, index: int) -> str:
         """기본 프롬프트 생성 (LLM 없이)"""
         base_prompts = [
-            f"16:9 wide horizontal format. A professional photorealistic image representing {topic}, modern style, high quality",
-            f"16:9 wide horizontal format. An informative infographic style illustration about {topic}, clean design",
-            f"16:9 wide horizontal format. A conceptual artistic representation of {topic}, digital art style, vibrant colors"
+            f"A professional photorealistic image representing {topic}, modern style, high quality, no text",
+            f"An informative infographic style illustration about {topic}, clean design, no text",
+            f"A conceptual artistic representation of {topic}, digital art style, vibrant colors, no text"
         ]
         return base_prompts[index % len(base_prompts)]
 
@@ -261,29 +303,9 @@ class GoogleImagenGenerator:
         
         try:
             # Imagen API 호출 (generate_content 메서드 사용)
-            # 프롬프트 앞부분에 비율 정보 명시적으로 추가
-            aspect_prefixes = {
-                "16:9": "Create a 16:9 wide horizontal landscape image. ",
-                "1:1": "Create a 1:1 square format image. ",
-                "3:4": "Create a 3:4 vertical portrait image. ",
-                "4:3": "Create a 4:3 horizontal landscape image. ",
-                "9:16": "Create a 9:16 vertical mobile format image. "
-            }
-            aspect_prefix = aspect_prefixes.get(self.aspect_ratio, "Create a 16:9 wide horizontal landscape image. ")
-            enhanced_prompt = f"{aspect_prefix}{prompt}"
-            
-            logger.info(f"이미지 생성 프롬프트 (비율: {self.aspect_ratio}): {enhanced_prompt[:150]}...")
-            
-            # GenerateContentConfig로 이미지 비율 명시
-            config = types.GenerateContentConfig(
-                temperature=0.7,
-                response_modalities=["image"]
-            )
-            
             response = self.client.models.generate_content(
                 model=self.IMAGEN_MODEL,
-                contents=[enhanced_prompt],
-                config=config
+                contents=[prompt]
             )
             
             # 응답에서 이미지 데이터 추출
@@ -315,9 +337,6 @@ class GoogleImagenGenerator:
                     
                     # PIL Image로 변환
                     image = Image.open(BytesIO(img_bytes))
-                    
-                    # 지정된 비율로 이미지 자르기 (Gemini는 1:1만 생성하므로 후처리)
-                    image = self._crop_to_aspect_ratio(image, self.aspect_ratio)
                     
                     # 저장 경로 생성
                     local_path = self._save_image(image, index)
@@ -394,7 +413,7 @@ class GoogleImagenGenerator:
                 })
         return results
 
-    def generate_images_for_blog(self, blog_topic: str, blog_content: str, count: int = 3) -> List[Dict[str, Any]]:
+    def generate_images_for_blog(self, blog_topic: str, blog_content: str, count: int = 3, rag_context: str = "") -> List[Dict[str, Any]]:
         """
         블로그용 이미지 여러 개 생성
         
@@ -402,17 +421,25 @@ class GoogleImagenGenerator:
             blog_topic: 블로그 주제
             blog_content: 블로그 HTML 내용
             count: 생성할 이미지 수
+            rag_context: RAG 컨텍스트 (배경 정보, 회사명, 장소 등)
         
         Returns:
             생성된 이미지 정보 리스트
         """
         logger.info(f"블로그 이미지 생성 시작: 주제='{blog_topic[:30]}...', 개수={count}")
+        if rag_context:
+            logger.info(f"RAG 컨텍스트 활용: {len(rag_context)}자")
+        
+        # RAG 컨텍스트 저장 (프롬프트 생성 시 활용)
+        self._rag_context = rag_context
         
         results = []
         for i in range(count):
-            # 프롬프트 생성
+            # 프롬프트 생성 (RAG 컨텍스트 활용)
             prompt = self.generate_prompt_from_blog(blog_topic, blog_content, i)
-            logger.info(f"이미지 {i+1}/{count} 프롬프트: {prompt[:100]}...")
+            # 🔍 디버그: 전체 프롬프트 로깅 (이미지 맥락 확인용)
+            logger.info(f"이미지 {i+1}/{count} 프롬프트 생성 완료")
+            logger.info(f"[이미지 프롬프트 전체] {prompt}")
             
             # 이미지 생성
             result = self.generate_image(prompt, i)
@@ -427,62 +454,6 @@ class GoogleImagenGenerator:
         logger.info(f"블로그 이미지 생성 완료: 성공 {success_count}/{count}")
         
         return results
-
-    def _crop_to_aspect_ratio(self, image: Image.Image, aspect_ratio: str) -> Image.Image:
-        """
-        이미지를 지정된 비율로 자르기 (중앙 기준)
-        
-        Args:
-            image: PIL Image 객체
-            aspect_ratio: 목표 비율 (예: "16:9", "1:1")
-        
-        Returns:
-            자른 PIL Image 객체
-        """
-        if aspect_ratio == "1:1":
-            # 정사각형은 자르지 않음
-            return image
-        
-        # 비율 계산
-        aspect_map = {
-            "16:9": 16/9,   # 1.778
-            "3:4": 3/4,     # 0.75
-            "4:3": 4/3,     # 1.333
-            "9:16": 9/16,   # 0.5625
-        }
-        target_ratio = aspect_map.get(aspect_ratio, 16/9)
-        
-        width, height = image.size
-        current_ratio = width / height
-        
-        logger.info(f"이미지 자르기: 현재 {width}x{height} ({current_ratio:.2f}) → 목표 비율 {aspect_ratio} ({target_ratio:.2f})")
-        
-        # 이미지가 이미 목표 비율이면 자르지 않음
-        if abs(current_ratio - target_ratio) < 0.01:
-            return image
-        
-        # 자를 영역 계산 (중앙 기준)
-        if current_ratio > target_ratio:
-            # 현재 이미지가 더 가로로 넓음 → 좌우를 자름
-            new_width = int(height * target_ratio)
-            new_height = height
-            left = (width - new_width) // 2
-            top = 0
-        else:
-            # 현재 이미지가 더 세로로 길음 → 상하를 자름
-            new_width = width
-            new_height = int(width / target_ratio)
-            left = 0
-            top = (height - new_height) // 2
-        
-        right = left + new_width
-        bottom = top + new_height
-        
-        # 이미지 자르기
-        cropped_image = image.crop((left, top, right, bottom))
-        logger.info(f"이미지 자르기 완료: {cropped_image.size[0]}x{cropped_image.size[1]}")
-        
-        return cropped_image
 
     def _save_image(self, image: Image.Image, index: int) -> Path:
         """이미지 로컬 저장"""
