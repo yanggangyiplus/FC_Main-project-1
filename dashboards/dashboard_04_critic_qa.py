@@ -45,7 +45,7 @@ with st.sidebar:
     model = st.selectbox(
         "평가 모델",
         options=[
-            "gemini-2.0-flash-exp",
+            "gemini-2.5-flash",
             "gpt-4o-mini",
             "gpt-4o",
             "gpt-3.5-turbo",
@@ -54,7 +54,7 @@ with st.sidebar:
             "lm-studio (로컬)"
         ],
         index=0,
-        help="기본: Gemini 2.0 Flash Exp"
+        help="기본: Gemini 2.5 Flash"
     )
 
     st.metric("품질 임계값", f"{QUALITY_THRESHOLD}점 이상", help=f"{QUALITY_THRESHOLD}점 이상이면 평가 통과")

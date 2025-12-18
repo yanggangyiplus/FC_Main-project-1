@@ -67,7 +67,7 @@ with st.sidebar:
     model = st.selectbox(
         "LLM 모델",
         options=[
-            "gemini-2.0-flash-exp",
+            "gemini-2.5-flash",
             "gpt-4o-mini",
             "gpt-4o",
             "gpt-3.5-turbo", 
@@ -76,7 +76,7 @@ with st.sidebar:
             "lm-studio (로컬)"
         ],
         index=0,  # 기본값: Gemini
-        help="기본: Gemini 2.0 Flash Exp"
+        help="기본: Gemini 2.5 Flash"
     )
  
     # 온도

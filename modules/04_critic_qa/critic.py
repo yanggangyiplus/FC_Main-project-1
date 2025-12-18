@@ -179,74 +179,79 @@ class BlogCritic:
             context = self._truncate_context(context, max_chars=2000)  # 평가용으로 더 짧게
             html = self._truncate_html(html, max_chars=6000)  # HTML도 일부만
         
-        prompt = f"""당신은 엄격한 블로그 품질 평가자입니다. 다음 블로그를 **객관적이고 일관된 기준**으로 평가해주세요.
+        prompt = f"""You are a strict blog quality evaluator. Evaluate the following blog using **objective and consistent criteria**.
 
-**주제**: {topic}
+**Topic**: {topic}
 
-**원본 컨텍스트 (사실 확인용)**:
+**Original Context (for fact-checking)**:
 {context}
 
-**평가할 블로그 HTML**:
+**Blog HTML to Evaluate**:
 {html}
 
 ---
 
-**평가 기준** (각 항목 0~20점, 총 100점):
+**Evaluation Criteria** (Total 100 points):
 
-1. **사실 정확성 (Factual Accuracy)** [0~20점]
-   - 원본 컨텍스트의 내용과 일치하는가?
-   - 왜곡, 과장, 추측이 없는가?
-   - 인용이 정확한가?
+1. **Factual Accuracy** [0~20 points]
+   - Does it match the original context?
+   - No distortions, exaggerations, or speculation?
+   - Are quotes accurate?
 
-2. **구조 (Structure)** [0~20점]
-   - 논리적 흐름이 자연스러운가?
-   - 제목, 소제목이 적절한가?
-   - 도입-본론-결론 구조가 명확한가?
+2. **Structure** [0~20 points]
+   - Is the logical flow natural?
+   - Are headings and subheadings appropriate?
+   - Is intro-body-conclusion clear?
 
-3. **가독성 (Readability)** [0~20점]
-   - 문장이 명확하고 이해하기 쉬운가?
-   - 단락 구분이 적절한가?
-   - 블로그 어조가 적절한가?
+3. **Readability** [0~20 points]
+   - Are sentences clear and easy to understand?
+   - Is paragraph division appropriate?
+   - Is the blog tone suitable?
 
-4. **이미지 배치 (Image Placement)** [0~20점]
-   - 이미지 플레이스홀더가 적절한 위치에 있는가?
-   - alt 텍스트가 구체적이고 명확한가?
-   - 이미지 수가 적절한가? (권장: 3개)
+4. **Image Placement** [0~15 points]
+   - Are image placeholders in appropriate positions?
+   - Are alt texts specific and descriptive?
+   - Is the number of images appropriate? (recommended: 3)
 
-5. **완성도 (Completeness)** [0~20점]
-   - 주제를 충분히 다루었는가?
-   - 길이가 적절한가? (1500~2000자)
-   - HTML 구조가 완전한가?
+5. **Image Relevance** [0~5 points]
+   - Do the image alt texts describe scenes that match the surrounding content's mood and narrative?
+   - Would the described images help readers visualize the story being told?
+   - Note: Be lenient here as actual image generation happens later
+
+6. **Completeness** [0~20 points]
+   - Is the topic covered sufficiently?
+   - Is the length appropriate? (1500~2000 characters)
+   - Is the HTML structure complete?
 
 ---
 
-**응답 형식** (반드시 이 형식을 따라주세요):
+**Response Format** (follow this format exactly):
 
 ```
 DETAILS:
 - Factual Accuracy: [0~20]
 - Structure: [0~20]
 - Readability: [0~20]
-- Image Placement: [0~20]
+- Image Placement: [0~15]
+- Image Relevance: [0~5]
 - Completeness: [0~20]
 
-SCORE: [세부 점수의 합계, 자동 계산됨]
+SCORE: [sum of all scores above]
 
 FEEDBACK:
-[구체적인 피드백을 3~5문장으로 작성. 점수가 낮은 이유와 개선 방안 포함]
+[Write specific feedback in 3-5 sentences. Include reasons for low scores and improvement suggestions]
 
 RECOMMENDATION:
-[PASS 또는 REGENERATE]
+[PASS or REGENERATE]
 ```
 
-**중요**:
-- **총점 = 사실 정확성 + 구조 + 가독성 + 이미지 배치 + 완성도**
-- 각 항목은 0~20점으로 채점
-- 점수는 **엄격하게** 채점하세요. 각 항목 18점 이상은 매우 우수한 경우에만 부여
-- 피드백은 **구체적이고 실행 가능**해야 함
-- 임계값은 {self.threshold}점입니다
+**Important**:
+- **Total = Factual Accuracy + Structure + Readability + Image Placement + Image Relevance + Completeness**
+- Score **strictly**. Give 18+ only for exceptional work
+- Feedback must be **specific and actionable**
+- Threshold is {self.threshold} points
 
-지금 평가를 시작하세요:
+Start evaluation now:
 """
         return prompt
 
@@ -271,6 +276,7 @@ RECOMMENDATION:
             details['structure'] = self._extract_score(details_text, 'Structure')
             details['readability'] = self._extract_score(details_text, 'Readability')
             details['image_placement'] = self._extract_score(details_text, 'Image Placement')
+            details['image_relevance'] = self._extract_score(details_text, 'Image Relevance')
             details['completeness'] = self._extract_score(details_text, 'Completeness')
 
         # 총점은 세부 점수의 합계로 계산 (LLM이 제시한 총점은 무시)

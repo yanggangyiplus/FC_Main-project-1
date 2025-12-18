@@ -173,35 +173,41 @@ class GoogleImagenGenerator:
                 # HTML 태그 제거 후 전체 내용 사용
                 section_content = re.sub(r'<[^>]+>', ' ', blog_content)[:500]
             
-            llm_prompt = f"""블로그의 특정 섹션에 맞는 이미지 프롬프트를 생성하세요.
+            llm_prompt = f"""You are an expert visual storyteller. Create an image prompt that perfectly captures the EMOTION and NARRATIVE of this blog section.
 
-블로그 제목: {blog_topic}
+Blog Title: {blog_topic}
 
-이 이미지가 들어갈 섹션 내용:
+Section Content (the image will appear RIGHT AFTER this text):
 "{section_content}"
 
-요구사항:
-1. 위 섹션 내용과 직접적으로 관련된 시각적 장면 묘사
-2. 영어로만 작성
-3. 한 문장으로 프롬프트만 출력 (설명 없이)
-4. 형식: "A [스타일] image of [구체적 장면], [세부사항], no text, high quality"
-5. 추상적 개념보다 구체적인 시각적 요소 사용
+Your Task:
+1. READ the section carefully and understand its CORE MESSAGE and EMOTIONAL TONE
+2. Think about what visual would make readers say "Wow, this image perfectly captures what I just read!"
+3. Create a vivid, cinematic scene that TELLS THE STORY of this section
 
-⚠️ 중요 제한사항 (반드시 준수):
-- 사람, 인물, 얼굴은 절대 포함하지 마세요
-- 금지 단어: person, people, man, woman, child, family, parent, worker, employee, crowd, face, hand, body
-- 대신 사물, 건물, 그래프, 아이콘, 추상적 오브젝트로 표현하세요
+Requirements:
+- Write ONLY the prompt in English (no explanations)
+- Be SPECIFIC and CINEMATIC, not generic stock-photo style
+- Include: mood, lighting, color palette, camera angle
+- Format: "A [cinematic/dramatic/warm/etc.] [style] of [specific scene with context], [lighting], [color mood], [composition], no text, 8k quality"
 
-예시 (경제/재정 관련):
-A photorealistic image of bills and financial statements spread on a kitchen table with a calculator and piggy bank, warm indoor lighting, modern home setting, no text, high quality
+STRICT RULES:
+- NO people, faces, or human figures (use objects, architecture, nature, abstract elements)
+- Forbidden words: person, people, man, woman, child, family, face, hand, body, crowd
+- Replace human concepts with: symbolic objects, architecture, nature, technology, abstract art
 
-예시 (정치/정책 관련):
-A photorealistic image of a government building exterior with national flags, official atmosphere, professional photography style, no text, high quality
+EXAMPLES:
 
-예시 (생활비/가계):
-A minimalist image of a budget planner notebook with coins, receipts, and a small plant on a wooden desk, soft natural lighting, no text, high quality
+For a section about "economic uncertainty and market volatility":
+A dramatic wide-angle shot of storm clouds gathering over a city skyline at dusk, golden hour lighting breaking through dark clouds, glass skyscrapers reflecting the turbulent sky, tension and uncertainty mood, cinematic composition, no text, 8k quality
 
-프롬프트:"""
+For a section about "new technology bringing hope":
+A warm sunrise scene with morning light streaming through a modern glass building onto a sleek laptop and coffee cup, hopeful and optimistic atmosphere, soft golden tones, shallow depth of field, no text, 8k quality
+
+For a section about "government policy changes":
+An architectural detail shot of a grand marble staircase with official documents and a brass scale of justice, dramatic side lighting creating long shadows, formal and authoritative mood, symmetrical composition, no text, 8k quality
+
+Now create the perfect image prompt for the section above:"""
 
             response = self.llm.invoke(llm_prompt)
             prompt = response.content.strip()
