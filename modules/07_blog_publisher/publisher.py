@@ -514,7 +514,7 @@ class NaverBlogPublisher:
         logger.info(f"블로그 발행 시작: '{title}' (본문 길이: {len(content) if content else 0}, 이미지 {len(images)}개)")
         
         # #region agent log - PUBLISH_START: publish 메소드 진입 확인
-        debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
+        debug_log_path = str(Path(__file__).parent.parent.parent / 'logs' / 'debug.log')
         try:
             import os
             os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
@@ -727,7 +727,7 @@ class NaverBlogPublisher:
             결과 딕셔너리
         """
         # #region agent log - START: 함수 진입 확인
-        debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
+        debug_log_path = str(Path(__file__).parent.parent.parent / 'logs' / 'debug.log')
         try:
             import os
             os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
@@ -801,7 +801,7 @@ class NaverBlogPublisher:
             except:
                 logger.info("도움말 창 없음 (정상)")
 
-            # 1. 제목 입력 (Tab 키 + send_keys 방식)
+            # 1. 제목 입력 (중간정렬 먼저 적용 후 입력)
             logger.info(f"제목 입력 중: {title[:50]}...")
             try:
                 from selenium.webdriver.common.keys import Keys
@@ -812,9 +812,66 @@ class NaverBlogPublisher:
                     EC.presence_of_element_located((By.XPATH, "//span[contains(@class, 'se-placeholder') and contains(text(), '제목')]"))
                 )
                 
-                # 제목 영역 클릭
+                # 제목 영역 클릭 (포커스 설정)
                 ActionChains(self.driver).move_to_element(title_placeholder).click().perform()
                 time.sleep(0.5)
+                
+                # 🔧 제목 중간정렬 적용
+                try:
+                    logger.info("제목 중간정렬 설정 중...")
+                    
+                    # 정렬 드롭다운 버튼 클릭
+                    align_dropdown_selectors = [
+                        "button.se-align-left-toolbar-button",
+                        "button[data-name='align-drop-down-with-justify']",
+                        "button.se-property-toolbar-drop-down-button[data-log='prt.align']"
+                    ]
+                    
+                    align_dropdown = None
+                    for selector in align_dropdown_selectors:
+                        try:
+                            align_dropdown = self.driver.find_element(By.CSS_SELECTOR, selector)
+                            if align_dropdown and align_dropdown.is_displayed():
+                                break
+                        except:
+                            continue
+                    
+                    if align_dropdown:
+                        self.driver.execute_script("arguments[0].click();", align_dropdown)
+                        time.sleep(0.3)
+                        
+                        # 가운데 정렬 버튼 클릭
+                        center_align_selectors = [
+                            "button.se-toolbar-option-align-center-button",
+                            "button[data-value='center'][data-name='align-drop-down-with-justify']",
+                            "button[data-log='prt.center']"
+                        ]
+                        
+                        center_align = None
+                        for selector in center_align_selectors:
+                            try:
+                                center_align = self.driver.find_element(By.CSS_SELECTOR, selector)
+                                if center_align and center_align.is_displayed():
+                                    break
+                            except:
+                                continue
+                        
+                        if center_align:
+                            self.driver.execute_script("arguments[0].click();", center_align)
+                            time.sleep(0.3)
+                            logger.info("제목 중간정렬 설정 완료")
+                        else:
+                            logger.warning("제목 중간정렬 버튼을 찾을 수 없음")
+                    else:
+                        logger.warning("제목 정렬 드롭다운을 찾을 수 없음")
+                        
+                    # 제목 영역 다시 클릭 (정렬 후 포커스 재설정)
+                    title_placeholder = self.driver.find_element(By.XPATH, "//span[contains(@class, 'se-placeholder') and contains(text(), '제목')]")
+                    ActionChains(self.driver).move_to_element(title_placeholder).click().perform()
+                    time.sleep(0.3)
+                    
+                except Exception as align_e:
+                    logger.warning(f"제목 중간정렬 설정 실패 (무시하고 진행): {align_e}")
                 
                 # 실제 키보드 입력으로 제목 입력
                 actions = ActionChains(self.driver)
@@ -952,7 +1009,7 @@ class NaverBlogPublisher:
                         logger.warning(f"가운데 정렬 설정 실패 (계속 진행): {e}")
                     
                     # #region agent log - 마커체크: has_markers 값 확인
-                    debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
+                    debug_log_path = str(Path(__file__).parent.parent.parent / 'logs' / 'debug.log')
                     try:
                         with open(debug_log_path, 'a', encoding='utf-8') as f:
                             log_entry = json.dumps({
@@ -998,8 +1055,23 @@ class NaverBlogPublisher:
                             # style, script, head, h1 태그 제거
                             for tag in body.find_all(['style', 'script', 'head', 'h1']):
                                 tag.decompose()
+                            
+                            # 🔧 인라인 태그 처리 개선: <strong>, <em> 등의 인라인 태그를
+                            # 줄바꿈 없이 텍스트로 변환 (기존: get_text가 모든 태그에 줄바꿈 추가)
+                            # 인라인 태그들을 먼저 텍스트로 언래핑
+                            inline_tags = ['strong', 'b', 'em', 'i', 'span', 'a', 'u', 'mark', 'small', 'sub', 'sup']
+                            for tag_name in inline_tags:
+                                for tag in body.find_all(tag_name):
+                                    tag.unwrap()  # 태그는 제거하고 내용만 남김
+                            
+                            # 블록 태그(<p>, <div>, <br>)만 줄바꿈으로 처리
+                            # <br> 태그를 줄바꿈 문자로 변환
+                            for br in body.find_all('br'):
+                                br.replace_with('\n')
+                            
+                            # 이제 get_text 적용 - 블록 태그만 separator 적용됨
                             text_content = body.get_text(separator='\n', strip=True)
-                            logger.info("HTML에서 텍스트 추출 완료")
+                            logger.info("HTML에서 텍스트 추출 완료 (인라인 태그 보존)")
                         else:
                             text_content = content
                             logger.info("순수 텍스트 콘텐츠 사용")
@@ -1131,7 +1203,7 @@ class NaverBlogPublisher:
                             "button[data-log='dot.horizt']"
                         ]
                         
-                        debug_log_path = '/Users/yanggangyi/Desktop/Fastcampus/FC_Main-project-1/.cursor/debug.log'
+                        debug_log_path = str(Path(__file__).parent.parent.parent / 'logs' / 'debug.log')
                         for i, line in enumerate(lines):
                             # 보이지 않는 특수문자 제거 (zero-width space, BOM 등)
                             import unicodedata

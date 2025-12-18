@@ -31,11 +31,12 @@ SELECTORS = {
     # 카테고리 페이지 URL 패턴
     "CATEGORY_URL": "https://news.naver.com/section/{category_id}",
     
-    # 헤드라인 더보기 버튼
-    "HEADLINE_MORE_BTN": '//*[@id="newsct"]/div[1]/div[1]/div/span/a',
+    # 헤드라인 더보기 버튼 (클래스 기반 - 더 안정적)
+    "HEADLINE_MORE_BTN": '//div[contains(@class,"as_section_headline")]//a[contains(@class,"_SECTION_HEADLINE_MORE_BUTTON")]',
     
-    # 헤드라인 리스트 아이템 (안정적인 선택자)
-    "HEADLINE_ITEMS": '//*[@id="newsct"]//li[contains(@class,"sa_item")]',
+    # 헤드라인 리스트 아이템 (헤드라인 섹션 내부만 선택)
+    # as_section_headline 클래스를 가진 섹션 내부의 sa_item만 선택
+    "HEADLINE_ITEMS": '//div[contains(@class,"as_section_headline")]//li[contains(@class,"sa_item")]',
     
     # 기사묶음 수 (관련기사 수) - sa_text_cluster_num 클래스 사용
     "RELATED_COUNT": './/span[contains(@class,"sa_text_cluster_num")]',
@@ -138,26 +139,18 @@ class NaverNewsScraper:
         logger.info(f"NaverNewsScraper 초기화 (헤드리스: {headless})")
 
     def _init_driver(self):
-        """웹드라이버 초기화"""
+        """웹드라이버 초기화 (Selenium 4.11+ 자동 드라이버 관리 사용)"""
         options = webdriver.ChromeOptions()
         if self.headless:
-            options.add_argument('--headless')
+            options.add_argument('--headless=new')  # 최신 headless 모드
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-blink-features=AutomationControlled')
         options.add_argument('--window-size=1920,1080')
         options.add_argument('user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36')
 
-        # ChromeDriverManager가 잘못된 파일을 반환하는 버그 수정
-        driver_path = ChromeDriverManager().install()
-        
-        # THIRD_PARTY_NOTICES 파일이 반환된 경우 실제 chromedriver로 수정
-        if "THIRD_PARTY_NOTICES" in driver_path:
-            driver_path = driver_path.replace("THIRD_PARTY_NOTICES.chromedriver", "chromedriver")
-            logger.warning(f"ChromeDriver 경로 수정: {driver_path}")
-        
-        service = Service(driver_path)
-        self.driver = webdriver.Chrome(service=service, options=options)
+        # Selenium 4.11+ 는 자동으로 ChromeDriver를 관리함 (webdriver-manager 불필요)
+        self.driver = webdriver.Chrome(options=options)
         self.wait = WebDriverWait(self.driver, 10)
         logger.info("웹드라이버 초기화 완료")
 

@@ -1,6 +1,12 @@
 """
-뉴스 스크래퍼 대시보드
-네이버 뉴스 스크래핑 기능 테스트 및 모니터링
+🗞️ 뉴스 스크래핑 대시보드 - Premium Edition
+네이버 뉴스 자동 수집 및 관리
+
+기능:
+- 카테고리별 뉴스 수집
+- 실시간 스크래핑 진행 상황
+- 수집 통계 및 KPI
+- 기사 필터링 및 검색
 """
 import streamlit as st
 import sys
@@ -8,285 +14,311 @@ from pathlib import Path
 import json
 from datetime import datetime
 import importlib
- 
-# 프로젝트 루트 경로 추가
+
 sys.path.append(str(Path(__file__).parent.parent))
- 
-# 숫자로 시작하는 모듈 이름은 동적 import 사용
+
+# UI 컴포넌트
+from dashboards.ui_components import (
+    render_page_header, render_section_header, render_card,
+    render_metric_card, render_status_badge, render_progress_step,
+    render_log_container, render_alert, render_stats_row,
+    COLORS
+)
+
+# 모듈 import
 scraper_module = importlib.import_module("modules.01_news_scraper.scraper")
 NaverNewsScraper = scraper_module.NaverNewsScraper
-CATEGORY_IDS = scraper_module.CATEGORY_IDS
 
-from config.settings import SCRAPED_NEWS_DIR
+from config.settings import SCRAPED_NEWS_DIR, NEWS_CATEGORIES
 
+# ========================================
+# 페이지 설정
+# ========================================
 st.set_page_config(
-    page_title="뉴스 스크래퍼 대시보드",
-    page_icon="📰",
+    page_title="뉴스 스크래핑 대시보드",
+    page_icon="🗞️",
     layout="wide"
 )
- 
-st.title("📰 뉴스 스크래퍼 대시보드")
-st.markdown("---")
- 
-# 사이드바 설정
-with st.sidebar:
-    st.header("⚙️ 설정")
 
+# 커스텀 CSS
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    .main .block-container {
+        padding-top: 2rem;
+        max-width: 1400px;
+    }
+    
+    .stButton > button {
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ========================================
+# 카테고리 매핑
+# ========================================
+CATEGORY_NAMES = {
+    "it_science": "💻 IT/기술",
+    "economy": "💰 경제",
+    "politics": "🏛️ 정치"
+}
+
+# ========================================
+# 세션 상태 초기화
+# ========================================
+if 'scraping_logs' not in st.session_state:
+    st.session_state.scraping_logs = []
+if 'scraping_stats' not in st.session_state:
+    st.session_state.scraping_stats = {
+        "total_articles": 0,
+        "success_count": 0,
+        "failed_count": 0,
+        "last_scraping": None
+    }
+
+# ========================================
+# 사이드바
+# ========================================
+with st.sidebar:
+    st.markdown("## ⚙️ 스크래핑 설정")
+    
+    st.markdown("---")
+    
     # 카테고리 선택
-    category = st.selectbox(
+    st.markdown("### 📂 카테고리")
+    selected_category = st.selectbox(
         "뉴스 카테고리",
-        options=list(CATEGORY_IDS.keys()),
-        format_func=lambda x: {
-            "politics": "정치 (Politics)",
-            "economy": "경제 (Economy)",
-            "it_science": "IT/기술 (IT & Technology)"
-        }.get(x, x)
+        options=list(CATEGORY_NAMES.keys()),
+        format_func=lambda x: CATEGORY_NAMES[x]
     )
- 
-    st.markdown("---")
-    
-    # 스크래핑 설정
-    st.subheader("📋 스크래핑 설정")
-    top_n_topics = st.slider("수집할 주제 수", min_value=1, max_value=10, value=5)
-    articles_per_topic = st.slider("주제당 기사 수", min_value=1, max_value=10, value=5)
- 
-    # 헤드리스 모드
-    headless = st.checkbox("헤드리스 모드", value=True, 
-                          help="체크 해제 시 브라우저 창이 표시됩니다")
     
     st.markdown("---")
     
-    # 예상 수집량
-    total_articles = top_n_topics * articles_per_topic
-    st.info(f"📊 예상 수집량: ~{total_articles}개 기사")
- 
+    # 스크래핑 옵션
+    st.markdown("### 🔧 수집 옵션")
+    max_pages = st.slider("최대 페이지 수", 1, 10, 3)
+    headless = st.checkbox("헤드리스 모드", value=True, help="브라우저 창을 표시하지 않음")
+    
     st.markdown("---")
- 
-    # 실행 버튼
-    if st.button("🚀 스크래핑 시작", type="primary", use_container_width=True):
-        st.session_state.run_scraping = True
- 
-# 메인 영역
-col1, col2 = st.columns([2, 1])
- 
+    
+    # 통계 요약
+    st.markdown("### 📊 누적 통계")
+    st.metric("총 수집 기사", st.session_state.scraping_stats["total_articles"])
+    st.metric("성공", st.session_state.scraping_stats["success_count"], 
+              delta=None if st.session_state.scraping_stats["success_count"] == 0 else "↑")
+    
+    if st.session_state.scraping_stats["last_scraping"]:
+        st.caption(f"마지막 수집: {st.session_state.scraping_stats['last_scraping']}")
+
+# ========================================
+# 메인 화면
+# ========================================
+
+# 페이지 헤더
+render_page_header(
+    title="뉴스 스크래핑 콘솔",
+    description="네이버 뉴스를 자동으로 수집하고 카테고리별로 분류 저장합니다",
+    icon="🗞️"
+)
+
+# ========================================
+# KPI 대시보드
+# ========================================
+render_section_header("📊 수집 현황", "카테고리별 뉴스 수집 통계", "")
+
+# 카테고리별 파일 카운트
+category_stats = []
+for cat_key, cat_name in CATEGORY_NAMES.items():
+    cat_dir = SCRAPED_NEWS_DIR / cat_key
+    if cat_dir.exists():
+        json_files = list(cat_dir.glob("*.json"))
+        category_stats.append({
+            "label": cat_name,
+            "value": len(json_files),
+            "icon": "📄",
+            "color": "primary" if cat_key == selected_category else "secondary"
+        })
+    else:
+        category_stats.append({
+            "label": cat_name,
+            "value": 0,
+            "icon": "📄",
+            "color": "secondary"
+        })
+
+render_stats_row(category_stats)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ========================================
+# 스크래핑 제어
+# ========================================
+render_section_header("🎮 스크래핑 제어", "뉴스 수집 시작 및 관리", "")
+
+col1, col2, col3 = st.columns([2, 1, 1])
+
 with col1:
-    st.header("📊 스크래핑 결과")
- 
-    # 스크래핑 실행
-    if st.session_state.get('run_scraping', False):
-        st.session_state.run_scraping = False
+    if st.button("🚀 스크래핑 시작", type="primary", use_container_width=True):
+        st.session_state.scraping_logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 스크래핑 시작: {CATEGORY_NAMES[selected_category]}")
         
-        progress_bar = st.progress(0)
-        status_text = st.empty()
- 
-        with st.spinner(f"'{category}' 카테고리 뉴스 스크래핑 중..."):
+        with st.spinner("뉴스 수집 중..."):
             try:
-                status_text.text("🔄 웹드라이버 초기화 중...")
                 scraper = NaverNewsScraper(headless=headless)
                 
-                progress_bar.progress(10)
-                status_text.text(f"🔄 {category} 카테고리 스크래핑 중...")
-                
-                # 스크래핑 실행
-                data = scraper.scrape_category(
-                    category_name=category,
-                    top_n_topics=top_n_topics,
-                    articles_per_topic=articles_per_topic
+                # 올바른 파라미터 사용
+                result = scraper.scrape_category(
+                    category_name=selected_category,
+                    top_n_topics=5,  # 상위 5개 주제
+                    articles_per_topic=5  # 주제당 5개 기사
                 )
                 
-                progress_bar.progress(80)
-                status_text.text("💾 데이터 저장 중...")
-                
-                if data.topics:
-                    # 결과 저장
-                    filepath = scraper.save_data(data)
-                    st.session_state.scraped_data = data
-                    st.session_state.saved_filepath = filepath
+                if result and result.topics:
+                    # 총 기사 수 계산
+                    total_articles = sum(len(topic.articles) for topic in result.topics)
                     
-                    progress_bar.progress(100)
-                    status_text.empty()
+                    st.session_state.scraping_stats["total_articles"] += total_articles
+                    st.session_state.scraping_stats["success_count"] += 1
+                    st.session_state.scraping_stats["last_scraping"] = datetime.now().strftime("%Y-%m-%d %H:%M")
                     
-                    total_articles = sum(len(t.articles) for t in data.topics)
-                    st.success(f"✅ {len(data.topics)}개 주제, {total_articles}개 기사 수집 완료!")
+                    # 파일 저장
+                    filename = scraper.save_data(result)
+                    
+                    st.session_state.scraping_logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 완료: {len(result.topics)}개 주제, {total_articles}개 기사 수집")
+                    render_alert(f"✅ {len(result.topics)}개 주제, {total_articles}개 기사를 성공적으로 수집했습니다!\n📁 저장: {filename.name}", "success")
                 else:
-                    st.error("❌ 데이터를 수집하지 못했습니다.")
- 
+                    st.session_state.scraping_stats["failed_count"] += 1
+                    st.session_state.scraping_logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 실패: 수집 오류")
+                    render_alert("❌ 스크래핑 중 오류가 발생했습니다.", "error")
+                
+                # 드라이버 종료
                 scraper.close()
- 
+                    
             except Exception as e:
-                st.error(f"❌ 오류 발생: {str(e)}")
-                progress_bar.empty()
-                status_text.empty()
- 
-    # 수집된 데이터 표시
-    if 'scraped_data' in st.session_state and st.session_state.scraped_data:
-        data = st.session_state.scraped_data
-        
-        # 카테고리 한국어 변환
-        category_names = {
-            "politics": "정치 (Politics)",
-            "economy": "경제 (Economy)",
-            "it_science": "IT/기술 (IT & Technology)"
-        }
-        category_display = category_names.get(data.category, data.category)
-        
-        st.subheader(f"📁 {category_display} - {len(data.topics)}개 주제")
- 
-        for i, topic in enumerate(data.topics, 1):
-            with st.expander(f"🔹 {i}. {topic.topic_title} ({topic.related_articles_count}개 관련기사)", 
-                           expanded=(i == 1)):
-                
-                # 주제 정보
-                if topic.topic_summary:
-                    st.markdown(f"**요약:** {topic.topic_summary}")
-                
-                st.markdown(f"**수집된 기사:** {len(topic.articles)}개")
-                st.markdown("---")
-                
-                # 기사 리스트
-                for j, article in enumerate(topic.articles, 1):
-                    col_a, col_b = st.columns([3, 1])
+                st.session_state.scraping_stats["failed_count"] += 1
+                st.session_state.scraping_logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] 오류: {str(e)}")
+                render_alert(f"❌ 오류: {str(e)}", "error")
+                import traceback
+                st.code(traceback.format_exc())
+            
+            st.rerun()
 
-                    with col_a:
-                        st.markdown(f"**{j}. {article.title}**")
-                        st.caption(f"📅 {article.published_at[:19]}")
-                        st.markdown(f"[기사 링크]({article.url})")
-                        
-                        # 본문 미리보기 + 더보기 기능
-                        if article.content:
-                            content_len = len(article.content)
-                            st.caption(f"본문 길이: {content_len}자")
-                            
-                            preview = article.content[:200] + "..." if content_len > 200 else article.content
-                            st.text(preview)
-                            
-                            # 200자 이상일 때 "더보기" 버튼
-                            if content_len > 200:
-                                show_key = f"show_{i}_{j}_{article.url[:20] if article.url else ''}"
-                                if st.checkbox("📖 전체 본문 보기", key=show_key):
-                                    st.text_area(
-                                        "전체 본문",
-                                        article.content,
-                                        height=300,
-                                        key=f"full_{i}_{j}"
-                                    )
- 
-                with col_b:
-                    st.metric("👍 반응", article.reaction_count)
-                    st.metric("💬 댓글", article.comment_count)
-                
-                st.markdown("---")
- 
 with col2:
-    st.header("📈 통계")
- 
-    if 'scraped_data' in st.session_state and st.session_state.scraped_data:
-        data = st.session_state.scraped_data
- 
-        # 기본 통계
-        total_articles = sum(len(t.articles) for t in data.topics)
-        total_reactions = sum(a.reaction_count for t in data.topics for a in t.articles)
-        total_comments = sum(a.comment_count for t in data.topics for a in t.articles)
-        
-        st.metric("📰 총 기사 수", total_articles)
-        st.metric("👍 총 반응 수", f"{total_reactions:,}")
-        st.metric("💬 총 댓글 수", f"{total_comments:,}")
-        
-        st.markdown("---")
-        
-        # 주제별 관련기사 수
-        st.subheader("🏆 주제별 관련기사 수")
-        for topic in data.topics:
-            st.progress(min(topic.related_articles_count / 100, 1.0))
-            st.caption(f"{topic.topic_title[:20]}... : {topic.related_articles_count}개")
- 
-        st.markdown("---")
- 
-        # 저장 경로
-        if 'saved_filepath' in st.session_state:
-            st.info(f"💾 저장 위치:\n{st.session_state.saved_filepath}")
-    else:
-        st.info("👈 왼쪽에서 스크래핑을 시작하세요")
- 
-# 저장된 파일 목록
-st.markdown("---")
-st.header("📁 저장된 스크래핑 파일")
+    if st.button("📊 통계 보기", use_container_width=True):
+        render_alert("통계 탭에서 상세 정보를 확인하세요.", "info")
 
-# 카테고리 필터 추가
-category_filter = st.selectbox(
-    "📂 카테고리 필터",
-    options=["전체"] + list(CATEGORY_IDS.keys()),
-    format_func=lambda x: {
-        "전체": "전체 (All)",
-        "politics": "정치 (Politics)",
-        "economy": "경제 (Economy)",
-        "it_science": "IT/기술 (IT & Technology)"
-    }.get(x, x)
-)
- 
-if SCRAPED_NEWS_DIR.exists():
-    # 카테고리별 또는 전체 파일 검색
-    if category_filter == "전체":
-        # 모든 카테고리 폴더에서 파일 검색
-        json_files = sorted(list(SCRAPED_NEWS_DIR.glob("**/*.json")), reverse=True)
-        # 루트에 있는 기존 파일도 포함
-        json_files += sorted(list(SCRAPED_NEWS_DIR.glob("*.json")), reverse=True)
-        json_files = sorted(set(json_files), key=lambda x: x.stat().st_mtime, reverse=True)
-    else:
-        category_dir = SCRAPED_NEWS_DIR / category_filter
-        if category_dir.exists():
-            json_files = sorted(list(category_dir.glob("*.json")), reverse=True)
+with col3:
+    if st.button("🔄 새로고침", use_container_width=True):
+        st.rerun()
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ========================================
+# 탭 기반 정보
+# ========================================
+tab1, tab2, tab3 = st.tabs(["📋 수집 기사 목록", "📊 상세 통계", "🔍 로그"])
+
+with tab1:
+    st.markdown("### 수집된 기사")
+    
+    category_dir = SCRAPED_NEWS_DIR / selected_category
+    if category_dir.exists():
+        json_files = sorted(list(category_dir.glob("*.json")), reverse=True)
+        
+        if json_files:
+            st.info(f"📄 총 {len(json_files)}개 기사가 수집되었습니다.")
+            
+            # 검색 필터
+            search_query = st.text_input("🔍 기사 제목 검색", placeholder="검색어를 입력하세요...")
+            
+            # 기사 목록 표시
+            articles_data = []
+            for file in json_files[:50]:  # 최근 50개만
+                try:
+                    with open(file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        
+                        if search_query and search_query.lower() not in data.get('title', '').lower():
+                            continue
+                        
+                        articles_data.append({
+                            "제목": data.get('title', '-')[:80] + "...",
+                            "링크": data.get('link', '-'),
+                            "날짜": data.get('date', '-'),
+                            "파일": file.name
+                        })
+                except Exception as e:
+                    continue
+            
+            if articles_data:
+                import pandas as pd
+                df = pd.DataFrame(articles_data)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+            else:
+                st.warning("검색 결과가 없습니다.")
         else:
-            json_files = []
-            # 기존 파일 (카테고리 폴더 없을 때)
-            for f in SCRAPED_NEWS_DIR.glob("*.json"):
-                if f.name.startswith(category_filter):
-                    json_files.append(f)
-            json_files = sorted(json_files, reverse=True)
- 
-    if json_files:
-        selected_file = st.selectbox(
-            "파일 선택",
-            options=json_files,
-            format_func=lambda x: f"[{x.parent.name}] {x.name}" if x.parent != SCRAPED_NEWS_DIR else x.name
-        )
- 
-        if selected_file:
-            with open(selected_file, 'r', encoding='utf-8') as f:
-                file_data = json.load(f)
-            
-            col_file1, col_file2, col_file3, col_file4 = st.columns(4)
- 
-            with col_file1:
-                # 카테고리 한국어 변환
-                cat_names = {
-                    "politics": "정치 (Politics)",
-                    "economy": "경제 (Economy)",
-                    "it_science": "IT/기술 (IT & Technology)"
-                }
-                cat_value = file_data.get('category', 'N/A')
-                st.metric("카테고리", cat_names.get(cat_value, cat_value))
-            
-            with col_file2:
-                st.metric("주제 수", len(file_data.get('topics', [])))
-            
-            with col_file3:
-                total = sum(len(t.get('articles', [])) for t in file_data.get('topics', []))
-                st.metric("기사 수", total)
-            
-            with col_file4:
-                scraped_at = file_data.get('scraped_at', 'N/A')
-                st.metric("수집 시각", scraped_at[:19] if scraped_at != 'N/A' else 'N/A')
-            
-            # 상세 보기 옵션
-            if st.checkbox("📄 파일 내용 보기"):
-                st.json(file_data)
+            st.info("📭 아직 수집된 기사가 없습니다.")
     else:
-        st.info("저장된 파일이 없습니다.")
-else:
-    st.info("저장 디렉토리가 존재하지 않습니다.")
- 
-# 푸터
+        st.info("📭 카테고리 디렉토리가 없습니다.")
+
+with tab2:
+    st.markdown("### 카테고리별 상세 통계")
+    
+    detailed_stats = []
+    for cat_key, cat_name in CATEGORY_NAMES.items():
+        cat_dir = SCRAPED_NEWS_DIR / cat_key
+        if cat_dir.exists():
+            json_files = list(cat_dir.glob("*.json"))
+            
+            # 최근 파일 확인
+            if json_files:
+                latest_file = max(json_files, key=lambda x: x.stat().st_mtime)
+                latest_time = datetime.fromtimestamp(latest_file.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            else:
+                latest_time = "-"
+            
+            detailed_stats.append({
+                "카테고리": cat_name,
+                "수집 기사 수": len(json_files),
+                "마지막 수집": latest_time
+            })
+        else:
+            detailed_stats.append({
+                "카테고리": cat_name,
+                "수집 기사 수": 0,
+                "마지막 수집": "-"
+            })
+    
+    import pandas as pd
+    st.dataframe(pd.DataFrame(detailed_stats), use_container_width=True, hide_index=True)
+
+with tab3:
+    st.markdown("### 스크래핑 로그")
+    
+    if st.session_state.scraping_logs:
+        render_log_container(st.session_state.scraping_logs, "최근 로그", "400px")
+    else:
+        st.info("아직 로그가 없습니다.")
+    
+    if st.button("🗑️ 로그 지우기"):
+        st.session_state.scraping_logs = []
+        st.rerun()
+
+# ========================================
+# Footer
+# ========================================
+st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown("---")
-st.caption("뉴스 스크래퍼 대시보드 v2.0 | Auto blog")
- 
+st.caption("🗞️ Naver News Scraper • Built with Selenium & Streamlit")

@@ -1,294 +1,352 @@
 """
-알림 시스템 대시보드
-Slack 알림 관리 및 테스트
+🔔 알림 시스템 대시보드 - Premium Edition
+이메일 알림 자동 발송 시스템
+
+기능:
+- 발행 결과 자동 알림
+- 테스트 메일 발송
+- 알림 로그 관리
+- 수신자 설정
 """
 import streamlit as st
 import sys
 from pathlib import Path
+import json
 from datetime import datetime
- 
-sys.path.append(str(Path(__file__).parent.parent))
- 
 import importlib
-# 숫자로 시작하는 모듈 이름은 동적 import 사용
+
+sys.path.append(str(Path(__file__).parent.parent))
+
+# UI 컴포넌트
+from dashboards.ui_components import (
+    render_page_header, render_section_header, render_card,
+    render_metric_card, render_status_badge, render_alert,
+    render_stats_row, render_timeline, COLORS
+)
+
+# 모듈 import
 notifier_module = importlib.import_module("modules.08_notifier.notifier")
-SlackNotifier = notifier_module.SlackNotifier
-from config.settings import SLACK_CHANNEL_ID
- 
+EmailNotifier = notifier_module.EmailNotifier
+
+from config.settings import EMAIL_FROM, EMAIL_TO
+
+# ========================================
+# 페이지 설정
+# ========================================
 st.set_page_config(
     page_title="알림 시스템 대시보드",
     page_icon="🔔",
     layout="wide"
 )
- 
-st.title("🔔 알림 시스템 대시보드")
-st.markdown("---")
 
-# 초기화
-@st.cache_resource
-def get_notifier():
-    return SlackNotifier()
- 
-notifier = get_notifier()
- 
+# 커스텀 CSS
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    .main .block-container {
+        padding-top: 2rem;
+        max-width: 1400px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ========================================
+# 세션 상태
+# ========================================
+if 'notification_history' not in st.session_state:
+    st.session_state.notification_history = []
+if 'notification_stats' not in st.session_state:
+    st.session_state.notification_stats = {
+        "total_sent": 0,
+        "success_count": 0,
+        "failed_count": 0
+    }
+
+# ========================================
 # 사이드바
+# ========================================
 with st.sidebar:
-    st.header("⚙️ 설정")
- 
-    if SLACK_CHANNEL_ID:
-        st.metric("Slack 채널", SLACK_CHANNEL_ID[:20] + "...")
-        slack_enabled = True
+    st.markdown("## ⚙️ 알림 설정")
+    
+    st.markdown("---")
+    
+    # 이메일 정보
+    st.markdown("### 📧 이메일 설정")
+    
+    if EMAIL_FROM and EMAIL_TO:
+        st.success("✅ 이메일 설정 완료")
+        st.caption(f"발신: {EMAIL_FROM}")
+        st.caption(f"수신: {EMAIL_TO}")
     else:
-        st.error("Slack 채널이 설정되지 않았습니다.")
-        slack_enabled = False
- 
+        st.error("❌ 이메일 미설정")
+        st.caption(".env 파일에서 설정 필요")
+    
     st.markdown("---")
- 
-    st.info("""
-    💡 **Slack 알림 종류**
-    - 워크플로우 시작
-    - 발행 성공
-    - 발행 실패
-    - 워크플로우 완료
-    - 커스텀 메시지
-    """)
- 
-# 탭 생성
-tab1, tab2, tab3 = st.tabs(["📤 알림 테스트", "📊 알림 템플릿", "📜 알림 기록"])
- 
-# 탭 1: 알림 테스트
-with tab1:
-    st.header("📤 알림 테스트")
- 
-    # 알림 타입 선택
-    notif_type = st.selectbox(
-        "알림 타입",
-        ["워크플로우 시작", "발행 성공", "발행 실패", "워크플로우 완료", "커스텀 메시지"]
-    )
- 
+    
+    # 알림 채널
+    st.markdown("### 📢 알림 채널")
+    email_enabled = st.checkbox("📧 이메일", value=True)
+    slack_enabled = st.checkbox("💬 Slack", value=False, disabled=True, help="준비 중")
+    
     st.markdown("---")
- 
-    if notif_type == "워크플로우 시작":
-        st.subheader("🚀 워크플로우 시작 알림")
- 
-        categories_input = st.text_input("카테고리 (쉼표로 구분)", value="정치, 경제, IT/기술")
- 
-        if st.button("📤 알림 전송", type="primary", disabled=not slack_enabled):
-            categories = [c.strip() for c in categories_input.split(",")]
- 
-            with st.spinner("알림 전송 중..."):
-                success = notifier.send_workflow_start_notification(categories)
- 
-                if success:
-                    st.success("✅ 알림 전송 완료!")
-                else:
-                    st.error("❌ 알림 전송 실패")
- 
-    elif notif_type == "발행 성공":
-        st.subheader("✅ 발행 성공 알림")
- 
-        col1, col2 = st.columns(2)
- 
-        with col1:
-            topic = st.text_input("주제", value="AI 기술의 미래")
-            category = st.text_input("카테고리", value="IT/기술")
- 
-        with col2:
-
-            attempts = st.number_input("시도 횟수", min_value=1, value=1)
-            duration = st.number_input("소요 시간 (초)", min_value=1, value=180)
- 
-        blog_url = st.text_input("블로그 URL", value="https://blog.naver.com/test/123456")
- 
-        if st.button("📤 알림 전송", type="primary", disabled=not slack_enabled):
-            with st.spinner("알림 전송 중..."):
-                success = notifier.send_success_notification(
-                    topic=topic,
-                    category=category,
-                    blog_url=blog_url,
-                    attempts=attempts,
-                    duration_seconds=duration
-                )
- 
-                if success:
-                    st.success("✅ 알림 전송 완료!")
-                else:
-                    st.error("❌ 알림 전송 실패")
- 
-    elif notif_type == "발행 실패":
-        st.subheader("❌ 발행 실패 알림")
- 
-        col1, col2 = st.columns(2)
- 
-        with col1:
-            topic = st.text_input("주제", value="경제 동향 분석")
-            category = st.text_input("카테고리", value="경제")
- 
-        with col2:
-            attempts = st.number_input("시도 횟수", min_value=1, value=3)
-            duration = st.number_input("소요 시간 (초)", min_value=1, value=120)
- 
-        error = st.text_area("오류 메시지", value="네이버 로그인 실패")
- 
-        if st.button("📤 알림 전송", type="primary", disabled=not slack_enabled):
-            with st.spinner("알림 전송 중..."):
-                success = notifier.send_failure_notification(
-                    topic=topic,
-                    category=category,
-                    error=error,
-                    attempts=attempts,
-                    duration_seconds=duration
-                )
- 
-                if success:
-                    st.success("✅ 알림 전송 완료!")
-                else:
-                    st.error("❌ 알림 전송 실패")
- 
-    elif notif_type == "워크플로우 완료":
-        st.subheader("🎉 워크플로우 완료 알림")
- 
-        col1, col2 = st.columns(2)
- 
-        with col1:
-            total = st.number_input("총 처리 건수", min_value=1, value=3)
-            success_count = st.number_input("성공 건수", min_value=0, value=2)
- 
-        with col2:
-            fail_count = st.number_input("실패 건수", min_value=0, value=1)
-            duration = st.number_input("총 소요 시간 (초)", min_value=1, value=540)
- 
-        if st.button("📤 알림 전송", type="primary", disabled=not slack_enabled):
-            with st.spinner("알림 전송 중..."):
-                success = notifier.send_workflow_complete_notification(
-                    total_count=total,
-                    success_count=success_count,
-                    fail_count=fail_count,
-                    duration_seconds=duration
-                )
- 
-                if success:
-                    st.success("✅ 알림 전송 완료!")
-                else:
-                    st.error("❌ 알림 전송 실패")
- 
-    else:  # 커스텀 메시지
-        st.subheader("💬 커스텀 메시지")
- 
-        message = st.text_area(
-            "메시지 내용 (Markdown 지원)",
-            value="*테스트 메시지*\n\n이것은 커스텀 메시지입니다.",
-            height=200
-        )
- 
-        if st.button("📤 알림 전송", type="primary", disabled=not slack_enabled):
-            with st.spinner("알림 전송 중..."):
-                success = notifier.send_custom_message(message)
- 
-                if success:
-                    st.success("✅ 알림 전송 완료!")
-                else:
-                    st.error("❌ 알림 전송 실패")
- 
-# 탭 2: 알림 템플릿
-with tab2:
-    st.header("📊 알림 템플릿")
- 
-    # 각 템플릿 미리보기
-    template_type = st.selectbox(
-        "템플릿 선택",
-        ["워크플로우 시작", "발행 성공", "발행 실패", "워크플로우 완료"]
-    )
- 
-    st.markdown("---")
- 
-    if template_type == "워크플로우 시작":
-        st.code("""🚀 *자동 블로그 워크플로우 시작*
- 
-*처리 카테고리*: 정치, 경제, IT/기술
-*시작 시각*: 2024-01-15 10:00:00
- 
-진행 상황을 계속 알려드리겠습니다.
-""", language="markdown")
- 
-    elif template_type == "발행 성공":
-        st.code("""✅ *블로그 발행 성공!*
- 
-*주제*: AI 기술의 미래
-*카테고리*: IT/기술
-*URL*: https://blog.naver.com/test/123456
- 
-*통계*:
-  • 시도 횟수: 1회
-  • 소요 시간: 3분 0초
-  • 발행 시각: 2024-01-15 10:30:00
- 
-<https://blog.naver.com/test/123456|블로그 보러가기 →>
-""", language="markdown")
- 
-    elif template_type == "발행 실패":
-        st.code("""❌ *블로그 발행 실패*
- 
-*주제*: 경제 동향 분석
-*카테고리*: 경제
- 
-*오류*:
-```네이버 로그인 실패```
- 
-*통계*:
-  • 시도 횟수: 3회
-  • 소요 시간: 2분 0초
-  • 실패 시각: 2024-01-15 10:35:00
- 
-⚠️ 수동 확인이 필요합니다.
-""", language="markdown")
- 
-    else:  # 워크플로우 완료
-        st.code("""🎉 *자동 블로그 워크플로우 완료*
- 
-*결과 요약*:
-  • 총 처리: 3건
-  • 성공: 2건 ✅
-  • 실패: 1건 ❌
-  • 성공률: 66.7%
- 
-*소요 시간*: 9분 0초
-*완료 시각*: 2024-01-15 11:00:00
-""", language="markdown")
- 
-# 탭 3: 알림 기록
-with tab3:
-    st.header("📜 알림 기록")
- 
-    st.info("알림 기록 기능은 추후 구현 예정입니다.")
- 
-    # 예시 기록
-    with st.expander("📋 예시 알림 기록"):
-        st.markdown("""
-        | 시각 | 타입 | 상태 | 내용 |
-        |------|------|------|------|
-        | 10:00 | 워크플로우 시작 | ✅ | 3개 카테고리 처리 시작 |
-        | 10:30 | 발행 성공 | ✅ | AI 기술의 미래 발행 완료 |
-        | 10:45 | 발행 성공 | ✅ | 경제 동향 분석 발행 완료 |
-        | 11:00 | 발행 실패 | ❌ | 정치 이슈 발행 실패 |
-        | 11:00 | 워크플로우 완료 | ✅ | 전체 작업 완료 (2/3 성공) |
-        """)
- 
+    
     # 통계
-    st.markdown("---")
-    st.subheader("📈 알림 통계")
- 
-    col_stat1, col_stat2, col_stat3 = st.columns(3)
- 
-    with col_stat1:
-        st.metric("총 알림 전송", "127건")
- 
-    with col_stat2:
-        st.metric("성공", "125건")
- 
-    with col_stat3:
-        st.metric("실패", "2건")
- 
-# 푸터
+    st.markdown("### 📊 발송 통계")
+    st.metric("총 발송", st.session_state.notification_stats["total_sent"])
+    st.metric("성공", st.session_state.notification_stats["success_count"],
+              delta=None if st.session_state.notification_stats["success_count"] == 0 else "↑")
+
+# ========================================
+# 메인 화면
+# ========================================
+
+# 페이지 헤더
+render_page_header(
+    title="알림 시스템 콘솔",
+    description="블로그 발행 결과를 자동으로 이메일로 통지합니다",
+    icon="🔔"
+)
+
+# ========================================
+# KPI 대시보드
+# ========================================
+render_section_header("📊 알림 현황", "알림 발송 통계", "")
+
+stats = [
+    {
+        "label": "총 발송",
+        "value": st.session_state.notification_stats["total_sent"],
+        "icon": "📤",
+        "color": "primary"
+    },
+    {
+        "label": "성공",
+        "value": st.session_state.notification_stats["success_count"],
+        "icon": "✅",
+        "color": "success"
+    },
+    {
+        "label": "실패",
+        "value": st.session_state.notification_stats["failed_count"],
+        "icon": "❌",
+        "color": "danger"
+    },
+    {
+        "label": "성공률",
+        "value": f"{(st.session_state.notification_stats['success_count'] / max(st.session_state.notification_stats['total_sent'], 1) * 100):.1f}%",
+        "icon": "📈",
+        "color": "info"
+    }
+]
+
+render_stats_row(stats)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ========================================
+# 테스트 알림
+# ========================================
+render_section_header("🧪 테스트 알림", "알림 시스템 동작 테스트", "")
+
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    test_message = st.text_area(
+        "테스트 메시지",
+        value="안녕하세요! 알림 시스템 테스트입니다.",
+        height=100,
+        help="테스트로 발송할 메시지를 입력하세요"
+    )
+
+with col2:
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if st.button("📧 테스트 메일 발송", type="primary", use_container_width=True):
+        if not EMAIL_FROM or not EMAIL_TO:
+            render_alert("❌ 이메일 설정이 필요합니다. .env 파일을 확인하세요.", "error")
+        else:
+            with st.spinner("📤 메일 발송 중..."):
+                try:
+                    notifier = EmailNotifier()
+                    
+                    result = notifier.send_notification(
+                        subject="[테스트] 알림 시스템 테스트",
+                        message=test_message,
+                        notification_type="test"
+                    )
+                    
+                    if result:
+                        # 통계 업데이트
+                        st.session_state.notification_stats["total_sent"] += 1
+                        st.session_state.notification_stats["success_count"] += 1
+                        
+                        # 히스토리 추가
+                        st.session_state.notification_history.append({
+                            "type": "test",
+                            "subject": "[테스트] 알림 시스템 테스트",
+                            "message": test_message,
+                            "status": "success",
+                            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                        
+                        render_alert(f"✅ 메일 발송 성공!\n수신: {EMAIL_TO}", "success")
+                        st.rerun()
+                    else:
+                        st.session_state.notification_stats["total_sent"] += 1
+                        st.session_state.notification_stats["failed_count"] += 1
+                        
+                        st.session_state.notification_history.append({
+                            "type": "test",
+                            "subject": "[테스트] 알림 시스템 테스트",
+                            "message": test_message,
+                            "status": "failed",
+                            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                        
+                        render_alert("❌ 메일 발송 실패", "error")
+                        
+                except Exception as e:
+                    st.session_state.notification_stats["total_sent"] += 1
+                    st.session_state.notification_stats["failed_count"] += 1
+                    render_alert(f"❌ 오류: {str(e)}", "error")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ========================================
+# 설정 정보
+# ========================================
+render_section_header("⚙️ 시스템 설정", "알림 시스템 구성 정보", "")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("### 📧 이메일 설정")
+    
+    config_data = {
+        "발신 주소": EMAIL_FROM if EMAIL_FROM else "미설정",
+        "수신 주소": EMAIL_TO if EMAIL_TO else "미설정",
+        "SMTP 서버": "smtp.gmail.com",
+        "포트": "587 (TLS)"
+    }
+    
+    for key, value in config_data.items():
+        st.markdown(f"**{key}:** `{value}`")
+
+with col2:
+    st.markdown("### 📢 알림 채널")
+    
+    channels = {
+        "📧 이메일": "✅ 활성화" if email_enabled else "❌ 비활성화",
+        "💬 Slack": "🔜 준비 중",
+        "📱 카카오톡": "🔜 준비 중",
+        "🔔 푸시 알림": "🔜 준비 중"
+    }
+    
+    for channel, status in channels.items():
+        st.markdown(f"**{channel}:** {status}")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ========================================
+# 탭
+# ========================================
+tab1, tab2 = st.tabs(["📋 알림 히스토리", "📊 통계 분석"])
+
+with tab1:
+    st.markdown("### 최근 알림 기록")
+    
+    if st.session_state.notification_history:
+        # 타임라인 형식
+        timeline_events = []
+        for item in reversed(st.session_state.notification_history[-20:]):
+            status_emoji = "✅" if item["status"] == "success" else "❌"
+            
+            timeline_events.append({
+                "time": item["time"],
+                "title": f"{status_emoji} {item['subject']}",
+                "description": item["message"][:100] + "..." if len(item["message"]) > 100 else item["message"],
+                "status": item["status"]
+            })
+        
+        render_timeline(timeline_events)
+    else:
+        st.info("아직 알림 기록이 없습니다.")
+
+with tab2:
+    st.markdown("### 알림 통계 분석")
+    
+    if st.session_state.notification_history:
+        # 타입별 분류
+        type_counts = {}
+        for item in st.session_state.notification_history:
+            notif_type = item.get("type", "unknown")
+            type_counts[notif_type] = type_counts.get(notif_type, 0) + 1
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            render_metric_card("테스트 알림", str(type_counts.get("test", 0)), icon="🧪", color="info")
+        
+        with col2:
+            render_metric_card("성공 알림", str(type_counts.get("success", 0)), icon="✅", color="success")
+        
+        with col3:
+            render_metric_card("실패 알림", str(type_counts.get("failed", 0)), icon="❌", color="danger")
+        
+        # 알림 목록
+        st.markdown("#### 전체 알림 목록")
+        
+        notification_data = []
+        for item in reversed(st.session_state.notification_history):
+            notification_data.append({
+                "제목": item["subject"],
+                "타입": item["type"].upper(),
+                "상태": "✅ 성공" if item["status"] == "success" else "❌ 실패",
+                "시간": item["time"]
+            })
+        
+        import pandas as pd
+        st.dataframe(pd.DataFrame(notification_data), use_container_width=True, hide_index=True)
+    else:
+        st.info("통계를 보려면 먼저 알림을 발송하세요.")
+
+# ========================================
+# 사용 가이드
+# ========================================
+st.markdown("<br>", unsafe_allow_html=True)
+render_section_header("📖 설정 가이드", "이메일 알림 설정 방법", "")
+
+with st.expander("📧 Gmail 설정 방법"):
+    st.markdown("""
+    ### Gmail SMTP 설정
+    
+    1. **앱 비밀번호 생성**
+       - Google 계정 관리 → 보안
+       - 2단계 인증 활성화
+       - 앱 비밀번호 생성
+    
+    2. **.env 파일 설정**
+       ```env
+       EMAIL_HOST=smtp.gmail.com
+       EMAIL_PORT=587
+       EMAIL_USER=your-email@gmail.com
+       EMAIL_PASSWORD=your-app-password
+       EMAIL_FROM=your-email@gmail.com
+       EMAIL_TO=recipient@example.com
+       ```
+    
+    3. **테스트**
+       - 위 "테스트 메일 발송" 버튼으로 확인
+    """)
+
+# ========================================
+# Footer
+# ========================================
+st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown("---")
-st.caption("알림 시스템 대시보드 v1.0 | Auto blog")
+st.caption("🔔 Email Notification System • SMTP-based Alerting")
