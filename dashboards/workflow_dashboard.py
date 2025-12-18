@@ -75,10 +75,72 @@ def get_resources():
 
 rag_builder, topic_manager = get_resources()
 
+# API 키 관리 함수
+def get_api_key(key_name: str) -> str:
+    """세션 또는 환경변수에서 API 키 가져오기"""
+    import os
+    # 1순위: 세션에서 입력한 키
+    session_key = st.session_state.get(f"user_{key_name}", "")
+    if session_key:
+        return session_key
+    # 2순위: Streamlit secrets (배포 환경)
+    try:
+        return st.secrets.get(key_name, "")
+    except:
+        pass
+    # 3순위: 환경변수
+    return os.getenv(key_name, "")
+
+
 # 사이드바 설정
 with st.sidebar:
     st.header("⚙️ 설정")
-    
+
+    # API 키 설정 섹션
+    with st.expander("🔑 API 키 설정", expanded=False):
+        st.markdown("**외부 사용자용**: 아래에 API 키를 입력하세요.")
+        st.caption("입력하지 않으면 서버의 환경변수 또는 .env 파일이 사용됩니다.")
+
+        user_google_key = st.text_input(
+            "Google API Key (Gemini)",
+            type="password",
+            key="user_GOOGLE_API_KEY",
+            help="Google AI Studio에서 발급받은 API 키"
+        )
+
+        user_naver_id = st.text_input(
+            "네이버 아이디",
+            key="user_NAVER_ID",
+            help="네이버 블로그 발행용"
+        )
+
+        user_naver_pw = st.text_input(
+            "네이버 비밀번호",
+            type="password",
+            key="user_NAVER_PASSWORD",
+            help="네이버 블로그 발행용"
+        )
+
+        user_slack_token = st.text_input(
+            "Slack Bot Token (선택)",
+            type="password",
+            key="user_SLACK_BOT_TOKEN",
+            help="알림 기능 사용 시 필요"
+        )
+
+        # API 키 상태 표시
+        st.markdown("---")
+        st.markdown("**API 키 상태:**")
+        google_key = get_api_key("GOOGLE_API_KEY")
+        naver_id = get_api_key("NAVER_ID")
+        slack_token = get_api_key("SLACK_BOT_TOKEN")
+
+        st.markdown(f"- Google API: {'✅ 설정됨' if google_key else '❌ 없음'}")
+        st.markdown(f"- 네이버 계정: {'✅ 설정됨' if naver_id else '❌ 없음'}")
+        st.markdown(f"- Slack: {'✅ 설정됨' if slack_token else '⚪ 선택사항'}")
+
+    st.markdown("---")
+
     # 모델 선택
     st.subheader("📝 블로그 생성 모델")
     blog_model = st.selectbox(
