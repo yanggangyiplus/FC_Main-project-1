@@ -721,30 +721,51 @@ if start_workflow:
                     st.code(traceback.format_exc())
         
         progress_bar.progress(100)
-        status_text.text("✅ 워크플로우 완료!")
-        
-        # 최종 결과 표시
+
+        # 최종 결과 표시 (품질 통과 여부에 따라 분기)
         st.markdown("---")
-        st.header("🎉 워크플로우 완료!")
-        
-        final_result_text = f"""
-        ✅ **생성 완료**
-        - 주제: {st.session_state.workflow_topic}
-        - 카테고리: {CATEGORY_MAP[category]} → {NAVER_BLOG_CATEGORIES[blog_category]['name']}
-        - 최종 점수: {st.session_state.workflow_final_result['score']}/100
-        """
-        
-        if st.session_state.get('step7_done') and st.session_state.get('workflow_publish_result', {}).get('success'):
-            final_result_text += f"- 발행 URL: {st.session_state.workflow_publish_result.get('url', 'N/A')}\n"
-        
-        st.success(final_result_text)
-        
-        # 블로그 미리보기
-        with st.expander("📝 생성된 블로그 미리보기"):
-            preview_html = st.session_state.get('workflow_humanized_html', st.session_state.workflow_blog_html)
-            st.components.v1.html(preview_html, height=800, scrolling=True)
-        
-        st.balloons()
+        quality_passed = st.session_state.get('workflow_final_result', {}).get('passed', False)
+
+        if quality_passed:
+            # 품질 통과 → 성공 메시지
+            status_text.text("✅ 워크플로우 완료!")
+            st.header("🎉 워크플로우 완료!")
+
+            final_result_text = f"""
+            ✅ **생성 완료**
+            - 주제: {st.session_state.workflow_topic}
+            - 카테고리: {CATEGORY_MAP[category]} → {NAVER_BLOG_CATEGORIES[blog_category]['name']}
+            - 최종 점수: {st.session_state.workflow_final_result['score']}/100
+            """
+
+            if st.session_state.get('step7_done') and st.session_state.get('workflow_publish_result', {}).get('success'):
+                final_result_text += f"- 발행 URL: {st.session_state.workflow_publish_result.get('url', 'N/A')}\n"
+
+            st.success(final_result_text)
+
+            # 블로그 미리보기
+            with st.expander("📝 생성된 블로그 미리보기"):
+                preview_html = st.session_state.get('workflow_humanized_html', st.session_state.workflow_blog_html)
+                st.components.v1.html(preview_html, height=800, scrolling=True)
+
+            st.balloons()
+        else:
+            # 품질 미달 3회 → 발행 중단
+            status_text.text("❌ 워크플로우 중단 (품질 미달)")
+            st.header("⚠️ 워크플로우 중단")
+
+            final_score = st.session_state.get('workflow_final_result', {}).get('score', 'N/A')
+            st.error(f"""
+            ❌ **품질 평가 실패로 발행이 중단되었습니다.**
+            - 주제: {st.session_state.workflow_topic}
+            - 카테고리: {CATEGORY_MAP[category]}
+            - 최종 점수: {final_score}/100 (기준: {QUALITY_THRESHOLD}점 이상)
+            - 시도 횟수: 3회
+
+            💡 **해결 방법:**
+            - 다른 주제로 다시 시도해보세요.
+            - 품질 임계값(QUALITY_THRESHOLD)을 조정해보세요.
+            """)
         
     except Exception as e:
         st.error(f"❌ 워크플로우 실행 중 오류 발생: {str(e)}")
