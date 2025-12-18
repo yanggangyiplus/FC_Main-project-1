@@ -1,6 +1,6 @@
 """
-Google Imagen API 이미지 생성기
-- Google Generative AI의 Imagen 모델을 사용하여 이미지 생성
+Google Gemini Image Generator (Nano Banana)
+- Google Generative AI의 Gemini 2.5 Flash Image 모델을 사용하여 이미지 생성
 - 블로그 주제와 내용에서 이미지 프롬프트 자동 생성
 - GOOGLE_API_KEY 사용
 """
@@ -48,8 +48,8 @@ logger = get_logger(__name__)
 
 class GoogleImagenGenerator:
     """
-    Google Imagen API를 사용한 이미지 생성 클래스
-    - Imagen 4.0 모델 사용
+    Google Gemini Image API를 사용한 이미지 생성 클래스
+    - Gemini 2.5 Flash Image (Nano Banana) 모델 사용
     - 블로그 내용에서 이미지 프롬프트 자동 생성
     - LLM으로 한국어 → 영어 프롬프트 변환
     """
@@ -173,41 +173,79 @@ class GoogleImagenGenerator:
                 # HTML 태그 제거 후 전체 내용 사용
                 section_content = re.sub(r'<[^>]+>', ' ', blog_content)[:500]
             
-            llm_prompt = f"""You are an expert visual storyteller. Create an image prompt that perfectly captures the EMOTION and NARRATIVE of this blog section.
+            # RAG 컨텍스트에서 배경 정보 추출
+            rag_info = getattr(self, '_rag_context', '')[:1500] if hasattr(self, '_rag_context') else ''
+            
+            # 카테고리별 이미지 테마 동적 선택
+            category = getattr(self, 'category', '') or ''
+            category_themes = {
+                'it_science': ['tech facility', 'digital infrastructure', 'corporate headquarters', 'data visualization'],
+                'economy': ['financial district', 'stock market floor', 'corporate boardroom', 'business meeting'],
+                'politics': ['government building', 'press conference', 'parliamentary session', 'diplomatic meeting'],
+                'society': ['urban street scene', 'public gathering', 'community space', 'social event'],
+                'world': ['international landmark', 'global city skyline', 'diplomatic venue', 'world map visualization'],
+                'culture': ['cultural venue', 'art exhibition', 'entertainment event', 'creative space'],
+                'sports': ['stadium', 'athletic competition', 'sports facility', 'victory celebration'],
+            }
+            themes = category_themes.get(category, ['professional setting', 'modern environment', 'urban scene', 'corporate space'])
+            theme_hint = themes[image_index % len(themes)]
+            
+            # 이미지별 시각적 초점 다양화
+            visual_focuses = [
+                "wide establishing shot showing the overall scene and environment",
+                "medium shot focusing on the key subject with surrounding context", 
+                "detail shot highlighting specific symbolic elements",
+                "atmospheric shot emphasizing mood and emotion"
+            ]
+            focus_hint = visual_focuses[image_index % len(visual_focuses)]
+            
+            llm_prompt = f"""You are an expert visual storyteller. Create an image prompt that DIRECTLY represents the SPECIFIC TOPIC and CONTEXT of this blog section.
 
 Blog Title: {blog_topic}
 
 Section Content (the image will appear RIGHT AFTER this text):
 "{section_content}"
 
-Your Task:
-1. READ the section carefully and understand its CORE MESSAGE and EMOTIONAL TONE
-2. Think about what visual would make readers say "Wow, this image perfectly captures what I just read!"
-3. Create a vivid, cinematic scene that TELLS THE STORY of this section
+Background Context (for reference only):
+{rag_info[:600] if rag_info else 'No additional context'}
 
-Requirements:
+CRITICAL TASK:
+1. IDENTIFY the specific company, brand, product, or event mentioned in the section
+2. Create an image that DIRECTLY relates to that specific entity or topic
+3. The viewer should immediately understand "This is about [specific company/topic]" when seeing the image
+
+REQUIREMENTS:
 - Write ONLY the prompt in English (no explanations)
-- Be SPECIFIC and CINEMATIC, not generic stock-photo style
-- Include: mood, lighting, color palette, camera angle
-- Format: "A [cinematic/dramatic/warm/etc.] [style] of [specific scene with context], [lighting], [color mood], [composition], no text, 8k quality"
+- Be SPECIFIC to the actual topic - NOT generic stock photos
+- Include: specific visual elements related to the company/topic, context, mood, lighting
+- Format: "A [cinematic/dramatic/etc.] [style] of [SPECIFIC scene related to the topic], [context details], [lighting], [mood], 8k quality"
+- Visual composition hint: {focus_hint}
 
-STRICT RULES:
-- NO people, faces, or human figures (use objects, architecture, nature, abstract elements)
-- Forbidden words: person, people, man, woman, child, family, face, hand, body, crowd
-- Replace human concepts with: symbolic objects, architecture, nature, technology, abstract art
+CRITICAL RULES:
+1. If the section mentions a COMPANY (KT, Samsung, Naver, Coupang, etc.):
+   - Include visual elements that represent that company's industry
+   - Example: Telecom company → cell towers, network infrastructure, data centers
+   - Example: E-commerce → warehouse, delivery boxes, logistics facility
+   
+2. If the section mentions a SPECIFIC ISSUE (data breach, fire, lawsuit, policy, etc.):
+   - Include visual elements that represent that issue
+   - Example: Data breach → broken padlock, warning lights, digital security imagery
+   - Example: Government policy → official buildings, press conference, formal setting
+
+3. Combine company context + issue context for maximum relevance
 
 EXAMPLES:
 
-For a section about "economic uncertainty and market volatility":
-A dramatic wide-angle shot of storm clouds gathering over a city skyline at dusk, golden hour lighting breaking through dark clouds, glass skyscrapers reflecting the turbulent sky, tension and uncertainty mood, cinematic composition, no text, 8k quality
+For "쿠팡 개인정보 유출" (Coupang data breach):
+A dramatic shot of a modern e-commerce headquarters building with orange accents, a giant broken digital padlock hologram projected on the facade, scattered delivery boxes in the foreground, corporate crisis atmosphere with blue and orange lighting, 8k quality
 
-For a section about "new technology bringing hope":
-A warm sunrise scene with morning light streaming through a modern glass building onto a sleek laptop and coffee cup, hopeful and optimistic atmosphere, soft golden tones, shallow depth of field, no text, 8k quality
+For "정부 AI 정책 발표" (Government AI policy announcement):
+A modern government press conference room with digital displays showing AI-related graphics, reporters with cameras, official atmosphere with technology elements, formal yet innovative mood, 8k quality
 
-For a section about "government policy changes":
-An architectural detail shot of a grand marble staircase with official documents and a brass scale of justice, dramatic side lighting creating long shadows, formal and authoritative mood, symmetrical composition, no text, 8k quality
+For "삼성전자 반도체 실적" (Samsung semiconductor performance):
+A pristine semiconductor fabrication facility with advanced chip manufacturing equipment, robotic arms handling silicon wafers, cool blue lighting, high-tech precision atmosphere, 8k quality
 
-Now create the perfect image prompt for the section above:"""
+Now create the perfect image prompt that DIRECTLY represents the specific topic of the section above:"""
 
             response = self.llm.invoke(llm_prompt)
             prompt = response.content.strip()
@@ -225,11 +263,14 @@ Now create the perfect image prompt for the section above:"""
             
             # 프롬프트가 너무 길면 자르기
             if len(prompt) > 400:
-                prompt = prompt[:400].rsplit(',', 1)[0] + ", no text, high quality"
+                prompt = prompt[:400].rsplit(',', 1)[0]
             
-            # 프롬프트에 "no text" 없으면 추가
+            # 🔧 텍스트 금지 및 품질 설정 (간소화)
+            no_text_suffix = ", no text, no writing, photorealistic, 8k quality"
             if "no text" not in prompt.lower():
-                prompt = prompt.rstrip('.') + ", no text, high quality"
+                prompt = prompt.rstrip('.').rstrip(',') + no_text_suffix
+            elif "8k" not in prompt.lower():
+                prompt = prompt.rstrip('.').rstrip(',') + ", photorealistic, 8k quality"
             
             logger.info(f"LLM 프롬프트 생성 완료 ({len(prompt)}자): {prompt[:80]}...")
             return prompt
@@ -372,7 +413,7 @@ Now create the perfect image prompt for the section above:"""
                 })
         return results
 
-    def generate_images_for_blog(self, blog_topic: str, blog_content: str, count: int = 3) -> List[Dict[str, Any]]:
+    def generate_images_for_blog(self, blog_topic: str, blog_content: str, count: int = 3, rag_context: str = "") -> List[Dict[str, Any]]:
         """
         블로그용 이미지 여러 개 생성
         
@@ -380,17 +421,25 @@ Now create the perfect image prompt for the section above:"""
             blog_topic: 블로그 주제
             blog_content: 블로그 HTML 내용
             count: 생성할 이미지 수
+            rag_context: RAG 컨텍스트 (배경 정보, 회사명, 장소 등)
         
         Returns:
             생성된 이미지 정보 리스트
         """
         logger.info(f"블로그 이미지 생성 시작: 주제='{blog_topic[:30]}...', 개수={count}")
+        if rag_context:
+            logger.info(f"RAG 컨텍스트 활용: {len(rag_context)}자")
+        
+        # RAG 컨텍스트 저장 (프롬프트 생성 시 활용)
+        self._rag_context = rag_context
         
         results = []
         for i in range(count):
-            # 프롬프트 생성
+            # 프롬프트 생성 (RAG 컨텍스트 활용)
             prompt = self.generate_prompt_from_blog(blog_topic, blog_content, i)
-            logger.info(f"이미지 {i+1}/{count} 프롬프트: {prompt[:100]}...")
+            # 🔍 디버그: 전체 프롬프트 로깅 (이미지 맥락 확인용)
+            logger.info(f"이미지 {i+1}/{count} 프롬프트 생성 완료")
+            logger.info(f"[이미지 프롬프트 전체] {prompt}")
             
             # 이미지 생성
             result = self.generate_image(prompt, i)
