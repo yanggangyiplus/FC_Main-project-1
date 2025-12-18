@@ -268,12 +268,15 @@ class BlogGenerator:
 4. 단어당 1~3음절 (예: "AI", "삼성전자", "반도체")
 5. 최대 {max_tags}개까지만 선택
 6. 각 태그는 쉼표(,)로 구분
-7. '#' 기호는 절대 포함하지 말 것
+7. **특수문자 절대 금지** - 오직 한글, 영문, 숫자만 사용
+   ❌ 금지: # @ ! ? . , / \\ & % $ * ( ) - _ = + [ ] {{ }} < > | ~ ` ' " : ; 공백
+   ✅ 허용: 한글, 영문자(a-zA-Z), 숫자(0-9)만
 8. 불필요한 조사나 어미 제거 (예: "기업의" → "기업", "했다" → X)
 
 출력 형식 (예시):
 AI, 삼성전자, 반도체, 투자, 기술, 경쟁, 글로벌, 시장, 전망, 성장
 
+⚠️ 주의: 태그에 공백이나 특수문자가 포함되면 안 됨!
 위 형식으로 태그만 출력해줘:"""
 
         try:
@@ -283,8 +286,15 @@ AI, 삼성전자, 반도체, 투자, 기술, 경쟁, 글로벌, 시장, 전망, 
             # 태그 파싱 (쉼표로 분리, 공백 제거, 빈 문자열 제거)
             tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()]
 
-            # '#' 기호 제거 (혹시 포함된 경우)
-            tags = [tag.replace('#', '').strip() for tag in tags]
+            # 🔧 모든 특수문자 제거 (한글, 영문, 숫자만 허용)
+            import re
+            cleaned_tags = []
+            for tag in tags:
+                # 특수문자 제거 - 한글, 영문, 숫자만 남김
+                clean_tag = re.sub(r'[^가-힣a-zA-Z0-9]', '', tag)
+                if clean_tag:  # 빈 문자열이 아니면 추가
+                    cleaned_tags.append(clean_tag)
+            tags = cleaned_tags
 
             # 최대 개수 제한
             tags = tags[:max_tags]
