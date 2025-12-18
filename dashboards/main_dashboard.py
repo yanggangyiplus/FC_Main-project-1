@@ -143,8 +143,9 @@ with tab_overview:
     ```
     ┌─────────────────────────────────────────────────────────────────┐
     │                     자동 블로그 생성 파이프라인                    │
+    │               Powered by LangGraph + Gemini 2.5 Flash           │
     └─────────────────────────────────────────────────────────────────┘
- 
+
     1️⃣  뉴스 스크래핑 (News Scraper)
          ↓  네이버 뉴스에서 헤드라인 기사 수집
          │
@@ -152,16 +153,16 @@ with tab_overview:
          ↓  기사를 벡터화하여 ChromaDB에 저장
          │
     3️⃣  블로그 생성 (Blog Generator)
-         ↓  RAG 컨텍스트 기반으로 LLM이 블로그 HTML 생성
+         ↓  RAG 컨텍스트 기반으로 Gemini 2.5 Flash가 블로그 HTML 생성
          │
     4️⃣  품질 평가 (Critic & QA)
-         ↓  5가지 기준으로 블로그 품질 평가
+         ↓  5가지 기준으로 블로그 품질 평가 (3회 실패 시 발행 중단)
          │
     5️⃣  이미지 생성 (Image Generator)
-         ↓  DALL-E로 플레이스홀더 이미지 생성
+         ↓  Gemini 2.5 Flash Image (Nano Banana)로 이미지 생성
          │
     6️⃣  인간화 (Humanizer)
-         ↓  LLM으로 문체를 자연스럽게 개선
+         ↓  Gemini 2.5 Flash로 문체를 자연스럽게 개선
          │
     7️⃣  블로그 발행 (Blog Publisher)
          ↓  Selenium으로 네이버 블로그에 자동 발행
@@ -217,7 +218,7 @@ with tab_modules:
         {
             "icon": "🎨",
             "name": "06. Image Generator",
-            "desc": "Pixabay 이미지 다운로드",
+            "desc": "Gemini 2.5 Flash Image (Nano Banana)",
             "status": "✅ 정상",
             "dashboard": "dashboard_06_image_generator.py"
         },
@@ -314,9 +315,9 @@ with tab_workflow:
     steps = [
         ("1️⃣", "뉴스 스크래핑", "카테고리별 헤드라인 기사 수집"),
         ("2️⃣", "RAG 구축", "기사 벡터화 및 저장"),
-        ("3️⃣", "블로그 생성", "컨텍스트 기반 HTML 생성"),
-        ("4️⃣", "품질 평가", "5가지 기준으로 평가"),
-        ("5️⃣", "이미지 생성", "DALL-E로 이미지 생성"),
+        ("3️⃣", "블로그 생성", "Gemini 2.5 Flash로 HTML 생성"),
+        ("4️⃣", "품질 평가", "5가지 기준으로 평가 (3회 실패 시 중단)"),
+        ("5️⃣", "이미지 생성", "Gemini 2.5 Flash Image로 생성"),
         ("6️⃣", "인간화", "문체 자연스럽게 개선"),
         ("7️⃣", "블로그 발행", "네이버 블로그 발행"),
         ("8️⃣", "알림", "Slack으로 결과 알림"),
@@ -399,7 +400,7 @@ st.markdown("---")
 st.markdown("""
 <div style="text-align: center; padding: 2rem; color: #666;">
     <p>🤖 <strong>Auto blog</strong> - 자동 블로그 생성 시스템</p>
-    <p>Powered by LangChain, LangGraph, OpenAI, Anthropic, Streamlit</p>
-    <p style="font-size: 0.9em;">© 2024 All Rights Reserved</p>
+    <p>Powered by LangGraph, Gemini 2.5 Flash, Streamlit</p>
+    <p style="font-size: 0.9em;">© 2025 All Rights Reserved</p>
 </div>
 """, unsafe_allow_html=True)

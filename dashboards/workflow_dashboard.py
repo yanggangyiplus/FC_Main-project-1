@@ -84,21 +84,20 @@ with st.sidebar:
     blog_model = st.selectbox(
         "생성 모델",
         options=[
-            "gemini-2.0-flash-exp",
+            "gemini-2.5-flash",
             "gpt-4o-mini",
             "gpt-4o",
-            "gpt-3.5-turbo",
             "claude-3-5-sonnet-20241022"
         ],
         index=0,
         key="workflow_blog_model"
     )
-    
+
     st.subheader("🎯 평가 모델")
     critic_model = st.selectbox(
         "평가 모델",
         options=[
-            "gemini-2.0-flash-exp",
+            "gemini-2.5-flash",
             "gpt-4o-mini",
             "gpt-4o",
             "claude-3-5-sonnet-20241022"
@@ -106,12 +105,12 @@ with st.sidebar:
         index=0,
         key="workflow_critic_model"
     )
-    
+
     st.subheader("✨ 인간화 모델")
     humanizer_model = st.selectbox(
         "인간화 모델",
         options=[
-            "gemini-2.0-flash-exp",
+            "gemini-2.5-flash",
             "gpt-4o-mini",
             "gpt-4o",
             "claude-3-5-sonnet-20241022"
@@ -119,39 +118,20 @@ with st.sidebar:
         index=0,
         key="workflow_humanizer_model"
     )
-    
-    st.subheader("🎨 이미지 생성/다운로드 설정")
-    image_model = st.selectbox(
-        "이미지 모델",
-        options=["gemini", "pixabay"],
-        index=0,
-        format_func=lambda x: "Gemini (기본, 생성)" if x == "gemini" else "Pixabay (검색/다운로드)",
-        help="Gemini: Google AI 이미지를 직접 생성. Pixabay: 무료 스톡 이미지 검색/다운로드."
-    )
-    st.info("추천: Gemini 이미지 생성. 문제 발생 시 Pixabay로 전환하세요.")
+
+    st.subheader("🎨 이미지 생성 설정")
+    st.info("🖼️ **Gemini 2.5 Flash Image** (Nano Banana) 사용")
+    image_model = "gemini"  # 고정값 (Pixabay 제거)
     
     temperature = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1, key="workflow_temperature")
     n_articles = st.slider("참조 기사 수", 1, 20, 10, key="workflow_n_articles")
-    
+
     st.markdown("---")
     st.metric("품질 임계값", f"{QUALITY_THRESHOLD}점 이상")
     st.metric("최대 재생성 횟수", "3회")
-    
+
     # Gemini 추천 안내
-    st.info("💡 **추천**: Gemini 2.0 Flash Exp 모델이 빠르고 품질이 우수합니다!")
-    
-    # LM Studio 상태
-    if "lm-studio" in blog_model.lower() or "lm-studio" in critic_model.lower() or "lm-studio" in humanizer_model.lower():
-        st.markdown("---")
-        st.subheader("🖥️ LM Studio 상태")
-        try:
-            response = requests.get(f"{LM_STUDIO_BASE_URL.replace('/v1', '')}/v1/models", timeout=2)
-            if response.status_code == 200:
-                st.success("✅ 연결됨")
-            else:
-                st.error("❌ 연결 실패")
-        except:
-            st.error("❌ 미실행")
+    st.info("💡 **추천**: Gemini 2.5 Flash 모델이 빠르고 품질이 우수합니다!")
 
 st.title("🚀 통합 워크플로우 대시보드")
 st.markdown("1~7번 모듈을 한번에 실행하여 자동으로 블로그를 생성하고 발행합니다.")
