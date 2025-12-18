@@ -747,7 +747,7 @@ if start_workflow:
                 )
                 
                 generated_images = []
-                
+
                 for placeholder in placeholders[:5]:  # 최대 5개로 변경
                     marker = placeholder.get('marker', f"IMG{placeholder['index']+1}")
                     description = placeholder.get('alt', f"Image {placeholder['index']+1}")  # 'alt' 키 사용
@@ -768,11 +768,17 @@ if start_workflow:
                                 description,
                                 placeholder['index']
                             )
-                            
+
                             if result and result.get('success'):
                                 image_path = result.get('local_path') or result.get('path')
                                 if image_path:
-                                    generated_images.append(image_path)
+                                    # ✅ 수정: 전체 이미지 정보 저장 (경로만이 아니라)
+                                    generated_images.append({
+                                        "index": placeholder['index'],
+                                        "local_path": image_path,
+                                        "alt": description,
+                                        "marker": marker
+                                    })
                                     st.success(f"✅ {marker} 생성 완료: {Path(image_path).name}")
                                     image_success = True
                                     break
@@ -831,33 +837,71 @@ if start_workflow:
             else:
                 try:
                     st.info("🔐 네이버 계정으로 발행 중...")
-                    
+
                     # NaverBlogPublisher 초기화
                     publisher = NaverBlogPublisher(headless=True)
-                    
+
                     # 발행 데이터 준비
                     # HTML 파일 경로
                     html_file = st.session_state.workflow_blog_file
-                    
+
                     # HTML 읽기
                     with open(html_file, 'r', encoding='utf-8') as f:
                         html_content = f.read()
-                    
+
                     # 제목 추출
                     from bs4 import BeautifulSoup
                     soup = BeautifulSoup(html_content, 'html.parser')
                     title_tag = soup.find('h1')
                     blog_title = title_tag.get_text(strip=True) if title_tag else st.session_state.workflow_topic
-                    
+
                     st.info(f"📝 제목: {blog_title}")
-                    
-                    # 블로그 발행
+
+                    # ✅ 메타데이터에서 태그 로드
+                    import json
+                    tags = []
+                    meta_file = Path(html_file).with_suffix('.meta.json')
+                    if meta_file.exists():
+                        try:
+                            with open(meta_file, 'r', encoding='utf-8') as f:
+                                metadata = json.load(f)
+                                tags = metadata.get('tags', [])
+                                st.info(f"🏷️ 태그 {len(tags)}개 로드됨")
+                        except Exception as e:
+                            logger.warning(f"메타데이터 로드 실패: {e}")
+
+                    # ✅ 발행 데이터 딕셔너리 생성
+                    from config.settings import METADATA_DIR
+                    publish_data = {
+                        'blog_title': blog_title,
+                        'blog_topic': st.session_state.workflow_topic,
+                        'blog_content': html_content,
+                        'category': selected_category,
+                        'html_file': str(html_file),
+                        'tags': tags,
+                        'evaluation_score': st.session_state.get('workflow_score', 0)
+                    }
+
+                    # ✅ publish_data를 파일로 저장 (publisher.py가 찾을 수 있도록)
+                    category_metadata_dir = METADATA_DIR / selected_category
+                    category_metadata_dir.mkdir(parents=True, exist_ok=True)
+                    publish_data_file = category_metadata_dir / "blog_publish_data.json"
+
+                    with open(publish_data_file, 'w', encoding='utf-8') as f:
+                        json.dump(publish_data, f, ensure_ascii=False, indent=2)
+                    st.info(f"💾 발행 데이터 저장: {publish_data_file}")
+
+                    # ✅ 블로그 발행 (images 전달, publisher가 자동으로 publish_data 로드)
                     result = publisher.publish(
                         html=html_content,
                         title=blog_title,
                         category=selected_category,
+                        images=generated_images if 'generated_images' in locals() and generated_images else None,
                         use_base64=True
                     )
+
+                    # ✅ publish_data를 세션 상태에 저장 (재발행 시 사용)
+                    st.session_state.workflow_publish_data = publish_data
                     
                     # 결과 처리
                     if result.get('success'):
