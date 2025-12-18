@@ -342,7 +342,10 @@ Background Info:
             생성된 이미지 정보 딕셔너리
         """
         logger.info(f"Imagen 4 이미지 생성 시작 (모델: {self.imagen_model})")
-        logger.debug(f"프롬프트: {prompt}")
+        logger.info(f"=" * 80)
+        logger.info(f"이미지 생성 요청 프롬프트 (인덱스: {index}, 비율: {self.aspect_ratio})")
+        logger.info(f"프롬프트: {prompt}")
+        logger.info(f"=" * 80)
         
         try:
             # Imagen 4 API 호출 (generate_images 메서드 사용)

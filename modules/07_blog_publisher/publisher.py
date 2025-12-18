@@ -444,6 +444,7 @@ class NaverBlogPublisher:
         title: Optional[str] = None,
         content: Optional[str] = None,
         category: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         mapping_file: Optional[Path] = None,
         max_retries: int = MAX_PUBLISH_RETRIES,
         use_base64: bool = True
@@ -455,6 +456,7 @@ class NaverBlogPublisher:
             html: 블로그 HTML (None이면 자동 로드)
             images: 이미지 정보 리스트 (None이면 매핑 파일에서 자동 로드)
             title: 블로그 제목 (None이면 HTML에서 추출)
+            tags: 태그 리스트 (None이면 publish_data 또는 메타데이터에서 자동 로드)
             mapping_file: 이미지 매핑 파일 경로
             max_retries: 최대 재시도 횟수
             use_base64: base64 인코딩 사용 여부
@@ -2016,6 +2018,7 @@ class NaverBlogPublisher:
 
             # 4.5. 태그 입력 (첫 번째 발행 버튼 클릭 후)
             logger.info("📌 태그 로딩 시작")
+            logger.info(f"매개변수로 전달된 tags: {tags if tags else 'None'} (개수: {len(tags) if tags else 0})")
 
             # tags가 매개변수로 제공되지 않은 경우 publish_data에서 로드
             if tags is None:

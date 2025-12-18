@@ -594,7 +594,11 @@ if start_workflow:
                 st.stop()
             
             # 블로그 생성
-            blog_generator = BlogGenerator(model_name="gemini-2.0-flash-exp", temperature=0.7)
+            from config.settings import MODULE_LLM_MODELS, TEMPERATURE
+            blog_generator = BlogGenerator(
+                model_name=MODULE_LLM_MODELS.get("blog_generator", "gemini-2.5-flash"),
+                temperature=TEMPERATURE
+            )
             html = blog_generator.generate_blog(topic_title, context)
             
             # 저장
@@ -629,8 +633,8 @@ if start_workflow:
         
         with st.expander("🧐 STEP 4: AI 품질 평가 및 재생성", expanded=True):
             st.info(f"품질 임계값: {QUALITY_THRESHOLD}점 이상 (최대 {MAX_REGENERATION_ATTEMPTS}회 재시도)")
-            
-            critic = BlogCritic(model_name="gemini-2.0-flash-exp")
+
+            critic = BlogCritic(model_name=MODULE_LLM_MODELS.get("critic_qa", "gemini-2.5-flash"))
             
             # 재생성 루프
             regeneration_attempt = 0
@@ -702,8 +706,8 @@ if start_workflow:
         
         with st.expander("🧑‍💻 STEP 5: AI 인간화", expanded=True):
             st.info("AI 텍스트를 인간 스타일로 변환 중...")
-            
-            humanizer = Humanizer(model_name="gemini-2.0-flash-exp")
+
+            humanizer = Humanizer(model_name=MODULE_LLM_MODELS.get("humanizer", "gemini-2.5-flash"))
             humanized_html = humanizer.humanize(st.session_state.workflow_blog_html)
             
             # 인간화된 버전 저장
