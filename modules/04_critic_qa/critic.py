@@ -184,17 +184,13 @@ class BlogCritic:
    - Is paragraph division appropriate?
    - Is the blog tone suitable?
 
-4. **Image Placement** [0~15 points]
-   - Are image placeholders in appropriate positions?
-   - Are alt texts specific and descriptive?
-   - Is the number of images appropriate? (recommended: 3)
+4. **Image Placement** [0~20 points]
+   - Are image markers (###IMG1###, ###IMG2###, etc.) positioned appropriately?
+   - Are they placed at natural transition points in the content?
+   - Is the number of image markers appropriate? (recommended: 2-3)
+   - Note: Image generation happens later, so only evaluate marker placement
 
-5. **Image Relevance** [0~5 points]
-   - Do the image alt texts describe scenes that match the surrounding content's mood and narrative?
-   - Would the described images help readers visualize the story being told?
-   - Note: Be lenient here as actual image generation happens later
-
-6. **Completeness** [0~20 points]
+5. **Completeness** [0~20 points]
    - Is the topic covered sufficiently?
    - Is the length appropriate? (1500~2000 characters)
    - Is the HTML structure complete?
@@ -208,8 +204,7 @@ DETAILS:
 - Factual Accuracy: [0~20]
 - Structure: [0~20]
 - Readability: [0~20]
-- Image Placement: [0~15]
-- Image Relevance: [0~5]
+- Image Placement: [0~20]
 - Completeness: [0~20]
 
 SCORE: [sum of all scores above]
@@ -222,7 +217,7 @@ RECOMMENDATION:
 ```
 
 **Important**:
-- **Total = Factual Accuracy + Structure + Readability + Image Placement + Image Relevance + Completeness**
+- **Total = Factual Accuracy + Structure + Readability + Image Placement + Completeness**
 - Score **strictly**. Give 18+ only for exceptional work
 - Feedback must be **specific and actionable**
 - Threshold is {self.threshold} points
@@ -252,7 +247,7 @@ Start evaluation now:
             details['structure'] = self._extract_score(details_text, 'Structure')
             details['readability'] = self._extract_score(details_text, 'Readability')
             details['image_placement'] = self._extract_score(details_text, 'Image Placement')
-            details['image_relevance'] = self._extract_score(details_text, 'Image Relevance')
+            # image_relevance 제거 (레거시 - 이미지 생성 전 단계이므로 판단 불가)
             details['completeness'] = self._extract_score(details_text, 'Completeness')
 
         # 총점은 세부 점수의 합계로 계산 (LLM이 제시한 총점은 무시)
