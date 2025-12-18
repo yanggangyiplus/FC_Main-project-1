@@ -408,7 +408,7 @@ HTML 구조 예시:
 3. 구분선 마커는 독립된 줄에 배치 (앞뒤 빈 줄)
 4. 이미지 마커는 독립된 줄에 배치 (앞뒤 빈 줄)
 5. 마커 개수: ###DIVIDER1### (서론→본론), ###DIVIDER2### (본론→결론)
-6. 이미지 개수: ###IMG1###, ###IMG2###, ###IMG3### (2~3개)
+6. 이미지 개수: ###IMG1###, ###IMG2###, ###IMG3###, ###IMG4###, ###IMG5### (2~5개 필수)
 
 ━━━━━━━━━━━━━━━━━━
 📌 제목 작성 규칙 (SEO 최적화 필수!)
@@ -469,28 +469,44 @@ HTML 구조 예시:
 ━━━━━━━━━━━━━━━━━━
 📌 이미지 마커 삽입 규칙 (매우 중요!)
 ━━━━━━━━━━━━━━━━━━
-- 중간 부분(###DIVIDER1### ~ ###DIVIDER2### 사이)에 **2~3개**
+- 중간 부분(###DIVIDER1### ~ ###DIVIDER2### 사이)에 **2~5개 필수**
 - 반드시 독립된 줄에 마커만 배치
 - 앞뒤 빈 줄 유지
-- ⚠️ <img> 태그가 아닌 마커 사용: ###IMG1###, ###IMG2###, ###IMG3###
+- ⚠️ <img> 태그가 아닌 마커 사용: ###IMG1###, ###IMG2###, ###IMG3###, ###IMG4###, ###IMG5###
+- 💡 각 이미지 마커 바로 앞 줄에는 해당 이미지에 대한 설명을 **HTML 주석**으로 작성할 것!
 
 배치 예시:
 <p>중간 내용 첫 번째 문단...</p>
 <p>중간 내용 두 번째 문단...</p>
 
+<!-- IMG_DESC: 최신 스마트폰을 들고 있는 사람의 손, 기술 혁신, 현대적인 디자인 -->
 ###IMG1###
 
 <p>중간 내용 세 번째 문단...</p>
 <p>중간 내용 네 번째 문단...</p>
 
+<!-- IMG_DESC: 경제 그래프와 차트, 주식 시장 상승 추세, 금융 데이터 분석 -->
 ###IMG2###
 
 <p>중간 내용 다섯 번째 문단...</p>
+<p>중간 내용 여섯 번째 문단...</p>
 
-⚠️ 주의:
+<!-- IMG_DESC: 회의실에서 토론하는 비즈니스 팀, 전략 회의, 협업하는 모습 -->
+###IMG3###
+
+<p>중간 내용 계속...</p>
+
+⚠️ 필수 규칙:
 1. img 태그 사용 금지!
-2. 마커만 독립된 줄에 배치
-3. ###DIVIDER1### ~ ###DIVIDER2### 사이에만 배치
+2. 이미지 마커는 반드시 독립된 줄에 배치
+3. 이미지 마커 바로 앞 줄에 <!-- IMG_DESC: 구체적인 이미지 설명 --> 주석 필수!
+4. 이미지 설명은 블로그 내용과 관련 있고 시각적으로 명확한 설명이어야 함
+5. 최소 2개, 최대 5개의 이미지 마커 삽입
+6. ###DIVIDER1### ~ ###DIVIDER2### 사이에만 배치
+7. 이미지 설명 작성 예시:
+   - "노트북에서 코딩하는 개발자, 프로그래밍, 집중하는 모습"
+   - "데이터센터 서버실, 클라우드 인프라, 첨단 기술 설비"
+   - "스마트폰 화면의 앱 아이콘들, 모바일 서비스, UI 디자인"
 
 ━━━━━━━━━━━━━━━━━━
 📌 문체 & 네이버 블로그 톤앤매너
@@ -877,10 +893,10 @@ HTML 구조 예시:
     def extract_image_placeholders(self, html: str) -> list:
         """
         HTML에서 이미지 플레이스홀더 추출
-        
+
         지원하는 마커 형식:
-        1. ###IMG1###, ###IMG2###, ###IMG3### (권장)
-        2. <p>###IMG1###</p> 형태
+        1. <!-- IMG_DESC: 설명 --> 다음 줄에 ###IMG1### (권장)
+        2. ###IMG1###, ###IMG2###, ###IMG3### (기본)
         3. <img src="PLACEHOLDER" alt="..."> (레거시)
 
         Args:
@@ -890,17 +906,30 @@ HTML 구조 예시:
             플레이스홀더 정보 리스트 [{"alt": "설명", "index": 순서, "marker": 마커문자열}, ...]
         """
         placeholders = []
-        
-        # 1. ###IMG{N}### 마커 찾기 (권장 형식)
+
+        # 1. ###IMG{N}### 마커 찾기 + IMG_DESC 주석에서 설명 추출
         marker_pattern = r'###IMG(\d+)###'
         marker_matches = list(re.finditer(marker_pattern, html))
-        
+
         if marker_matches:
             for match in marker_matches:
                 img_num = int(match.group(1))
+
+                # IMG_DESC 주석 찾기 (마커 바로 앞)
+                # 패턴: <!-- IMG_DESC: 이미지 설명 --> 다음에 ###IMG{N}###
+                desc_pattern = rf'<!--\s*IMG_DESC:\s*([^>]+?)\s*-->\s*###IMG{img_num}###'
+                desc_match = re.search(desc_pattern, html, re.DOTALL)
+
+                if desc_match:
+                    img_desc = desc_match.group(1).strip()
+                    logger.info(f"이미지 {img_num} 설명 추출: {img_desc[:50]}...")
+                else:
+                    img_desc = f"Image {img_num}"
+                    logger.warning(f"이미지 {img_num}에 대한 IMG_DESC 주석을 찾지 못했습니다. 기본값 사용.")
+
                 placeholders.append({
                     "index": img_num - 1,  # 0-based index
-                    "alt": f"Image {img_num}",
+                    "alt": img_desc,
                     "marker": match.group(0),
                     "tag": match.group(0)
                 })

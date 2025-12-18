@@ -748,21 +748,21 @@ if start_workflow:
                 
                 generated_images = []
                 
-                for placeholder in placeholders[:3]:  # 최대 3개
+                for placeholder in placeholders[:5]:  # 최대 5개로 변경
                     marker = placeholder.get('marker', f"IMG{placeholder['index']+1}")
-                    description = placeholder['description']
-                    
+                    description = placeholder.get('alt', f"Image {placeholder['index']+1}")  # 'alt' 키 사용
+
                     st.info(f"🎨 {marker} 생성 중: {description}")
-                    
+
                     # 이미지 생성 재시도 로직 (최대 3회)
                     max_image_retries = 3
                     image_success = False
-                    
+
                     for retry in range(max_image_retries):
                         try:
                             if retry > 0:
                                 st.info(f"🔄 재시도 {retry}/{max_image_retries-1}")
-                            
+
                             # 이미지 생성
                             result = image_generator.generate_single_image(
                                 description,
