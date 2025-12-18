@@ -600,6 +600,23 @@ class NaverBlogPublisher:
                 "attempts": 0
             }
 
+        # 태그 추출 (publish_data에서 또는 메타데이터에서)
+        tags = []
+        if publish_data and 'tags' in publish_data:
+            tags = publish_data.get('tags', [])
+            logger.info(f"📌 publish_data에서 태그 추출: {len(tags)}개")
+        elif publish_data and 'html_file' in publish_data:
+            try:
+                html_file_path = Path(publish_data['html_file'])
+                meta_file = html_file_path.with_suffix('.meta.json')
+                if meta_file.exists():
+                    with open(meta_file, 'r', encoding='utf-8') as f:
+                        metadata = json.load(f)
+                        tags = metadata.get('tags', [])
+                        logger.info(f"📌 메타데이터에서 태그 추출: {len(tags)}개")
+            except Exception as e:
+                logger.warning(f"메타데이터에서 태그 추출 실패: {e}")
+
         # 발행 시도
         for attempt in range(1, max_retries + 1):
             logger.info(f"발행 시도 {attempt}/{max_retries}")
@@ -607,7 +624,15 @@ class NaverBlogPublisher:
             try:
                 # content가 없으면 빈 문자열로 설정
                 content_text = content if content else ""
-                result = self._attempt_publish(title, content_text, images, category=category, use_base64=use_base64)
+                result = self._attempt_publish(
+                    title,
+                    content_text,
+                    images,
+                    category=category,
+                    use_base64=use_base64,
+                    tags=tags,
+                    publish_data=publish_data
+                )
 
                 if result['success']:
                     logger.info(f"발행 성공! (시도 {attempt}회)")
@@ -757,7 +782,16 @@ class NaverBlogPublisher:
             logger.error(f"이미지 삽입 실패: {e}")
             return False
 
-    def _attempt_publish(self, title: str, content: str, images: List[Dict[str, Any]], category: Optional[str] = None, use_base64: bool = True) -> Dict[str, Any]:
+    def _attempt_publish(
+        self,
+        title: str,
+        content: str,
+        images: List[Dict[str, Any]],
+        category: Optional[str] = None,
+        use_base64: bool = True,
+        tags: Optional[List[str]] = None,
+        publish_data: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         실제 발행 시도 (단일)
 
@@ -767,6 +801,8 @@ class NaverBlogPublisher:
             images: 이미지 정보 리스트
             category: 블로그 카테고리 ("it_tech", "economy", "politics" 또는 None)
             use_base64: base64 인코딩 사용 여부
+            tags: 블로그 태그 리스트 (Optional)
+            publish_data: 발행 데이터 딕셔너리 (Optional)
 
         Returns:
             결과 딕셔너리
@@ -1959,28 +1995,40 @@ class NaverBlogPublisher:
                     logger.error("발행 버튼을 찾을 수 없습니다.")
 
             # 4.5. 태그 입력 (첫 번째 발행 버튼 클릭 후)
-            tags = []
-            if publish_data and 'tags' in publish_data:
-                tags = publish_data.get('tags', [])
-                logger.info(f"발행 데이터에서 태그 로드: {len(tags)}개")
-            else:
-                # 메타데이터에서 태그 읽기 시도
-                try:
-                    if publish_data and 'html_file' in publish_data:
-                        html_file_path = Path(publish_data['html_file'])
-                        meta_file = html_file_path.with_suffix('.meta.json')
-                        if meta_file.exists():
-                            with open(meta_file, 'r', encoding='utf-8') as f:
-                                metadata = json.load(f)
-                                tags = metadata.get('tags', [])
-                                logger.info(f"메타데이터에서 태그 로드: {len(tags)}개")
-                except Exception as e:
-                    logger.warning(f"메타데이터에서 태그 로드 실패: {e}")
+            logger.info("📌 태그 로딩 시작")
 
+            # tags가 매개변수로 제공되지 않은 경우 publish_data에서 로드
+            if tags is None:
+                tags = []
+                if publish_data:
+                    if 'tags' in publish_data:
+                        tags = publish_data.get('tags', [])
+                        logger.info(f"✅ 발행 데이터에서 태그 로드: {len(tags)}개")
+                    elif 'html_file' in publish_data:
+                        # 메타데이터에서 태그 읽기 시도
+                        try:
+                            html_file_path = Path(publish_data['html_file'])
+                            meta_file = html_file_path.with_suffix('.meta.json')
+                            if meta_file.exists():
+                                with open(meta_file, 'r', encoding='utf-8') as f:
+                                    metadata = json.load(f)
+                                    tags = metadata.get('tags', [])
+                                    logger.info(f"✅ 메타데이터에서 태그 로드: {len(tags)}개")
+                            else:
+                                logger.warning(f"⚠️ 메타데이터 파일 없음: {meta_file}")
+                        except Exception as e:
+                            logger.warning(f"❌ 메타데이터에서 태그 로드 실패: {e}")
+                    else:
+                        logger.warning("⚠️ publish_data에 tags 및 html_file 정보 없음")
+                else:
+                    logger.warning("⚠️ publish_data가 None입니다")
+
+            logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             if tags:
+                logger.info(f"🏷️  태그 입력 시작: {len(tags)}개")
                 self.input_tags(tags)
             else:
-                logger.info("태그가 없어 태그 입력을 건너뜁니다.")
+                logger.warning("⚠️ 입력할 태그가 없습니다")
 
             # 5. 확인 발행 버튼 클릭 (두 번째)
             try:

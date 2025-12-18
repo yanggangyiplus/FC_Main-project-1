@@ -950,14 +950,17 @@ if start_workflow:
         st.session_state.execution_stats["success_count"] += 1
         
         st.balloons()
-        
+
         # 발행 URL이 있으면 포함
+        from pathlib import Path
+        blog_filename = Path(st.session_state.workflow_blog_file).name if st.session_state.workflow_blog_file else "알 수 없음"
+
         completion_message = f"""
         🎉 **AI 블로그 자동화 완료!**
-        
+
         📝 주제: {topic_title}
         📊 품질: {score}점
-        📁 저장: {st.session_state.workflow_blog_file.name}
+        📁 저장: {blog_filename}
         """
         
         if hasattr(st.session_state, 'workflow_blog_url') and st.session_state.workflow_blog_url:
