@@ -12,7 +12,7 @@ import re
 import base64
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from config.settings import GOOGLE_API_KEY, IMAGES_DIR
+from config.settings import GOOGLE_API_KEY, IMAGES_DIR, GEMINI_IMAGE_MODEL, MODULE_LLM_MODELS
 from config.logger import get_logger
 
 # Google GenAI import
@@ -54,10 +54,9 @@ class GoogleImagenGenerator:
     - LLM으로 한국어 → 영어 프롬프트 변환
     """
     
-    # Gemini 이미지 생성 모델 (Imagen API)
-    # - gemini-2.5-flash-image: Imagen 기반 빠른 이미지 생성 (권장)
-    # - imagen-3.0-fast: 빠른 생성
-    IMAGEN_MODEL = "gemini-2.5-flash-image"
+    # 이미지 생성 모델 (Nano Banana - Google Imagen API)
+    # - imagen-3.0-generate-002: Imagen 3.0 최신 모델 (Nano Banana)
+    IMAGEN_MODEL = GEMINI_IMAGE_MODEL  # config/settings.py에서 로드
     
     # 지원되는 비율
     ASPECT_RATIOS = ["1:1", "3:4", "4:3", "9:16", "16:9"]
@@ -108,12 +107,13 @@ class GoogleImagenGenerator:
         # LLM 초기화 (프롬프트 생성용)
         if use_llm and GEMINI_AVAILABLE and GOOGLE_API_KEY:
             try:
+                prompt_model = MODULE_LLM_MODELS.get("image_keyword", "gemini-2.5-flash")
                 self.llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash-exp",
+                    model=prompt_model,
                     temperature=0.7,
                     google_api_key=GOOGLE_API_KEY
                 )
-                logger.info("Gemini LLM 초기화 완료 (프롬프트 생성용)")
+                logger.info(f"Gemini LLM 초기화 완료 (프롬프트 생성용, 모델: {prompt_model})")
             except Exception as e:
                 logger.warning(f"LLM 초기화 실패: {e}")
                 self.llm = None
