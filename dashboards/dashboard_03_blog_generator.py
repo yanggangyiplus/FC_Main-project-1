@@ -70,9 +70,7 @@ with st.sidebar:
             "gemini-2.5-flash",
             "gpt-4o-mini",
             "gpt-4o",
-            "gpt-3.5-turbo", 
             "claude-3-5-sonnet-20241022",
-            "claude-3-opus-20240229",
             "lm-studio (로컬)"
         ],
         index=0,  # 기본값: Gemini
