@@ -1245,10 +1245,22 @@ class NaverBlogPublisher:
                                 # 이미지 마커 후 빈 줄
                                 formatted_lines.append('')
                             else:
-                                # 일반 텍스트 - 문장 단위로 분리 (. ! ? 뒤에서 분리)
-                                # 문장 끝 패턴: . ! ? 뒤에 공백이나 끝
+                                # 일반 텍스트 처리
+                                # 🔧 수정: 짧은 키워드/단어는 이전 줄과 합치기 (키워드 고립 방지)
+                                MIN_LINE_LENGTH = 10  # 최소 줄 길이 (글자 수)
+
+                                # 매우 짧은 줄이고 이전 줄이 있으면 합치기
+                                if len(line) < MIN_LINE_LENGTH and formatted_lines and formatted_lines[-1] != '':
+                                    # 이전 줄이 마커가 아니면 합치기
+                                    prev_line = formatted_lines[-1]
+                                    if not (prev_line.startswith('###') and prev_line.endswith('###')):
+                                        formatted_lines[-1] = prev_line + ' ' + line
+                                        logger.debug(f"짧은 줄 병합: '{line}' -> 이전 줄에 추가")
+                                        continue
+
+                                # 문장 단위로 분리 (. ! ? 뒤에서 분리)
                                 sentences = re.split(r'([.!?])\s+', line)
-                                
+
                                 # split 결과를 문장으로 재조합
                                 current_sentence = ''
                                 for i, part in enumerate(sentences):
@@ -1259,19 +1271,44 @@ class NaverBlogPublisher:
                                         current_sentence = ''
                                     elif part.strip():
                                         current_sentence += part
-                                
+
                                 # 마지막 문장 처리 (끝맺음 없이 끝나는 경우)
                                 if current_sentence.strip():
                                     formatted_lines.append(current_sentence.strip())
-                                
-                                # 이 줄(문단)이 끝났으므로 빈 줄 추가
-                                if formatted_lines and formatted_lines[-1] != '':
-                                    formatted_lines.append('')
                         
+                        # 🔧 수정: 스마트 문단 구분 - 실제 문단 전환에만 빈 줄 추가
+                        # 로직: 연속된 짧은 문장들은 하나의 문단으로 그룹화, 긴 문장 후에만 빈 줄
+                        smart_lines = []
+                        PARAGRAPH_THRESHOLD = 50  # 문단 구분 기준 글자 수
+
+                        for i, line in enumerate(formatted_lines):
+                            if line == '':  # 기존 빈 줄은 무시
+                                continue
+
+                            smart_lines.append(line)
+
+                            # 다음 줄 확인
+                            if i < len(formatted_lines) - 1:
+                                next_line = formatted_lines[i + 1] if i + 1 < len(formatted_lines) else ''
+
+                                # 마커 앞뒤에는 항상 빈 줄 (이미 추가됨)
+                                if next_line and (next_line.startswith('###') and next_line.endswith('###')):
+                                    continue
+                                if line.startswith('###') and line.endswith('###'):
+                                    continue
+
+                                # 현재 줄이 충분히 길고 (완전한 문단), 다음 줄도 일반 텍스트면 빈 줄 추가
+                                if (len(line) > PARAGRAPH_THRESHOLD and
+                                    next_line and
+                                    not (next_line.startswith('###') and next_line.endswith('###'))):
+                                    smart_lines.append('')
+
+                        formatted_lines = smart_lines
+
                         # 마지막 연속된 빈 줄 제거 (하나만 남기기)
                         while len(formatted_lines) > 1 and formatted_lines[-1] == '' and formatted_lines[-2] == '':
                             formatted_lines.pop()
-                        
+
                         # 맨 마지막 빈 줄 제거
                         if formatted_lines and formatted_lines[-1] == '':
                             formatted_lines.pop()
