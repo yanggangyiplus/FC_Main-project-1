@@ -69,7 +69,7 @@ SELECTORS = {
 CATEGORY_IDS = {
     "politics": "100",    # 정치
     "economy": "101",     # 경제
-    "it_science": "105",  # IT/기술
+    "it_technology": "105",  # IT/기술
 }
 
 
@@ -209,7 +209,7 @@ class NaverNewsScraper:
         카테고리별 뉴스 스크래핑
 
         Args:
-            category_name: 카테고리 이름 (politics, economy, it_science)
+            category_name: 카테고리 이름 (politics, economy, it_technology)
             top_n_topics: 수집할 상위 주제 수
             articles_per_topic: 주제당 수집할 기사 수
 
@@ -524,7 +524,7 @@ if __name__ == "__main__":
     try:
         # IT/기술 카테고리 스크래핑
         data = scraper.scrape_category(
-            category_name="it_science",
+            category_name="it_technology",
             top_n_topics=3,      # 상위 3개 주제
             articles_per_topic=3  # 주제당 3개 기사
         )

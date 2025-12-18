@@ -179,7 +179,7 @@ class GoogleImagenGenerator:
             # 카테고리별 이미지 테마 동적 선택
             category = getattr(self, 'category', '') or ''
             category_themes = {
-                'it_science': ['tech facility', 'digital infrastructure', 'corporate headquarters', 'data visualization'],
+                'it_technology': ['tech facility', 'digital infrastructure', 'corporate headquarters', 'data visualization'],
                 'economy': ['financial district', 'stock market floor', 'corporate boardroom', 'business meeting'],
                 'politics': ['government building', 'press conference', 'parliamentary session', 'diplomatic meeting'],
                 'society': ['urban street scene', 'public gathering', 'community space', 'social event'],
@@ -379,13 +379,6 @@ Now create the perfect image prompt that DIRECTLY represents the specific topic 
         # 기존 필드명 맞추기
         if result.get("path") and not result.get("local_path"):
             result["local_path"] = result["path"]
-        # Pixabay 경로 대비 필드 보강
-        if "pixabay_id" not in result:
-            result["pixabay_id"] = None
-        if "pixabay_user" not in result:
-            result["pixabay_user"] = None
-        if "pixabay_page_url" not in result:
-            result["pixabay_page_url"] = None
         if "search_keyword" not in result:
             result["search_keyword"] = prompt
         return result
@@ -475,7 +468,7 @@ Now create the perfect image prompt that DIRECTLY represents the specific topic 
         return filename
 
 
-def generate_blog_images_with_metadata(blog_path: str = None, category: str = "it_science", count: int = 3):
+def generate_blog_images_with_metadata(blog_path: str = None, category: str = "it_technology", count: int = 3):
     """
     블로그 이미지 자동 생성 및 메타데이터 저장
     
@@ -495,7 +488,7 @@ def generate_blog_images_with_metadata(blog_path: str = None, category: str = "i
     
     # 블로그 파일 경로 설정
     if blog_path is None:
-        blog_path = Path(r"f:\CLASSHUB\OneDrive\Desktop\FC_Main-project-1\data\generated_blogs\it_science\2029년_누리호로_달_간다2032년_착륙선은_차세대_발사체로종합_20251216_161848_v1.html")
+        blog_path = Path(r"f:\CLASSHUB\OneDrive\Desktop\FC_Main-project-1\data\generated_blogs\it_technology\2029년_누리호로_달_간다2032년_착륙선은_차세대_발사체로종합_20251216_161848_v1.html")
     else:
         blog_path = Path(blog_path)
     
@@ -654,7 +647,7 @@ def insert_images_to_blog(blog_path: str = None, mapping_file: str = None, outpu
     
     if mapping_file is None:
         # 가장 최근 매핑 파일 찾기
-        mapping_file = base_dir / "data" / "metadata" / "it_science" / "blog_image_mapping.json"
+        mapping_file = base_dir / "data" / "metadata" / "it_technology" / "blog_image_mapping.json"
     else:
         mapping_file = Path(mapping_file)
     
@@ -735,7 +728,7 @@ def insert_images_to_blog(blog_path: str = None, mapping_file: str = None, outpu
     return str(output_path)
 
 
-def generate_and_insert_images(blog_path: str = None, category: str = "it_science", count: int = 3) -> Optional[Dict[str, Any]]:
+def generate_and_insert_images(blog_path: str = None, category: str = "it_technology", count: int = 3) -> Optional[Dict[str, Any]]:
     """
     블로그 이미지 생성 + 삽입 통합 함수 (전체 워크플로우)
     

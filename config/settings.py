@@ -36,10 +36,7 @@ TOPIC_DUPLICATE_DAYS = 5  # 중복 주제 체크 기간 (일)
 LOGS_DIR = PROJECT_ROOT / "logs"
 
 # API Keys
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")  # Google Gemini API (LLM + Imagen)
-# 미사용 제거됨: PIXABAY_API_KEY (Google Imagen으로 대체됨)
-# 미사용 제거됨: GOOGLE_DRIVE_* (기능 미구현)
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")  # Google Gemini API (LLM + Imagen만 사용)
 
 # 네이버 계정
 NAVER_ID = os.getenv("NAVER_ID")
@@ -68,7 +65,7 @@ SCRAPING_DELAY = int(os.getenv("SCRAPING_DELAY", "2"))
 NEWS_CATEGORIES = {
     "politics": "100",    # 정치 - https://news.naver.com/section/100
     "economy": "101",     # 경제 - https://news.naver.com/section/101
-    "it_science": "105"   # IT/기술 - https://news.naver.com/section/105
+    "it_technology": "105"   # IT/기술 - https://news.naver.com/section/105
 }
 
 # 기사 수집 설정
@@ -98,11 +95,6 @@ NAVER_BLOG_CATEGORIES = {
         "name": "정치",
         "category_no": 19,
         "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=19" if NAVER_BLOG_URL else None
-    },
-    "test": {
-        "name": "테스트",
-        "category_no": 20,
-        "url": f"{NAVER_BLOG_URL}/postwrite?categoryNo=20" if NAVER_BLOG_URL else None
     }
 }
 
@@ -110,12 +102,11 @@ NAVER_BLOG_CATEGORIES = {
 CHROMA_COLLECTION_NAME = "news_articles"
 EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
-# LLM 설정 - LM Studio, OpenAI (gpt-*), Gemini (gemini-*) 지원
+# LLM 설정 - Gemini 전용
 DEFAULT_LLM_MODEL = "gemini-2.5-flash"  # 기본 모델 (Gemini 2.5 Flash)
 TEMPERATURE = 0.7
 
-# 모듈별 최적 Gemini 모델 설정 (각 모듈의 특성에 맞게 최적화)
-# ✅ 사용 모델: gemini-2.5-flash (2024년 12월 기준 최신)
+# 모듈별 Gemini 모델 설정 (각 모듈의 특성에 맞게 최적화)
 MODULE_LLM_MODELS = {
     "blog_generator": "gemini-2.5-flash",   # 블로그 생성: 긴 콘텐츠, 창의성 필요
     "critic_qa": "gemini-2.5-flash",        # 품질 평가: 정확한 추론, 일관성 중요
@@ -123,11 +114,7 @@ MODULE_LLM_MODELS = {
     "image_keyword": "gemini-2.5-flash"     # 이미지 키워드/프롬프트: 간단하고 빠른 처리
 }
 
-# LM Studio (로컬 LLM) 설정
-LM_STUDIO_ENABLED = os.getenv("LM_STUDIO_ENABLED", "false").lower() == "true"
-LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
-LM_STUDIO_MODEL_NAME = os.getenv("LM_STUDIO_MODEL_NAME", "local-model")  # LM Studio에서 로드한 모델명
-LM_STUDIO_CONTEXT_LENGTH = int(os.getenv("LM_STUDIO_CONTEXT_LENGTH", "4096"))  # LM Studio 모델 컨텍스트 길이 (기본값: 4096)
+# 컨텍스트 설정
 MAX_CONTEXT_CHARS = int(os.getenv("MAX_CONTEXT_CHARS", "12000"))  # 컨텍스트 최대 문자 수 (대략 3000 토큰, 1 토큰 ≈ 4자)
 
 # 이미지 설정 - Gemini 2.5 Flash Image (Nano Banana)

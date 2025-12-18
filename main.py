@@ -167,7 +167,7 @@ def main():
         topics = {
             "politics": "최근 정치 이슈와 전망",
             "economy": "경제 동향과 시장 분석",
-            "it_science": "최신 IT 기술 트렌드"
+            "it_technology": "최신 IT 기술 트렌드"
         }
 
         # 워크플로우 시작 알림

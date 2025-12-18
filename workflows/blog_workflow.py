@@ -333,7 +333,7 @@ def run_workflow(category: str, topic: str) -> Dict[str, Any]:
 if __name__ == "__main__":
     # 테스트 실행
     result = run_workflow(
-        category="it_science",
+        category="it_technology",
         topic="최신 AI 기술 트렌드"
     )
 

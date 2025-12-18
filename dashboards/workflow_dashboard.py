@@ -237,20 +237,20 @@ st.markdown("""
 # 카테고리 설정
 # ========================================
 CATEGORY_MAP = {
-    "it_science": "💻 IT/기술",
+    "it_technology": "💻 IT/기술",
     "economy": "💰 경제",
     "politics": "🏛️ 정치"
 }
 
 # 이메일 표시용 카테고리 이름 (영문)
 CATEGORY_NAMES_EN = {
-    "it_science": "IT/Technology",
+    "it_technology": "IT/Technology",
     "economy": "Economy",
     "politics": "Politics"
 }
 
 NEWS_TO_BLOG_CATEGORY = {
-    "it_science": "it_tech",
+    "it_technology": "it_tech",
     "economy": "economy",
     "politics": "politics"
 }

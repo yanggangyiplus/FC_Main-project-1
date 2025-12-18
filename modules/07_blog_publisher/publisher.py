@@ -477,9 +477,9 @@ class NaverBlogPublisher:
         data_category = None
         if category:
             # 블로그 카테고리를 뉴스 카테고리로 역매핑
-            # it_tech -> it_science, economy -> economy, politics -> politics
+            # it_tech -> it_technology, economy -> economy, politics -> politics
             blog_to_news_mapping = {
-                "it_tech": "it_science",
+                "it_tech": "it_technology",
                 "economy": "economy",
                 "politics": "politics"
             }
@@ -838,10 +838,18 @@ class NaverBlogPublisher:
         
         try:
             # 블로그 글쓰기 페이지로 이동
+            # 뉴스 카테고리를 블로그 카테고리로 변환
+            news_to_blog_mapping = {
+                "it_technology": "it_tech",
+                "economy": "economy",
+                "politics": "politics"
+            }
+            blog_category = news_to_blog_mapping.get(category, category) if category else None
+
             # 카테고리 선택
-            if category and category in NAVER_BLOG_CATEGORIES:
-                blog_write_url = NAVER_BLOG_CATEGORIES[category]["url"]
-                logger.info(f"블로그 글쓰기 페이지 접속 (카테고리: {NAVER_BLOG_CATEGORIES[category]['name']}): {blog_write_url}")
+            if blog_category and blog_category in NAVER_BLOG_CATEGORIES:
+                blog_write_url = NAVER_BLOG_CATEGORIES[blog_category]["url"]
+                logger.info(f"블로그 글쓰기 페이지 접속 (카테고리: {NAVER_BLOG_CATEGORIES[blog_category]['name']}): {blog_write_url}")
             else:
                 # 기본 URL (카테고리 없음)
                 blog_write_url = f"{NAVER_BLOG_URL}/postwrite"

@@ -217,7 +217,7 @@ with tab_modules:
         {
             "icon": "🎨",
             "name": "06. Image Generator",
-            "desc": "Pixabay 이미지 다운로드",
+            "desc": "Gemini 이미지 생성",
             "status": "✅ 정상",
             "dashboard": "dashboard_06_image_generator.py"
         },
@@ -287,7 +287,7 @@ with tab_workflow:
             format_func=lambda x: {
                 "politics": "정치 (Politics)",
                 "economy": "경제 (Economy)",
-                "it_science": "IT/기술 (IT & Technology)"
+                "it_technology": "IT/기술 (IT & Technology)"
             }.get(x, x)
         )
  

@@ -1,7 +1,6 @@
 """
 블로그 품질 평가 모듈 (Critic & QA)
 """
-from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from typing import Dict, Any
 from pathlib import Path
@@ -9,9 +8,8 @@ from pathlib import Path
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config.settings import (
-    OPENAI_API_KEY, GOOGLE_API_KEY, DEFAULT_LLM_MODEL,
-    QUALITY_THRESHOLD, LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, LM_STUDIO_MODEL_NAME,
-    LM_STUDIO_CONTEXT_LENGTH, MAX_CONTEXT_CHARS,
+    GOOGLE_API_KEY, DEFAULT_LLM_MODEL,
+    QUALITY_THRESHOLD, MAX_CONTEXT_CHARS,
     MODULE_LLM_MODELS, MAX_REVISION_ATTEMPTS
 )
 from config.logger import get_logger
@@ -38,30 +36,8 @@ class BlogCritic:
         logger.info(f"BlogCritic 초기화 (모델: {model_name}, 임계값: {self.threshold})")
 
     def _init_llm(self):
-        """LLM 초기화 - LM Studio, OpenAI API, Gemini API 지원"""
-        if "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
-            # LM Studio (로컬 LLM)
-            if not LM_STUDIO_ENABLED:
-                logger.warning("LM Studio가 비활성화 상태입니다. .env에서 LM_STUDIO_ENABLED=true로 설정하세요.")
-            
-            logger.info(f"LM Studio 연결 시도: {LM_STUDIO_BASE_URL}")
-            return ChatOpenAI(
-                model=LM_STUDIO_MODEL_NAME,
-                temperature=0.0,  # 평가는 일관성이 중요
-                api_key="lm-studio",  # LM Studio는 API key 불필요 (더미값)
-                base_url=LM_STUDIO_BASE_URL,
-                max_retries=2
-            )
-        elif "gpt" in self.model_name.lower():
-            # OpenAI API (GPT 모델)
-            if not OPENAI_API_KEY:
-                raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
-            return ChatOpenAI(
-                model=self.model_name,
-                temperature=0.0,  # 평가는 일관성이 중요
-                api_key=OPENAI_API_KEY
-            )
-        elif "gemini" in self.model_name.lower():
+        """LLM 초기화 - Gemini API 전용"""
+        if "gemini" in self.model_name.lower():
             # Google Gemini API
             if not GOOGLE_API_KEY:
                 raise ValueError("GOOGLE_API_KEY가 설정되지 않았습니다.")
@@ -71,7 +47,7 @@ class BlogCritic:
                 google_api_key=GOOGLE_API_KEY
             )
         else:
-            raise ValueError(f"지원하지 않는 모델: {self.model_name}. 지원 모델: LM Studio, OpenAI (gpt-*), Gemini (gemini-*)")
+            raise ValueError(f"지원하지 않는 모델: {self.model_name}. Gemini 모델만 지원됩니다 (gemini-*)")
 
     def evaluate(self, html: str, topic: str, context: str) -> Dict[str, Any]:
         """

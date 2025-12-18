@@ -273,7 +273,7 @@ if __name__ == "__main__":
 
     # 새로운 구조의 샘플 데이터
     sample_data = {
-        "category": "it_science",
+        "category": "it_technology",
         "scraped_at": "2025-12-12T18:30:00",
         "topics": [
         {

@@ -27,7 +27,7 @@ def test_full_workflow():
     logger.info("\n[1/8] 뉴스 스크래핑")
     scraper = NaverNewsScraper(headless=True)
     try:
-        articles = scraper.scrape_category_headlines("it_science", top_n=5)
+        articles = scraper.scrape_category_headlines("it_technology", top_n=5)
         assert len(articles) > 0, "기사가 수집되지 않았습니다"
         logger.info(f"✅ {len(articles)}개 기사 수집 완료")
     finally:
@@ -36,7 +36,7 @@ def test_full_workflow():
     # 2. RAG 구축
     logger.info("\n[2/8] RAG 구축")
     rag = RAGBuilder()
-    count = rag.add_articles([a.to_dict() for a in articles], "it_science")
+    count = rag.add_articles([a.to_dict() for a in articles], "it_technology")
     assert count == len(articles), "RAG 저장 개수 불일치"
     logger.info(f"✅ {count}개 기사 벡터화 완료")
 
