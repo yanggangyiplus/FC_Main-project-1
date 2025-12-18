@@ -602,22 +602,28 @@ class NaverBlogPublisher:
                 "attempts": 0
             }
 
-        # 태그 추출 (publish_data에서 또는 메타데이터에서)
-        tags = []
-        if publish_data and 'tags' in publish_data:
-            tags = publish_data.get('tags', [])
-            logger.info(f"📌 publish_data에서 태그 추출: {len(tags)}개")
-        elif publish_data and 'html_file' in publish_data:
-            try:
-                html_file_path = Path(publish_data['html_file'])
-                meta_file = html_file_path.with_suffix('.meta.json')
-                if meta_file.exists():
-                    with open(meta_file, 'r', encoding='utf-8') as f:
-                        metadata = json.load(f)
-                        tags = metadata.get('tags', [])
-                        logger.info(f"📌 메타데이터에서 태그 추출: {len(tags)}개")
-            except Exception as e:
-                logger.warning(f"메타데이터에서 태그 추출 실패: {e}")
+        # 🔧 수정: 태그 추출 (우선순위: 파라미터 > publish_data > 메타데이터)
+        # tags 파라미터가 이미 전달되지 않은 경우에만 추출
+        if tags is None:
+            tags = []
+            if publish_data and 'tags' in publish_data:
+                tags = publish_data.get('tags', [])
+                logger.info(f"📌 publish_data에서 태그 추출: {len(tags)}개")
+            elif publish_data and 'html_file' in publish_data:
+                # publish_data에 tags가 없으면 메타데이터에서 추출 시도
+                try:
+                    html_file_path = Path(publish_data['html_file'])
+                    meta_file = html_file_path.with_suffix('.meta.json')
+                    if meta_file.exists():
+                        with open(meta_file, 'r', encoding='utf-8') as f:
+                            metadata = json.load(f)
+                            tags = metadata.get('tags', [])
+                            logger.info(f"📌 메타데이터에서 태그 추출: {len(tags)}개")
+                except Exception as e:
+                    logger.warning(f"메타데이터에서 태그 추출 실패: {e}")
+        else:
+            # tags 파라미터로 전달받은 경우
+            logger.info(f"📌 파라미터로 전달받은 태그: {len(tags)}개")
 
         # 발행 시도
         for attempt in range(1, max_retries + 1):

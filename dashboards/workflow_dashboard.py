@@ -610,8 +610,14 @@ if start_workflow:
                 logger.warning(f"태그 생성 실패: {tag_error}")
                 st.session_state.workflow_tags = []
 
-            # 저장
-            filepath = blog_generator.save_blog(html, topic_title, context, category=selected_category)
+            # 저장 (🔧 수정: 태그 전달하여 중복 생성 방지)
+            filepath = blog_generator.save_blog(
+                html,
+                topic_title,
+                context,
+                category=selected_category,
+                tags=st.session_state.workflow_tags  # 이미 생성된 태그 전달
+            )
 
             # 주제 기록
             topic_manager.add_topic(
@@ -779,8 +785,8 @@ if start_workflow:
                         prompt = placeholder.get('alt', f"Professional blog image for topic {st.session_state.workflow_topic}")
                         st.info(f"🎨 {marker} 생성 중 (기본 프롬프트)")
 
-                    # 이미지 생성 재시도 로직 (최대 3회)
-                    max_image_retries = 3
+                    # 🔧 수정: 이미지 생성 재시도 로직 (최대 2회로 축소 - 비용 절감)
+                    max_image_retries = 2
                     image_success = False
 
                     for retry in range(max_image_retries):
@@ -801,7 +807,7 @@ if start_workflow:
                                     generated_images.append({
                                         "index": placeholder['index'],
                                         "local_path": image_path,
-                                        "alt": description,
+                                        "alt": prompt,  # 🔧 수정: description -> prompt (770-779줄에서 정의됨)
                                         "marker": marker
                                     })
                                     st.success(f"✅ {marker} 생성 완료: {Path(image_path).name}")
@@ -822,7 +828,7 @@ if start_workflow:
                                 logger.error(f"이미지 생성 최종 실패: {e}")
                     
                     if not image_success:
-                        st.warning(f"⚠️ {marker} 생성 실패 (3회 시도 후 건너뛰기)")
+                        st.warning(f"⚠️ {marker} 생성 실패 (2회 시도 후 건너뛰기)")
                 
                 if generated_images:
                     st.success(f"✅ 이미지 생성 완료: {len(generated_images)}개")
