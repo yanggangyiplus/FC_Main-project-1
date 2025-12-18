@@ -6,7 +6,6 @@
 # 웹 스크래핑 (01_news_scraper, 07_blog_publisher)
 selenium==4.16.0
 beautifulsoup4==4.12.3
-webdriver-manager==4.0.1
 lxml==5.1.0  # beautifulsoup4 html.parser 대안
 
 # 벡터 DB 및 임베딩 (02_rag_builder)
@@ -14,15 +13,18 @@ chromadb==0.4.22
 sentence-transformers==2.3.1
 
 # LLM 및 LangChain (03, 04, 05, 06 모듈)
-langchain==0.1.9
-langchain-openai>=0.1.0
-langchain-google-genai==1.0.4
+langchain==0.1.16
+langchain-community==0.0.33
+langchain-core==0.1.43
+langchain-openai==0.1.4
+langchain-google-genai==4.1.1
 langgraph==0.0.20
 openai>=1.12.0
+langsmith==0.1.17
 
 # Google Gemini SDK (03, 04, 05, 06 모듈)
 # langchain-google-genai는 google-generativeai 0.5.x를 요구
-google-generativeai==0.5.4
+google-generativeai==0.8.6
 
 # Google Imagen API (06_image_generator)
 google-genai==0.3.0
