@@ -1,0 +1,20 @@
+[server]
+# 최대 동시 접속자 수 제한 (무료 호스팅 고려)
+maxUploadSize = 50
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+primaryColor = "#667eea"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f8f9fa"
+textColor = "#333333"
+font = "sans serif"
+
+[client]
+# 화면 꺼짐 방지
+showSidebarNavigation = true
+toolbarMode = "minimal"

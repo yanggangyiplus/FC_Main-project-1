@@ -142,7 +142,7 @@ with ThreadPoolExecutor(max_workers=2) as executor:
 
 ## 지원 LLM
 이 모듈은 다음 LLM을 지원합니다:
-- **Google Gemini API** (권장): gemini-2.0-flash-exp (빠르고 창의적, 네이버 블로그 톤 잘 살림)
+- **Google Gemini API** (권장): gemini-2.5-flash (빠르고 창의적, 네이버 블로그 톤 잘 살림)
 - **LM Studio**: 로컬 LLM (무료, 오프라인 사용 가능)
 - **OpenAI API**: gpt-4o-mini, gpt-4o, gpt-4 등 (유료, 고품질)
 

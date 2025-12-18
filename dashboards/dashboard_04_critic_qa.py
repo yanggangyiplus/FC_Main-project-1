@@ -111,7 +111,7 @@ with st.sidebar:
     
     # 모델 정보
     st.markdown("### 🤖 AI 모델")
-    st.info("**💎 Gemini 2.0 Flash Exp**\n- 고급 품질 평가\n- 논리성 분석")
+    st.info("**💎 Gemini 2.5 Flash**\n- 고급 품질 평가\n- 논리성 분석")
     
     st.markdown("---")
     

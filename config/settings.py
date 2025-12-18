@@ -117,13 +117,14 @@ MODULE_LLM_MODELS = {
 # 컨텍스트 설정
 MAX_CONTEXT_CHARS = int(os.getenv("MAX_CONTEXT_CHARS", "12000"))  # 컨텍스트 최대 문자 수 (대략 3000 토큰, 1 토큰 ≈ 4자)
 
-# 이미지 설정 - Gemini 2.5 Flash Image (Nano Banana)
-IMAGE_SIZE = "1024x1024"
-IMAGES_PER_BLOG = 3  # 블로그당 이미지 수
-# 이미지 생성 모델 (Nano Banana - Gemini 2.5 Flash Image 정식 버전)
-# - gemini-2.5-flash-image: 정식 버전 (2025년 10월 2일 출시)
-# - gemini-2.5-flash-preview-05-20: 중단됨 (2025년 10월 31일)
-GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")
+# 이미지 설정 - Google Imagen 4
+IMAGE_SIZE = "1024x576"
+IMAGES_PER_BLOG = 5  # 블로그당 이미지 수
+# Imagen 4 모델 설정
+# - imagen-4.0-generate-001: 표준 버전 (고품질)
+# - imagen-4.0-fast-generate-001: 빠른 버전
+# - imagen-4.0-ultra-generate-001: 울트라 버전 (최고 품질)
+IMAGEN_MODEL = os.getenv("IMAGEN_MODEL", "imagen-4.0-generate-001")
 
 # 블로그 발행용 데이터 저장 (5번 모듈 → 7번 모듈 연결용)
 BLOG_PUBLISH_DATA_FILE = METADATA_DIR / "blog_publish_data.json"  # 블로그 주제와 본문 텍스트 저장
