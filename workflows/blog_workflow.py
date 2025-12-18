@@ -52,7 +52,12 @@ def scrape_news_node(state: BlogWorkflowState) -> BlogWorkflowState:
 
     scraper = NaverNewsScraper(headless=True)
     try:
-        articles = scraper.scrape_category_headlines(state['category'], top_n=5)
+        # scrape_category는 ScrapedData 객체 반환 (topics 안에 articles 있음)
+        scraped_data = scraper.scrape_category(state['category'], top_n_topics=5, articles_per_topic=5)
+        # 모든 주제의 기사들을 하나의 리스트로 합침
+        articles = []
+        for topic in scraped_data.topics:
+            articles.extend(topic.articles)
         state['articles'] = [article.to_dict() for article in articles]
         logger.info(f"[Node] {len(articles)}개 기사 수집 완료")
     except Exception as e:
@@ -152,7 +157,7 @@ def parallel_processing_node(state: BlogWorkflowState) -> BlogWorkflowState:
 
     def generate_images_task():
         try:
-            img_gen = ImageGenerator(use_google_drive=True)
+            img_gen = ImageGenerator()  # use_google_drive 제거 (미사용 파라미터)
             blog_gen = BlogGenerator()
             placeholders = blog_gen.extract_image_placeholders(state['blog_html'])
             images = img_gen.generate_images(placeholders)

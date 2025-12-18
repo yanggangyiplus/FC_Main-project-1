@@ -37,17 +37,14 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 
 # API Keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")  # Google Gemini API
-PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")  # Pixabay 무료 이미지 API
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")  # Google Gemini API (LLM + Imagen)
+# 미사용 제거됨: PIXABAY_API_KEY (Google Imagen으로 대체됨)
+# 미사용 제거됨: GOOGLE_DRIVE_* (기능 미구현)
 
 # 네이버 계정
 NAVER_ID = os.getenv("NAVER_ID")
 NAVER_PASSWORD = os.getenv("NAVER_PASSWORD")
 NAVER_BLOG_URL = os.getenv("NAVER_BLOG_URL")
-
-# 구글 드라이브
-GOOGLE_DRIVE_CREDENTIALS_PATH = os.getenv("GOOGLE_DRIVE_CREDENTIALS_PATH", "./config/google_credentials.json")
-GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 
 # Slack
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
