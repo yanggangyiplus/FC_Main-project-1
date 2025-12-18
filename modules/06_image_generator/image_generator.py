@@ -1,7 +1,8 @@
 """
-Google Gemini Image Generator (Nano Banana)
-- Google Generative AI의 Gemini 2.5 Flash Image 모델을 사용하여 이미지 생성
-- 블로그 주제와 내용에서 이미지 프롬프트 자동 생성
+Google Imagen 4 Image Generator
+- Google Imagen 4 API를 사용하여 고품질 이미지 생성
+- Prompt Builder (gemini-2.5-flash)로 영문 프롬프트 자동 생성
+- 블로그 섹션 컨텍스트 기반 시각적 프롬프트 생성
 - GOOGLE_API_KEY 사용
 """
 import sys
@@ -12,7 +13,7 @@ import re
 import base64
 
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from config.settings import GOOGLE_API_KEY, IMAGES_DIR, GEMINI_IMAGE_MODEL, MODULE_LLM_MODELS
+from config.settings import GOOGLE_API_KEY, IMAGES_DIR, IMAGEN_MODEL, MODULE_LLM_MODELS
 from config.logger import get_logger
 
 # Google GenAI import
@@ -48,33 +49,49 @@ logger = get_logger(__name__)
 
 class GoogleImagenGenerator:
     """
-    Google Gemini Image API를 사용한 이미지 생성 클래스
-    - Gemini 2.5 Flash Image (Nano Banana) 모델 사용
-    - 블로그 내용에서 이미지 프롬프트 자동 생성
-    - LLM으로 한국어 → 영어 프롬프트 변환
+    Google Imagen 4 API를 사용한 이미지 생성 클래스
+    
+    아키텍처:
+        문맥+RAG+키워드 -> Prompt Builder(gemini-2.5-flash) -> 영문 프롬프트 -> Imagen 4 -> 이미지
+    
+    Prompt Builder 규칙:
+        - 출력: 영문 한 줄, 480 토큰 이하 (45-60 단어)
+        - Few-shot 예시 금지 (정보 오염 방지)
+        - 섹션에 없는 브랜드/사건 창작 금지
+        - Generic 표현 금지 (stock photo, abstract tech 등)
+        - Cliche 은유 금지 (자물쇠 단독, 해커 후드티 단독 등)
     """
     
-    # 이미지 생성 모델 (Nano Banana - Gemini 2.5 Flash Image)
-    # - gemini-2.5-flash-image: 정식 버전 (2025년 10월 2일 출시)
-    IMAGEN_MODEL = GEMINI_IMAGE_MODEL  # config/settings.py에서 로드
+    # Imagen 4 모델
+    # - imagen-4.0-generate-001: 표준 버전
+    # - imagen-4.0-fast-generate-001: 빠른 버전
+    # - imagen-4.0-ultra-generate-001: 울트라 버전
+    DEFAULT_IMAGEN_MODEL = IMAGEN_MODEL  # config/settings.py에서 로드
     
-    # 지원되는 비율
+    # 지원되는 비율 (Imagen 4)
     ASPECT_RATIOS = ["1:1", "3:4", "4:3", "9:16", "16:9"]
+    
+    # 지원되는 이미지 크기 (Imagen 4 Standard/Ultra만 지원)
+    IMAGE_SIZES = ["1K", "2K"]
     
     def __init__(
         self,
         category: str = "",
         aspect_ratio: str = "16:9",
         use_llm: bool = True,
-        model: str = None,          # 호환성: 기존 ImageGenerator(model=...)
-        image_size: str = None,     # 호환성: 사용하지 않지만 받아서 무시
+        model: str = None,          # 호환성: Imagen 모델 지정 가능
+        image_size: str = "1K",     # 이미지 크기 (1K, 2K)
+        number_of_images: int = 1,  # 생성할 이미지 수 (1-4)
         **kwargs,                   # 호환성: 불필요 인자 무시
     ):
         """
         Args:
             category: 카테고리 (폴더 구분용)
-            aspect_ratio: 이미지 비율 (기본: 16:9 - 블로그에 적합)
-            use_llm: LLM으로 프롬프트 생성 여부
+            aspect_ratio: 이미지 비율 (기본: 16:9 - 블로그용)
+            use_llm: Prompt Builder LLM 사용 여부
+            model: Imagen 모델명 (기본: imagen-4.0-generate-001)
+            image_size: 이미지 크기 (1K, 2K) - Standard/Ultra만 지원
+            number_of_images: 생성할 이미지 수 (1-4)
         """
         # API 키 확인
         if not GOOGLE_API_KEY:
@@ -97,32 +114,41 @@ class GoogleImagenGenerator:
         
         self.category = category
         self.aspect_ratio = aspect_ratio if aspect_ratio in self.ASPECT_RATIOS else "16:9"
+        self.image_size = image_size if image_size in self.IMAGE_SIZES else "1K"
+        self.number_of_images = max(1, min(4, number_of_images))  # 1-4 범위 제한
         self.use_llm = use_llm
         self.llm = None
         
+        # Imagen 모델 설정
+        self.imagen_model = model or self.DEFAULT_IMAGEN_MODEL
+        
         # Google GenAI 클라이언트 초기화
         self.client = genai.Client(api_key=GOOGLE_API_KEY)
-        logger.info(f"Google Imagen 클라이언트 초기화 완료")
+        logger.info(f"Google Imagen 4 클라이언트 초기화 완료 (모델: {self.imagen_model})")
         
-        # LLM 초기화 (프롬프트 생성용)
+        # Prompt Builder LLM 초기화 (gemini-2.5-flash)
         if use_llm and GEMINI_AVAILABLE and GOOGLE_API_KEY:
             try:
                 prompt_model = MODULE_LLM_MODELS.get("image_keyword", "gemini-2.5-flash")
                 self.llm = ChatGoogleGenerativeAI(
                     model=prompt_model,
-                    temperature=0.7,
+                    temperature=0.5,  # 더 일관된 프롬프트 생성
                     google_api_key=GOOGLE_API_KEY
                 )
-                logger.info(f"Gemini LLM 초기화 완료 (프롬프트 생성용, 모델: {prompt_model})")
+                logger.info(f"Prompt Builder 초기화 완료 (모델: {prompt_model})")
             except Exception as e:
-                logger.warning(f"LLM 초기화 실패: {e}")
+                logger.warning(f"Prompt Builder 초기화 실패: {e}")
                 self.llm = None
         
-        logger.info(f"GoogleImagenGenerator 초기화 (카테고리: {category or '없음'}, 비율: {self.aspect_ratio})")
+        logger.info(f"GoogleImagenGenerator 초기화 (카테고리: {category or '없음'}, 비율: {self.aspect_ratio}, 크기: {self.image_size})")
 
     def _extract_image_sections(self, blog_content: str) -> List[str]:
         """
-        블로그에서 이미지 위치 전후의 섹션 내용 추출
+        블로그에서 이미지 마커 직후의 섹션 내용 추출
+        
+        새 구조 (이미지 → 문단):
+            ###IMG1### → 문단1 → ###IMG2### → 문단2
+            각 마커 직후, 다음 마커 전까지의 내용을 추출
         
         Args:
             blog_content: 블로그 HTML
@@ -132,24 +158,54 @@ class GoogleImagenGenerator:
         """
         sections = []
         
-        # PLACEHOLDER 위치 기준으로 섹션 분리
-        parts = re.split(r'<img[^>]*src=["\']PLACEHOLDER["\'][^>]*>', blog_content)
+        # 이미지 마커 패턴 (###IMG{N}### 또는 PLACEHOLDER)
+        marker_pattern = r'(###IMG\d+###|<img[^>]*src=["\']PLACEHOLDER["\'][^>]*>)'
         
-        for i, part in enumerate(parts[:-1]):  # 마지막 파트 제외 (이미지 다음 내용)
-            # HTML 태그 제거
-            clean_text = re.sub(r'<[^>]+>', ' ', part)
+        # 마커 기준으로 분할
+        parts = re.split(marker_pattern, blog_content)
+        
+        # parts 구조: [앞내용, 마커1, 중간내용1, 마커2, 중간내용2, ...]
+        # 마커 다음 파트(홀수 인덱스+1)가 해당 이미지의 섹션 내용
+        
+        marker_indices = [i for i, part in enumerate(parts) if re.match(marker_pattern, part)]
+        
+        for idx in marker_indices:
+            # 마커 다음 파트 가져오기
+            next_idx = idx + 1
+            if next_idx < len(parts):
+                section_content = parts[next_idx]
+                
+                # HTML 태그 제거
+                clean_text = re.sub(r'<[^>]+>', ' ', section_content)
+                clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+                
+                # 다음 마커나 구분선 전까지만 (이미 분할되어 있으므로 추가 처리 불필요)
+                # 최대 500자 추출 (마커 직후 내용)
+                section_text = clean_text[:500] if len(clean_text) > 500 else clean_text
+                sections.append(section_text)
+            else:
+                # 마지막 마커 뒤에 내용이 없는 경우 빈 문자열
+                sections.append("")
+        
+        # 섹션이 없으면 전체 내용에서 추출 (fallback)
+        if not sections:
+            clean_text = re.sub(r'<[^>]+>', ' ', blog_content)
             clean_text = re.sub(r'\s+', ' ', clean_text).strip()
-            
-            # 마지막 500자 추출 (이미지 바로 전 내용)
-            section_text = clean_text[-500:] if len(clean_text) > 500 else clean_text
-            sections.append(section_text)
+            sections.append(clean_text[:500] if len(clean_text) > 500 else clean_text)
         
+        logger.debug(f"이미지 섹션 추출 완료: {len(sections)}개")
         return sections
 
     def generate_prompt_from_blog(self, blog_topic: str, blog_content: str, image_index: int = 0) -> str:
         """
-        블로그 주제와 내용에서 이미지 프롬프트 생성 (LLM 사용)
-        - 각 이미지 위치의 섹션 내용을 분석하여 관련 이미지 생성
+        Prompt Builder: 블로그 섹션에서 Imagen 4용 영문 프롬프트 생성
+        
+        규칙:
+            - 출력: 영문 한 줄, 480 토큰 이하 (45-60 단어)
+            - Few-shot 예시 절대 금지 (정보 오염 방지)
+            - 섹션에 없는 브랜드/사건 창작 금지
+            - Generic 표현 금지 (stock photo, abstract tech 등)
+            - Cliche 은유 금지 (자물쇠 단독, 해커 후드티 단독)
         
         Args:
             blog_topic: 블로그 주제
@@ -157,7 +213,7 @@ class GoogleImagenGenerator:
             image_index: 이미지 순서 (0, 1, 2...)
         
         Returns:
-            영어 이미지 생성 프롬프트
+            영어 이미지 생성 프롬프트 (45-60 단어)
         """
         if not self.llm:
             return self._generate_basic_prompt(blog_topic, image_index)
@@ -170,90 +226,83 @@ class GoogleImagenGenerator:
             if image_index < len(sections):
                 section_content = sections[image_index]
             else:
-                # HTML 태그 제거 후 전체 내용 사용
                 section_content = re.sub(r'<[^>]+>', ' ', blog_content)[:500]
             
-            # RAG 컨텍스트에서 배경 정보 추출
-            rag_info = getattr(self, '_rag_context', '')[:1500] if hasattr(self, '_rag_context') else ''
+            # RAG 컨텍스트
+            rag_info = getattr(self, '_rag_context', '')[:1000] if hasattr(self, '_rag_context') else ''
             
-            # 카테고리별 이미지 테마 동적 선택
+            # 카테고리 기반 도메인 힌트
             category = getattr(self, 'category', '') or ''
-            category_themes = {
-                'it_science': ['tech facility', 'digital infrastructure', 'corporate headquarters', 'data visualization'],
-                'economy': ['financial district', 'stock market floor', 'corporate boardroom', 'business meeting'],
-                'politics': ['government building', 'press conference', 'parliamentary session', 'diplomatic meeting'],
-                'society': ['urban street scene', 'public gathering', 'community space', 'social event'],
-                'world': ['international landmark', 'global city skyline', 'diplomatic venue', 'world map visualization'],
-                'culture': ['cultural venue', 'art exhibition', 'entertainment event', 'creative space'],
-                'sports': ['stadium', 'athletic competition', 'sports facility', 'victory celebration'],
+            domain_map = {
+                'it_science': 'technology and science',
+                'economy': 'business and finance',
+                'politics': 'government and politics',
+                'society': 'social issues',
+                'world': 'international affairs',
+                'culture': 'culture and entertainment',
+                'sports': 'sports',
             }
-            themes = category_themes.get(category, ['professional setting', 'modern environment', 'urban scene', 'corporate space'])
-            theme_hint = themes[image_index % len(themes)]
+            domain_hint = domain_map.get(category, 'general news')
             
-            # 이미지별 시각적 초점 다양화
-            visual_focuses = [
-                "wide establishing shot showing the overall scene and environment",
-                "medium shot focusing on the key subject with surrounding context", 
-                "detail shot highlighting specific symbolic elements",
-                "atmospheric shot emphasizing mood and emotion"
+            # 이미지별 촬영 스타일 다양화
+            shot_styles = [
+                "wide establishing shot, 24mm lens",
+                "medium shot with depth of field, 50mm lens",
+                "detail shot with shallow focus, 85mm lens",
+                "cinematic widescreen composition, 35mm anamorphic"
             ]
-            focus_hint = visual_focuses[image_index % len(visual_focuses)]
+            shot_style = shot_styles[image_index % len(shot_styles)]
             
-            llm_prompt = f"""You are an expert visual storyteller. Create an image prompt that DIRECTLY represents the SPECIFIC TOPIC and CONTEXT of this blog section.
+            # Prompt Builder 지시문 (Few-shot 예시 없음, 유연한 포맷)
+            llm_prompt = f"""You are an expert editorial image prompt writer for Imagen 4.
 
+TASK: Create ONE English image prompt (45-60 words) for the blog section below.
+
+=== INPUT ===
 Blog Title: {blog_topic}
+Domain: {domain_hint}
 
-Section Content (the image will appear RIGHT AFTER this text):
+Section Content (this image will represent the following paragraph):
 "{section_content}"
 
-Background Context (for reference only):
-{rag_info[:600] if rag_info else 'No additional context'}
+Background Info:
+{rag_info[:1000] if rag_info else 'None'}
 
-CRITICAL TASK:
-1. IDENTIFY the specific company, brand, product, or event mentioned in the section
-2. Create an image that DIRECTLY relates to that specific entity or topic
-3. The viewer should immediately understand "This is about [specific company/topic]" when seeing the image
+=== ANALYSIS (do mentally, don't output) ===
+1. ENTITY: Extract actual company/product/institution/event names from section
+2. ISSUE_TYPE: Identify the nature (performance/policy/accident/breach/launch/announcement/etc.)
+3. VISUAL_SIGNALS: List 3-6 concrete visual elements that represent the entity+issue
+4. TEXT_DECISION: Should the image include text? (company name, headline phrase, or key term)
+   - Include text IF: the section prominently features a company name, product name, or key phrase
+   - Omit text IF: the content is better represented visually without text
 
-REQUIREMENTS:
-- Write ONLY the prompt in English (no explanations)
-- Be SPECIFIC to the actual topic - NOT generic stock photos
-- Include: specific visual elements related to the company/topic, context, mood, lighting
-- Format: "A [cinematic/dramatic/etc.] [style] of [SPECIFIC scene related to the topic], [context details], [lighting], [mood], 8k quality"
-- Visual composition hint: {focus_hint}
+=== OUTPUT GUIDELINES ===
+- Choose the most appropriate style for the content:
+  * News/announcement → realistic editorial photo style
+  * Technology/product → clean product photography or tech visualization
+  * Financial/corporate → professional business photography
+  * Crisis/incident → dramatic photojournalistic style
+  * Policy/government → formal documentary style
+- If including text: keep it under 25 characters, specify placement
+- Camera hint: {shot_style}
 
-CRITICAL RULES:
-1. If the section mentions a COMPANY (KT, Samsung, Naver, Coupang, etc.):
-   - Include visual elements that represent that company's industry
-   - Example: Telecom company → cell towers, network infrastructure, data centers
-   - Example: E-commerce → warehouse, delivery boxes, logistics facility
-   
-2. If the section mentions a SPECIFIC ISSUE (data breach, fire, lawsuit, policy, etc.):
-   - Include visual elements that represent that issue
-   - Example: Data breach → broken padlock, warning lights, digital security imagery
-   - Example: Government policy → official buildings, press conference, formal setting
+=== STRICT RULES ===
+1. ONLY use entities actually mentioned in the section - NEVER invent brands/events
+2. FORBIDDEN generic terms: "stock photo", "abstract tech", "business concept", "digital illustration"
+3. FORBIDDEN clichés as SOLE main subject: padlock alone, hooded hacker alone, generic globe, floating icons
+4. Include SPECIFIC visual details: equipment types, architectural features, environmental context
+5. Output ONLY the prompt - no explanations, no alternatives
+6. End with quality tags: ultra-detailed, 8k quality
 
-3. Combine company context + issue context for maximum relevance
-
-EXAMPLES:
-
-For "쿠팡 개인정보 유출" (Coupang data breach):
-A dramatic shot of a modern e-commerce headquarters building with orange accents, a giant broken digital padlock hologram projected on the facade, scattered delivery boxes in the foreground, corporate crisis atmosphere with blue and orange lighting, 8k quality
-
-For "정부 AI 정책 발표" (Government AI policy announcement):
-A modern government press conference room with digital displays showing AI-related graphics, reporters with cameras, official atmosphere with technology elements, formal yet innovative mood, 8k quality
-
-For "삼성전자 반도체 실적" (Samsung semiconductor performance):
-A pristine semiconductor fabrication facility with advanced chip manufacturing equipment, robotic arms handling silicon wafers, cool blue lighting, high-tech precision atmosphere, 8k quality
-
-Now create the perfect image prompt that DIRECTLY represents the specific topic of the section above:"""
+=== YOUR PROMPT ==="""
 
             response = self.llm.invoke(llm_prompt)
             prompt = response.content.strip()
             
-            # 정리
+            # 정리: 따옴표 제거
             prompt = prompt.strip('"\'')
             
-            # "A " 또는 "An "으로 시작하는 줄 추출
+            # "A " 또는 "An "으로 시작하는 줄만 추출
             lines = prompt.split('\n')
             for line in lines:
                 line = line.strip()
@@ -261,113 +310,112 @@ Now create the perfect image prompt that DIRECTLY represents the specific topic 
                     prompt = line
                     break
             
-            # 프롬프트가 너무 길면 자르기
-            if len(prompt) > 400:
-                prompt = prompt[:400].rsplit(',', 1)[0]
+            # 프롬프트 길이 제한 (480 토큰 ≈ 약 400자)
+            if len(prompt) > 450:
+                prompt = prompt[:450].rsplit(',', 1)[0]
             
-            # 🔧 텍스트 금지 및 품질 설정 (간소화)
-            no_text_suffix = ", no text, no writing, photorealistic, 8k quality"
-            if "no text" not in prompt.lower():
-                prompt = prompt.rstrip('.').rstrip(',') + no_text_suffix
-            elif "8k" not in prompt.lower():
-                prompt = prompt.rstrip('.').rstrip(',') + ", photorealistic, 8k quality"
+            # 품질 보장 접미사 (텍스트 포함 여부는 LLM 판단에 맡김)
+            # no text는 LLM이 필요하다고 판단한 경우만 포함
+            if "8k" not in prompt.lower() and "quality" not in prompt.lower():
+                prompt = prompt.rstrip('.').rstrip(',') + ", ultra-detailed, 8k quality"
             
-            logger.info(f"LLM 프롬프트 생성 완료 ({len(prompt)}자): {prompt[:80]}...")
+            logger.info(f"Prompt Builder 생성 완료 ({len(prompt.split())} 단어): {prompt[:100]}...")
             return prompt
             
         except Exception as e:
-            logger.warning(f"LLM 프롬프트 생성 실패, 기본 프롬프트 사용: {e}")
+            logger.warning(f"Prompt Builder 실패, 기본 프롬프트 사용: {e}")
             return self._generate_basic_prompt(blog_topic, image_index)
 
     def _generate_basic_prompt(self, topic: str, index: int) -> str:
-        """기본 프롬프트 생성 (LLM 없이)"""
-        base_prompts = [
-            f"A professional photorealistic image representing {topic}, modern style, high quality, no text",
-            f"An informative infographic style illustration about {topic}, clean design, no text",
-            f"A conceptual artistic representation of {topic}, digital art style, vibrant colors, no text"
-        ]
-        return base_prompts[index % len(base_prompts)]
+        logger.error(f"[ImageGen] Prompt Builder가 실패하여 이미지 생성 불가. (Topic: {topic}, Index: {index})")
+        raise ValueError("Prompt Builder 실패로 인해 이미지 생성을 건너뜝니다.")
 
     def generate_image(self, prompt: str, index: int = 0) -> Dict[str, Any]:
         """
-        Imagen API로 이미지 생성
+        Imagen 4 API로 이미지 생성
         
         Args:
-            prompt: 이미지 생성 프롬프트 (영어)
+            prompt: 이미지 생성 프롬프트 (영어, 480토큰 이하)
             index: 이미지 인덱스
         
         Returns:
-            생성된 이미지 정보
+            생성된 이미지 정보 딕셔너리
         """
-        logger.info(f"Imagen 이미지 생성 시작: {prompt[:50]}...")
+        logger.info(f"Imagen 4 이미지 생성 시작 (모델: {self.imagen_model})")
+        logger.info(f"=" * 80)
+        logger.info(f"이미지 생성 요청 프롬프트 (인덱스: {index}, 비율: {self.aspect_ratio})")
+        logger.info(f"프롬프트: {prompt}")
+        logger.info(f"=" * 80)
         
         try:
-            # Imagen API 호출 (generate_content 메서드 사용)
-            response = self.client.models.generate_content(
-                model=self.IMAGEN_MODEL,
-                contents=[prompt]
+            # Imagen 4 API 호출 (generate_images 메서드 사용)
+            # 참조: https://ai.google.dev/gemini-api/docs/imagen#imagen-4
+            # config는 dict 또는 types 객체로 전달 가능
+            config_dict = {
+                "number_of_images": 1,  # 항상 1개씩 생성 (인덱스별 관리)
+                "aspect_ratio": self.aspect_ratio,
+            }
+            
+            # imageSize는 Standard/Ultra 모델에서만 지원
+            if 'ultra' in self.imagen_model or ('generate-001' in self.imagen_model and 'fast' not in self.imagen_model):
+                # Standard/Ultra 모델은 imageSize 지원
+                config_dict["image_size"] = self.image_size
+            
+            # types.GenerateImagesConfig가 있으면 사용, 없으면 dict 사용
+            try:
+                if hasattr(types, 'GenerateImagesConfig'):
+                    config = types.GenerateImagesConfig(**config_dict)
+                else:
+                    config = config_dict
+            except (AttributeError, TypeError):
+                config = config_dict
+            
+            response = self.client.models.generate_images(
+                model=self.imagen_model,
+                prompt=prompt,
+                config=config
             )
             
-            # 응답에서 이미지 데이터 추출
-            image_saved = False
+            # 응답에서 이미지 추출
+            if not response.generated_images:
+                raise Exception("Imagen 4 응답에 이미지가 없습니다.")
             
-            # candidates를 통해 parts에 접근
-            if hasattr(response, 'candidates') and response.candidates:
-                parts = response.candidates[0].content.parts
-            elif hasattr(response, 'parts'):
-                parts = response.parts
-            else:
-                raise Exception(f"응답 구조를 확인할 수 없습니다: {dir(response)}")
+            # 첫 번째 생성된 이미지 처리
+            generated_image = response.generated_images[0]
             
-            for part in parts:
-                if part.inline_data is not None:
-                    # inline_data에서 바이트 데이터 추출
-                    inline_data = part.inline_data
-                    
-                    # base64 디코딩 (inline_data가 base64 문자열인 경우)
-                    if hasattr(inline_data, 'data'):
-                        img_bytes = inline_data.data
-                    elif isinstance(inline_data, str):
-                        img_bytes = base64.b64decode(inline_data)
-                    elif isinstance(inline_data, bytes):
-                        img_bytes = inline_data
-                    else:
-                        # 다른 형태로 데이터가 있을 수 있음
-                        img_bytes = bytes(inline_data)
-                    
-                    # PIL Image로 변환
-                    image = Image.open(BytesIO(img_bytes))
-                    
-                    # 저장 경로 생성
-                    local_path = self._save_image(image, index)
-                    
-                    logger.info(f"Imagen 이미지 생성 완료: {local_path}")
-                    
-                    image_saved = True
-                    return {
-                        "success": True,  # 성공 플래그 추가
-                        "index": index,
-                        "prompt": prompt,
-                        "path": str(local_path),  # 'path' 키도 추가 (호환성)
-                        "local_path": str(local_path),
-                        "model": self.IMAGEN_MODEL,
-                        "aspect_ratio": self.aspect_ratio,
-                        "source": "google_imagen"
-                    }
+            # 이미지 바이트 추출
+            img_bytes = generated_image.image.image_bytes
             
-            if not image_saved:
-                raise Exception("이미지 생성 결과가 없습니다.")
+            # PIL Image로 변환
+            image = Image.open(BytesIO(img_bytes))
+            
+            # 저장 경로 생성
+            local_path = self._save_image(image, index)
+            
+            logger.info(f"Imagen 4 이미지 생성 완료: {local_path}")
+            
+            return {
+                "success": True,
+                "index": index,
+                "prompt": prompt,
+                "path": str(local_path),
+                "local_path": str(local_path),
+                "model": self.imagen_model,
+                "aspect_ratio": self.aspect_ratio,
+                "source": "google_imagen4"
+            }
                 
         except Exception as e:
-            logger.error(f"Imagen 이미지 생성 실패: {e}")
+            logger.error(f"Imagen 4 이미지 생성 실패: {e}")
             return {
-                "success": False,  # 실패 플래그 추가
+                "success": False,
                 "index": index,
                 "prompt": prompt,
                 "path": None,
                 "local_path": None,
                 "error": str(e),
-                "source": "google_imagen"
+                "model": self.imagen_model,
+                "source": "google_imagen4"
             }
 
     # ===== 호환성 메서드 (기존 인터페이스 유지) =====
@@ -379,13 +427,6 @@ Now create the perfect image prompt that DIRECTLY represents the specific topic 
         # 기존 필드명 맞추기
         if result.get("path") and not result.get("local_path"):
             result["local_path"] = result["path"]
-        # Pixabay 경로 대비 필드 보강
-        if "pixabay_id" not in result:
-            result["pixabay_id"] = None
-        if "pixabay_user" not in result:
-            result["pixabay_user"] = None
-        if "pixabay_page_url" not in result:
-            result["pixabay_page_url"] = None
         if "search_keyword" not in result:
             result["search_keyword"] = prompt
         return result
@@ -464,9 +505,9 @@ Now create the perfect image prompt that DIRECTLY represents the specific topic 
             save_dir = IMAGES_DIR
         save_dir.mkdir(parents=True, exist_ok=True)
         
-        # 파일명 생성
+        # 파일명 생성 (imagen4 접두사)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = save_dir / f"imagen_{timestamp}_{index}.png"
+        filename = save_dir / f"imagen4_{timestamp}_{index}.png"
         
         # 저장
         image.save(filename, "PNG")
@@ -475,7 +516,7 @@ Now create the perfect image prompt that DIRECTLY represents the specific topic 
         return filename
 
 
-def generate_blog_images_with_metadata(blog_path: str = None, category: str = "it_science", count: int = 3):
+def generate_blog_images_with_metadata(blog_path: str = None, category: str = "it_technology", count: int = 3):
     """
     블로그 이미지 자동 생성 및 메타데이터 저장
     
@@ -490,12 +531,12 @@ def generate_blog_images_with_metadata(blog_path: str = None, category: str = "i
     import json
     
     print("\n" + "="*60)
-    print("Google Imagen 블로그 이미지 자동 생성")
+    print("Google Imagen 4 블로그 이미지 자동 생성")
     print("="*60)
     
     # 블로그 파일 경로 설정
     if blog_path is None:
-        blog_path = Path(r"f:\CLASSHUB\OneDrive\Desktop\FC_Main-project-1\data\generated_blogs\it_science\2029년_누리호로_달_간다2032년_착륙선은_차세대_발사체로종합_20251216_161848_v1.html")
+        blog_path = Path(r"f:\CLASSHUB\OneDrive\Desktop\FC_Main-project-1\data\generated_blogs\it_technology\2029년_누리호로_달_간다2032년_착륙선은_차세대_발사체로종합_20251216_161848_v1.html")
     else:
         blog_path = Path(blog_path)
     
@@ -654,7 +695,7 @@ def insert_images_to_blog(blog_path: str = None, mapping_file: str = None, outpu
     
     if mapping_file is None:
         # 가장 최근 매핑 파일 찾기
-        mapping_file = base_dir / "data" / "metadata" / "it_science" / "blog_image_mapping.json"
+        mapping_file = base_dir / "data" / "metadata" / "it_technology" / "blog_image_mapping.json"
     else:
         mapping_file = Path(mapping_file)
     
@@ -735,7 +776,7 @@ def insert_images_to_blog(blog_path: str = None, mapping_file: str = None, outpu
     return str(output_path)
 
 
-def generate_and_insert_images(blog_path: str = None, category: str = "it_science", count: int = 3) -> Optional[Dict[str, Any]]:
+def generate_and_insert_images(blog_path: str = None, category: str = "it_technology", count: int = 3) -> Optional[Dict[str, Any]]:
     """
     블로그 이미지 생성 + 삽입 통합 함수 (전체 워크플로우)
     

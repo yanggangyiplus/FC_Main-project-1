@@ -237,20 +237,20 @@ st.markdown("""
 # 카테고리 설정
 # ========================================
 CATEGORY_MAP = {
-    "it_science": "💻 IT/기술",
+    "it_technology": "💻 IT/기술",
     "economy": "💰 경제",
     "politics": "🏛️ 정치"
 }
 
 # 이메일 표시용 카테고리 이름 (영문)
 CATEGORY_NAMES_EN = {
-    "it_science": "IT/Technology",
+    "it_technology": "IT/Technology",
     "economy": "Economy",
     "politics": "Politics"
 }
 
 NEWS_TO_BLOG_CATEGORY = {
-    "it_science": "it_tech",
+    "it_technology": "it_tech",
     "economy": "economy",
     "politics": "politics"
 }
@@ -594,7 +594,11 @@ if start_workflow:
                 st.stop()
             
             # 블로그 생성
-            blog_generator = BlogGenerator(model_name="gemini-2.0-flash-exp", temperature=0.7)
+            from config.settings import MODULE_LLM_MODELS, TEMPERATURE
+            blog_generator = BlogGenerator(
+                model_name=MODULE_LLM_MODELS.get("blog_generator", "gemini-2.5-flash"),
+                temperature=TEMPERATURE
+            )
             html = blog_generator.generate_blog(topic_title, context)
             
             # 저장
@@ -629,8 +633,8 @@ if start_workflow:
         
         with st.expander("🧐 STEP 4: AI 품질 평가 및 재생성", expanded=True):
             st.info(f"품질 임계값: {QUALITY_THRESHOLD}점 이상 (최대 {MAX_REGENERATION_ATTEMPTS}회 재시도)")
-            
-            critic = BlogCritic(model_name="gemini-2.0-flash-exp")
+
+            critic = BlogCritic(model_name=MODULE_LLM_MODELS.get("critic_qa", "gemini-2.5-flash"))
             
             # 재생성 루프
             regeneration_attempt = 0
@@ -702,8 +706,8 @@ if start_workflow:
         
         with st.expander("🧑‍💻 STEP 5: AI 인간화", expanded=True):
             st.info("AI 텍스트를 인간 스타일로 변환 중...")
-            
-            humanizer = Humanizer(model_name="gemini-2.0-flash-exp")
+
+            humanizer = Humanizer(model_name=MODULE_LLM_MODELS.get("humanizer", "gemini-2.5-flash"))
             humanized_html = humanizer.humanize(st.session_state.workflow_blog_html)
             
             # 인간화된 버전 저장
@@ -747,32 +751,38 @@ if start_workflow:
                 )
                 
                 generated_images = []
-                
-                for placeholder in placeholders[:3]:  # 최대 3개
+
+                for placeholder in placeholders[:5]:  # 최대 5개로 변경
                     marker = placeholder.get('marker', f"IMG{placeholder['index']+1}")
-                    description = placeholder['description']
-                    
+                    description = placeholder.get('alt', f"Image {placeholder['index']+1}")  # 'alt' 키 사용
+
                     st.info(f"🎨 {marker} 생성 중: {description}")
-                    
+
                     # 이미지 생성 재시도 로직 (최대 3회)
                     max_image_retries = 3
                     image_success = False
-                    
+
                     for retry in range(max_image_retries):
                         try:
                             if retry > 0:
                                 st.info(f"🔄 재시도 {retry}/{max_image_retries-1}")
-                            
+
                             # 이미지 생성
                             result = image_generator.generate_single_image(
                                 description,
                                 placeholder['index']
                             )
-                            
+
                             if result and result.get('success'):
                                 image_path = result.get('local_path') or result.get('path')
                                 if image_path:
-                                    generated_images.append(image_path)
+                                    # ✅ 수정: 전체 이미지 정보 저장 (경로만이 아니라)
+                                    generated_images.append({
+                                        "index": placeholder['index'],
+                                        "local_path": image_path,
+                                        "alt": description,
+                                        "marker": marker
+                                    })
                                     st.success(f"✅ {marker} 생성 완료: {Path(image_path).name}")
                                     image_success = True
                                     break
@@ -800,6 +810,14 @@ if start_workflow:
             else:
                 st.warning("⚠️ 이미지 플레이스홀더가 없습니다. 블로그에 ###IMG1###, ###IMG2### 마커가 포함되어야 합니다.")
         
+        # ✅ 이미지 정보를 세션 상태에 저장 (스코프 문제 해결)
+        if 'generated_images' in locals() and generated_images:
+            st.session_state.workflow_generated_images = generated_images
+            logger.info(f"이미지 정보 세션 저장: {len(generated_images)}개")
+        else:
+            st.session_state.workflow_generated_images = []
+            logger.warning("생성된 이미지가 없습니다")
+
         st.session_state.workflow_logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ 이미지 생성 완료")
         st.session_state.pipeline_status["image"] = "done"
         update_progress_display()  # 실시간 업데이트
@@ -831,33 +849,82 @@ if start_workflow:
             else:
                 try:
                     st.info("🔐 네이버 계정으로 발행 중...")
-                    
+
                     # NaverBlogPublisher 초기화
                     publisher = NaverBlogPublisher(headless=True)
-                    
+
                     # 발행 데이터 준비
                     # HTML 파일 경로
                     html_file = st.session_state.workflow_blog_file
-                    
+
                     # HTML 읽기
                     with open(html_file, 'r', encoding='utf-8') as f:
                         html_content = f.read()
-                    
+
                     # 제목 추출
                     from bs4 import BeautifulSoup
                     soup = BeautifulSoup(html_content, 'html.parser')
                     title_tag = soup.find('h1')
                     blog_title = title_tag.get_text(strip=True) if title_tag else st.session_state.workflow_topic
-                    
+
                     st.info(f"📝 제목: {blog_title}")
-                    
-                    # 블로그 발행
+
+                    # ✅ 메타데이터에서 태그 로드
+                    import json
+                    tags = []
+                    meta_file = Path(html_file).with_suffix('.meta.json')
+                    if meta_file.exists():
+                        try:
+                            with open(meta_file, 'r', encoding='utf-8') as f:
+                                metadata = json.load(f)
+                                tags = metadata.get('tags', [])
+                                st.info(f"🏷️ 태그 {len(tags)}개 로드됨")
+                        except Exception as e:
+                            logger.warning(f"메타데이터 로드 실패: {e}")
+
+                    # ✅ 발행 데이터 딕셔너리 생성
+                    from config.settings import METADATA_DIR
+                    publish_data = {
+                        'blog_title': blog_title,
+                        'blog_topic': st.session_state.workflow_topic,
+                        'blog_content': html_content,
+                        'category': selected_category,
+                        'html_file': str(html_file),
+                        'tags': tags,
+                        'evaluation_score': st.session_state.get('workflow_score', 0)
+                    }
+
+                    # ✅ publish_data를 파일로 저장 (publisher.py가 찾을 수 있도록)
+                    category_metadata_dir = METADATA_DIR / selected_category
+                    category_metadata_dir.mkdir(parents=True, exist_ok=True)
+                    publish_data_file = category_metadata_dir / "blog_publish_data.json"
+
+                    with open(publish_data_file, 'w', encoding='utf-8') as f:
+                        json.dump(publish_data, f, ensure_ascii=False, indent=2)
+                    st.info(f"💾 발행 데이터 저장: {publish_data_file}")
+
+                    # ✅ 이미지 정보 로드 (세션 상태에서)
+                    images_to_publish = st.session_state.get('workflow_generated_images', None)
+                    if images_to_publish:
+                        st.info(f"📷 이미지 {len(images_to_publish)}개 전달")
+                        logger.info(f"🔍 [DASHBOARD] 이미지 세션에서 로드: {len(images_to_publish)}개")
+                        for idx, img in enumerate(images_to_publish):
+                            logger.info(f"🔍 [DASHBOARD] Image {idx}: {img}")
+                    else:
+                        st.warning("⚠️ 이미지 정보 없음")
+                        logger.warning("🔍 [DASHBOARD] workflow_generated_images가 세션에 없음!")
+
+                    # ✅ 블로그 발행 (images 전달, publisher가 자동으로 publish_data 로드)
                     result = publisher.publish(
                         html=html_content,
                         title=blog_title,
                         category=selected_category,
+                        images=images_to_publish,
                         use_base64=True
                     )
+
+                    # ✅ publish_data를 세션 상태에 저장 (재발행 시 사용)
+                    st.session_state.workflow_publish_data = publish_data
                     
                     # 결과 처리
                     if result.get('success'):
@@ -950,14 +1017,17 @@ if start_workflow:
         st.session_state.execution_stats["success_count"] += 1
         
         st.balloons()
-        
+
         # 발행 URL이 있으면 포함
+        from pathlib import Path
+        blog_filename = Path(st.session_state.workflow_blog_file).name if st.session_state.workflow_blog_file else "알 수 없음"
+
         completion_message = f"""
         🎉 **AI 블로그 자동화 완료!**
-        
+
         📝 주제: {topic_title}
         📊 품질: {score}점
-        📁 저장: {st.session_state.workflow_blog_file.name}
+        📁 저장: {blog_filename}
         """
         
         if hasattr(st.session_state, 'workflow_blog_url') and st.session_state.workflow_blog_url:

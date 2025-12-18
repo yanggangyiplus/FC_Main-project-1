@@ -1,0 +1,23 @@
+{
+  "topic": "정부, 쿠팡 개인정보 유출사태 해결 위한 범부처 TF 구성",
+  "category": "it_science",
+  "rag_context": "쿠팡 개인정보 유출 사태가 심각해지면서 정부가 범부처 태스크포스(TF)를 구성했다. 개인정보보호위원회가 주도하고 과학기술정보통신부, 금융위원회 등이 참여한다. 쿠팡은 2024년 대규모 개인정보 유출 사고로 논란에 휩싸였다. 유출된 정보에는 고객 이름, 전화번호, 주소 등이 포함된 것으로 알려졌다. 정부는 이번 사태의 심각성을 인지하고 관련 부처들이 한자리에 모여 대책 마련에 나섰다. 개인정보보호위원회를 중심으로 철저한 조사와 피해자 보호 방안을 마련할 예정이다.",
+  "blog_content": "",
+  "blog_title": "정부, 쿠팡 개인정보 유출사태 해결 위한 범부처 TF 구성",
+  "created_at": "2025-12-18T16:24:41",
+  "image_prompts": [
+    {
+      "index": 1,
+      "prompt": "A dramatic wide establishing shot of a high-level government task force meeting in a modern, sleek conference room. Several stern-faced officials in dark suits are gathered around a large, illuminated table, intently reviewing documents and digital screens. On a central holographic display, a stylized, no text, no writing, photorealistic, 8k quality"
+    },
+    {
+      "index": 2,
+      "prompt": "A dramatic medium shot of a serious government task force meeting, with several diverse officials in formal attire gathered around a sleek, modern conference table. On the table, a glowing, fragmented digital padlock symbol is projected, with data streams breaking apart, directly representing a data breach. In the background, out of focus but clearly visible, no text, no writing, photorealistic, 8k quality"
+    }
+  ],
+  "image_paths": [
+    "data/images/it_science/imagen_20251218_162326_0.png",
+    "data/images/it_science/imagen_20251218_162345_1.png"
+  ],
+  "published_url": "https://blog.naver.com/PostView.naver?blogId=ho_bbang1027&Redirect=View&logNo=224114353564"
+}
