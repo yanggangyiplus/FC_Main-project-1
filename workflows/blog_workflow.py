@@ -147,8 +147,23 @@ def check_quality_node(state: BlogWorkflowState) -> str:
         logger.info(f"[Node] 품질 미달 → 재생성 ({state['regeneration_count']}/{MAX_REGENERATION_ATTEMPTS})")
         return "regenerate"
     else:
-        logger.warning(f"[Node] 최대 재생성 횟수 초과 → 강제 진행")
-        return "parallel_processing"
+        logger.error(f"[Node] 최대 재생성 횟수 초과 ({MAX_REGENERATION_ATTEMPTS}회) → 발행 실패")
+        return "quality_fail"
+
+
+def quality_fail_node(state: BlogWorkflowState) -> BlogWorkflowState:
+    """품질 평가 실패로 인한 발행 중단 노드"""
+    logger.error("[Node] 품질 평가 실패로 발행을 중단합니다.")
+
+    state['publish_result'] = {
+        "success": False,
+        "error": f"품질 평가 {MAX_REGENERATION_ATTEMPTS}회 연속 실패 (최종 점수: {state['evaluation'].get('score', 'N/A')}/100)",
+        "attempts": state['regeneration_count'] + 1,
+        "url": None
+    }
+    state['error'] = "품질 기준 미달로 발행 중단"
+
+    return state
 
 
 def parallel_processing_node(state: BlogWorkflowState) -> BlogWorkflowState:
@@ -268,6 +283,7 @@ def create_blog_workflow() -> StateGraph:
     workflow.add_node("build_rag", build_rag_node)
     workflow.add_node("generate_blog", generate_blog_node)
     workflow.add_node("evaluate_blog", evaluate_blog_node)
+    workflow.add_node("quality_fail", quality_fail_node)  # 품질 실패 노드
     workflow.add_node("parallel_processing", parallel_processing_node)
     workflow.add_node("publish_blog", publish_blog_node)
     workflow.add_node("notify", notify_node)
@@ -284,10 +300,12 @@ def create_blog_workflow() -> StateGraph:
         check_quality_node,
         {
             "regenerate": "generate_blog",
-            "parallel_processing": "parallel_processing"
+            "parallel_processing": "parallel_processing",
+            "quality_fail": "quality_fail"  # 3회 실패 시 발행 중단
         }
     )
 
+    workflow.add_edge("quality_fail", "notify")  # 실패 시 알림만 보내고 종료
     workflow.add_edge("parallel_processing", "publish_blog")
     workflow.add_edge("publish_blog", "notify")
     workflow.add_edge("notify", END)

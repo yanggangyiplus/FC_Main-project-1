@@ -130,11 +130,11 @@ LM_STUDIO_MODEL_NAME = os.getenv("LM_STUDIO_MODEL_NAME", "local-model")  # LM St
 LM_STUDIO_CONTEXT_LENGTH = int(os.getenv("LM_STUDIO_CONTEXT_LENGTH", "4096"))  # LM Studio 모델 컨텍스트 길이 (기본값: 4096)
 MAX_CONTEXT_CHARS = int(os.getenv("MAX_CONTEXT_CHARS", "12000"))  # 컨텍스트 최대 문자 수 (대략 3000 토큰, 1 토큰 ≈ 4자)
 
-# 이미지 설정 - Google Imagen (Nano Banana)
+# 이미지 설정 - Gemini 2.5 Flash (Nano Banana)
 IMAGE_SIZE = "1024x1024"
 IMAGES_PER_BLOG = 3  # 블로그당 이미지 수
-# 이미지 생성 모델 (Nano Banana - Google Imagen API)
-GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "imagen-3.0-generate-002")
+# 이미지 생성 모델 (Nano Banana - Gemini 2.5 Flash 이미지 생성)
+GEMINI_IMAGE_MODEL = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-preview-05-20")
 
 # 블로그 발행용 데이터 저장 (5번 모듈 → 7번 모듈 연결용)
 BLOG_PUBLISH_DATA_FILE = METADATA_DIR / "blog_publish_data.json"  # 블로그 주제와 본문 텍스트 저장

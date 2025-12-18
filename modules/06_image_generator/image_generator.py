@@ -54,8 +54,8 @@ class GoogleImagenGenerator:
     - LLM으로 한국어 → 영어 프롬프트 변환
     """
     
-    # 이미지 생성 모델 (Nano Banana - Google Imagen API)
-    # - imagen-3.0-generate-002: Imagen 3.0 최신 모델 (Nano Banana)
+    # 이미지 생성 모델 (Nano Banana - Gemini 2.5 Flash)
+    # - gemini-2.5-flash-preview-05-20: Gemini 2.5 Flash 이미지 생성 모델
     IMAGEN_MODEL = GEMINI_IMAGE_MODEL  # config/settings.py에서 로드
     
     # 지원되는 비율
