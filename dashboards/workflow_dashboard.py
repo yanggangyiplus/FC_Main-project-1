@@ -600,24 +600,35 @@ if start_workflow:
                 temperature=TEMPERATURE
             )
             html = blog_generator.generate_blog(topic_title, context)
-            
+
+            # 🏷️ 태그 생성 (SEO 최적화)
+            try:
+                tags = blog_generator.generate_tags(topic_title, context, html)
+                st.session_state.workflow_tags = tags
+                logger.info(f"태그 생성 완료: {len(tags)}개 - {', '.join(tags[:5])}...")
+            except Exception as tag_error:
+                logger.warning(f"태그 생성 실패: {tag_error}")
+                st.session_state.workflow_tags = []
+
             # 저장
             filepath = blog_generator.save_blog(html, topic_title, context, category=selected_category)
-            
+
             # 주제 기록
             topic_manager.add_topic(
                 topic_title=topic_title,
                 category=selected_category,
                 blog_file=str(filepath)
             )
-            
+
             st.session_state.workflow_blog_html = html
             st.session_state.workflow_blog_file = filepath
             st.session_state.workflow_topic = topic_title
             st.session_state.workflow_context = context
-            
+
             st.success(f"✅ 블로그 생성 완료")
             st.caption(f"저장 위치: {filepath.name}")
+            if st.session_state.workflow_tags:
+                st.caption(f"🏷️ 태그: {', '.join(st.session_state.workflow_tags[:10])}")
         
         st.session_state.workflow_logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] ✅ 블로그 생성 완료: {topic_title}")
         st.session_state.pipeline_status["generator"] = "done"
@@ -754,9 +765,19 @@ if start_workflow:
 
                 for placeholder in placeholders[:5]:  # 최대 5개로 변경
                     marker = placeholder.get('marker', f"IMG{placeholder['index']+1}")
-                    description = placeholder.get('alt', f"Image {placeholder['index']+1}")  # 'alt' 키 사용
 
-                    st.info(f"🎨 {marker} 생성 중: {description}")
+                    # 🔧 수정: LLM 기반 프롬프트 생성 (RAG 컨텍스트 활용)
+                    try:
+                        prompt = image_generator.generate_prompt_from_blog(
+                            blog_topic=st.session_state.workflow_topic,
+                            blog_content=st.session_state.workflow_blog_html,
+                            image_index=placeholder['index']
+                        )
+                        st.info(f"🎨 {marker} 생성 중: {prompt[:80]}...")
+                    except Exception as e:
+                        logger.warning(f"프롬프트 생성 실패, 기본값 사용: {e}")
+                        prompt = placeholder.get('alt', f"Professional blog image for topic {st.session_state.workflow_topic}")
+                        st.info(f"🎨 {marker} 생성 중 (기본 프롬프트)")
 
                     # 이미지 생성 재시도 로직 (최대 3회)
                     max_image_retries = 3
@@ -769,7 +790,7 @@ if start_workflow:
 
                             # 이미지 생성
                             result = image_generator.generate_single_image(
-                                description,
+                                prompt,
                                 placeholder['index']
                             )
 
@@ -914,12 +935,16 @@ if start_workflow:
                         st.warning("⚠️ 이미지 정보 없음")
                         logger.warning("🔍 [DASHBOARD] workflow_generated_images가 세션에 없음!")
 
-                    # ✅ 블로그 발행 (images 전달, publisher가 자동으로 publish_data 로드)
+                    # ✅ 블로그 발행 (images와 tags 전달, publisher가 자동으로 publish_data 로드)
+                    tags_to_publish = st.session_state.get('workflow_tags', [])
+                    logger.info(f"🏷️ 발행할 태그: {len(tags_to_publish)}개 - {', '.join(tags_to_publish[:5])}...")
+
                     result = publisher.publish(
                         html=html_content,
                         title=blog_title,
                         category=selected_category,
                         images=images_to_publish,
+                        tags=tags_to_publish,  # 🏷️ 태그 전달
                         use_base64=True
                     )
 

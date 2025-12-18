@@ -48,6 +48,7 @@ class BlogWorkflowState(TypedDict):
     rag_context: str  # 🎯 이미지 생성 시 RAG 컨텍스트 활용
     blog_html: str
     evaluation: Optional[Dict[str, Any]]
+    tags: List[str]  # 🏷️ 블로그 태그 (SEO 최적화)
     images: List[Dict[str, Any]]
     humanized_html: str
     final_html: str
@@ -171,6 +172,20 @@ def generate_blog_node(state: BlogWorkflowState) -> BlogWorkflowState:
         )
 
         state['blog_html'] = html
+
+        # 🏷️ 태그 생성 (SEO 최적화)
+        try:
+            tags = generator.generate_tags(
+                topic=state['topic'],
+                context=state['context'],
+                html=html
+            )
+            state['tags'] = tags
+            logger.info(f"[Node] 태그 생성 완료: {len(tags)}개 - {', '.join(tags[:5])}...")
+        except Exception as tag_error:
+            logger.warning(f"[Node] 태그 생성 실패, 기본 태그 사용: {tag_error}")
+            state['tags'] = []
+
         logger.info(f"[Node] 블로그 생성 완료 (시도: {state['regeneration_count'] + 1})")
     except Exception as e:
         logger.error(f"[Node] 블로그 생성 실패: {e}")
@@ -286,10 +301,12 @@ def publish_blog_node(state: BlogWorkflowState) -> BlogWorkflowState:
     try:
         publisher = NaverBlogPublisher(headless=False)
 
+        # 🏷️ 태그 전달 (SEO 최적화)
         result = publisher.publish(
             html=state['humanized_html'],
             images=state['images'],
-            title=state['topic']
+            title=state['topic'],
+            tags=state.get('tags', [])  # 태그 전달
         )
 
         state['publish_result'] = result
