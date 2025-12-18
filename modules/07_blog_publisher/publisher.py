@@ -371,7 +371,7 @@ class NaverBlogPublisher:
                     html = f.read()
                 logger.info(f"5번 모듈 HTML 로드 완료: {HUMANIZER_INPUT_FILE.name}")
                 return html
-            
+
             # 2. generated_blogs 디렉토리에서 최신 파일 찾기
             if GENERATED_BLOGS_DIR.exists():
                 html_files = sorted(
@@ -384,13 +384,58 @@ class NaverBlogPublisher:
                         html = f.read()
                     logger.info(f"최신 블로그 HTML 로드 완료: {html_files[0].name}")
                     return html
-            
+
             logger.warning("HTML 파일을 찾을 수 없습니다.")
             return None
-            
+
         except Exception as e:
             logger.error(f"HTML 로드 실패: {e}")
             return None
+
+    def input_tags(self, tags: List[str]) -> bool:
+        """
+        블로그 태그 입력 (첫 번째 발행 버튼 클릭 후 호출)
+
+        Args:
+            tags: 태그 리스트 (최대 30개)
+
+        Returns:
+            성공 여부
+        """
+        if not tags:
+            logger.info("입력할 태그가 없습니다.")
+            return True
+
+        try:
+            logger.info(f"태그 입력 시작: {len(tags)}개")
+
+            # 태그 입력 필드 찾기 및 클릭
+            tag_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.ID, "tag-input"))
+            )
+            tag_input.click()
+            time.sleep(0.5)
+            logger.info("태그 입력 필드 클릭 완료")
+
+            # 각 태그 입력 (스페이스바로 구분)
+            for i, tag in enumerate(tags, 1):
+                # 태그 텍스트 입력
+                tag_input.send_keys(tag)
+                time.sleep(0.2)
+
+                # 스페이스바 입력 (자동으로 #태그 형식으로 변환됨)
+                tag_input.send_keys(Keys.SPACE)
+                time.sleep(0.2)
+
+                if i % 5 == 0:  # 5개마다 로그 출력
+                    logger.info(f"태그 입력 진행: {i}/{len(tags)}")
+
+            logger.info(f"✅ 태그 입력 완료: {len(tags)}개")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ 태그 입력 실패: {e}")
+            return False
 
     def publish(
         self,
@@ -1912,6 +1957,30 @@ class NaverBlogPublisher:
                     time.sleep(2)
                 except:
                     logger.error("발행 버튼을 찾을 수 없습니다.")
+
+            # 4.5. 태그 입력 (첫 번째 발행 버튼 클릭 후)
+            tags = []
+            if publish_data and 'tags' in publish_data:
+                tags = publish_data.get('tags', [])
+                logger.info(f"발행 데이터에서 태그 로드: {len(tags)}개")
+            else:
+                # 메타데이터에서 태그 읽기 시도
+                try:
+                    if publish_data and 'html_file' in publish_data:
+                        html_file_path = Path(publish_data['html_file'])
+                        meta_file = html_file_path.with_suffix('.meta.json')
+                        if meta_file.exists():
+                            with open(meta_file, 'r', encoding='utf-8') as f:
+                                metadata = json.load(f)
+                                tags = metadata.get('tags', [])
+                                logger.info(f"메타데이터에서 태그 로드: {len(tags)}개")
+                except Exception as e:
+                    logger.warning(f"메타데이터에서 태그 로드 실패: {e}")
+
+            if tags:
+                self.input_tags(tags)
+            else:
+                logger.info("태그가 없어 태그 입력을 건너뜁니다.")
 
             # 5. 확인 발행 버튼 클릭 (두 번째)
             try:

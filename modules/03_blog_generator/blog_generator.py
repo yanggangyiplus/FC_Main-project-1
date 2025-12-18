@@ -253,6 +253,76 @@ class BlogGenerator:
         else:
             raise ValueError(f"지원하지 않는 모델: {self.model_name}. 지원 모델: LM Studio, OpenAI (gpt-*), Gemini (gemini-*)")
 
+    def generate_tags(
+        self,
+        topic: str,
+        context: str,
+        html_content: str,
+        max_tags: int = 30
+    ) -> List[str]:
+        """
+        블로그 글에서 주요 키워드 태그 생성
+
+        Args:
+            topic: 블로그 주제
+            context: RAG 컨텍스트
+            html_content: 생성된 블로그 HTML
+            max_tags: 최대 태그 개수 (기본값: 30)
+
+        Returns:
+            태그 리스트 (최대 max_tags개)
+        """
+        logger.info(f"태그 생성 시작: 주제='{topic}'")
+
+        # HTML에서 텍스트 추출
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        text_content = soup.get_text()
+
+        tag_prompt = f"""다음 블로그 글에서 검색 최적화(SEO)를 위한 핵심 키워드 태그를 추출해줘.
+
+블로그 주제: {topic}
+
+블로그 본문:
+{text_content[:2000]}
+
+요구사항:
+1. 블로그의 핵심 내용을 대표하는 단어/키워드만 선택
+2. 고유명사 (기업명, 인물명, 제품명, 지명 등) 우선 포함
+3. 주요 이슈 키워드 포함
+4. 단어당 1~3음절 (예: "AI", "삼성전자", "반도체")
+5. 최대 {max_tags}개까지만 선택
+6. 각 태그는 쉼표(,)로 구분
+7. '#' 기호는 절대 포함하지 말 것
+8. 불필요한 조사나 어미 제거 (예: "기업의" → "기업", "했다" → X)
+
+출력 형식 (예시):
+AI, 삼성전자, 반도체, 투자, 기술, 경쟁, 글로벌, 시장, 전망, 성장
+
+위 형식으로 태그만 출력해줘:"""
+
+        try:
+            response = self.llm.invoke(tag_prompt)
+            tags_text = response.content.strip()
+
+            # 태그 파싱 (쉼표로 분리, 공백 제거, 빈 문자열 제거)
+            tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()]
+
+            # '#' 기호 제거 (혹시 포함된 경우)
+            tags = [tag.replace('#', '').strip() for tag in tags]
+
+            # 최대 개수 제한
+            tags = tags[:max_tags]
+
+            logger.info(f"태그 생성 완료: {len(tags)}개 - {', '.join(tags[:5])}...")
+            return tags
+
+        except Exception as e:
+            logger.error(f"태그 생성 중 오류: {e}")
+            # 기본 태그 반환 (주제에서 추출)
+            fallback_tags = [word for word in re.findall(r'[가-힣a-zA-Z0-9]+', topic) if len(word) >= 2]
+            return fallback_tags[:10]
+
     def generate_blog(
         self,
         topic: str,
@@ -762,7 +832,15 @@ HTML 구조 예시:
 
         return html
 
-    def save_blog(self, html: str, topic: str, context: str = "", version: int = 1, category: str = "") -> Path:
+    def save_blog(
+        self,
+        html: str,
+        topic: str,
+        context: str = "",
+        version: int = 1,
+        category: str = "",
+        tags: Optional[List[str]] = None
+    ) -> Path:
         """
         블로그 HTML 파일로 저장 (메타데이터 포함, 카테고리별 폴더)
 
@@ -772,10 +850,20 @@ HTML 구조 예시:
             context: 사용된 컨텍스트 (품질 평가용)
             version: 버전 번호 (재생성 시 증가)
             category: 카테고리 (폴더 구분용)
+            tags: 블로그 태그 리스트 (None이면 자동 생성)
 
         Returns:
             저장된 파일 경로
         """
+        # 태그 자동 생성 (tags가 None인 경우)
+        if tags is None:
+            logger.info("태그가 제공되지 않았습니다. 자동 생성합니다...")
+            try:
+                tags = self.generate_tags(topic, context, html)
+            except Exception as e:
+                logger.error(f"태그 자동 생성 실패: {e}")
+                tags = []
+
         # 카테고리별 폴더 생성
         if category:
             save_dir = GENERATED_BLOGS_DIR / category
@@ -800,14 +888,15 @@ HTML 구조 예시:
             "created_at": datetime.now().isoformat(),
             "html_file": filename.name,
             "version": version,
-            "category": category  # 카테고리 정보 포함
+            "category": category,  # 카테고리 정보 포함
+            "tags": tags  # 태그 정보 추가
         }
-        
+
         import json
         with open(meta_filename, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
 
-        logger.info(f"블로그 저장 완료: {filename} (카테고리: {category or '없음'}, 메타데이터 포함)")
+        logger.info(f"블로그 저장 완료: {filename} (카테고리: {category or '없음'}, 태그: {len(tags)}개, 메타데이터 포함)")
         return filename
 
     def extract_image_placeholders(self, html: str) -> list:
