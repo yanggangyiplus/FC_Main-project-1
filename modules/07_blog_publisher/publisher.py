@@ -371,7 +371,7 @@ class NaverBlogPublisher:
                     html = f.read()
                 logger.info(f"5번 모듈 HTML 로드 완료: {HUMANIZER_INPUT_FILE.name}")
                 return html
-            
+
             # 2. generated_blogs 디렉토리에서 최신 파일 찾기
             if GENERATED_BLOGS_DIR.exists():
                 html_files = sorted(
@@ -384,13 +384,58 @@ class NaverBlogPublisher:
                         html = f.read()
                     logger.info(f"최신 블로그 HTML 로드 완료: {html_files[0].name}")
                     return html
-            
+
             logger.warning("HTML 파일을 찾을 수 없습니다.")
             return None
-            
+
         except Exception as e:
             logger.error(f"HTML 로드 실패: {e}")
             return None
+
+    def input_tags(self, tags: List[str]) -> bool:
+        """
+        블로그 태그 입력 (첫 번째 발행 버튼 클릭 후 호출)
+
+        Args:
+            tags: 태그 리스트 (최대 30개)
+
+        Returns:
+            성공 여부
+        """
+        if not tags:
+            logger.info("입력할 태그가 없습니다.")
+            return True
+
+        try:
+            logger.info(f"태그 입력 시작: {len(tags)}개")
+
+            # 태그 입력 필드 찾기 및 클릭
+            tag_input = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.ID, "tag-input"))
+            )
+            tag_input.click()
+            time.sleep(0.5)
+            logger.info("태그 입력 필드 클릭 완료")
+
+            # 각 태그 입력 (스페이스바로 구분)
+            for i, tag in enumerate(tags, 1):
+                # 태그 텍스트 입력
+                tag_input.send_keys(tag)
+                time.sleep(0.2)
+
+                # 스페이스바 입력 (자동으로 #태그 형식으로 변환됨)
+                tag_input.send_keys(Keys.SPACE)
+                time.sleep(0.2)
+
+                if i % 5 == 0:  # 5개마다 로그 출력
+                    logger.info(f"태그 입력 진행: {i}/{len(tags)}")
+
+            logger.info(f"✅ 태그 입력 완료: {len(tags)}개")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ 태그 입력 실패: {e}")
+            return False
 
     def publish(
         self,
@@ -399,6 +444,7 @@ class NaverBlogPublisher:
         title: Optional[str] = None,
         content: Optional[str] = None,
         category: Optional[str] = None,
+        tags: Optional[List[str]] = None,
         mapping_file: Optional[Path] = None,
         max_retries: int = MAX_PUBLISH_RETRIES,
         use_base64: bool = True
@@ -410,6 +456,7 @@ class NaverBlogPublisher:
             html: 블로그 HTML (None이면 자동 로드)
             images: 이미지 정보 리스트 (None이면 매핑 파일에서 자동 로드)
             title: 블로그 제목 (None이면 HTML에서 추출)
+            tags: 태그 리스트 (None이면 publish_data 또는 메타데이터에서 자동 로드)
             mapping_file: 이미지 매핑 파일 경로
             max_retries: 최대 재시도 횟수
             use_base64: base64 인코딩 사용 여부
@@ -432,9 +479,9 @@ class NaverBlogPublisher:
         data_category = None
         if category:
             # 블로그 카테고리를 뉴스 카테고리로 역매핑
-            # it_tech -> it_science, economy -> economy, politics -> politics
+            # it_tech -> it_technology, economy -> economy, politics -> politics
             blog_to_news_mapping = {
-                "it_tech": "it_science",
+                "it_tech": "it_technology",
                 "economy": "economy",
                 "politics": "politics"
             }
@@ -555,6 +602,29 @@ class NaverBlogPublisher:
                 "attempts": 0
             }
 
+        # 🔧 수정: 태그 추출 (우선순위: 파라미터 > publish_data > 메타데이터)
+        # tags 파라미터가 이미 전달되지 않은 경우에만 추출
+        if tags is None:
+            tags = []
+            if publish_data and 'tags' in publish_data:
+                tags = publish_data.get('tags', [])
+                logger.info(f"📌 publish_data에서 태그 추출: {len(tags)}개")
+            elif publish_data and 'html_file' in publish_data:
+                # publish_data에 tags가 없으면 메타데이터에서 추출 시도
+                try:
+                    html_file_path = Path(publish_data['html_file'])
+                    meta_file = html_file_path.with_suffix('.meta.json')
+                    if meta_file.exists():
+                        with open(meta_file, 'r', encoding='utf-8') as f:
+                            metadata = json.load(f)
+                            tags = metadata.get('tags', [])
+                            logger.info(f"📌 메타데이터에서 태그 추출: {len(tags)}개")
+                except Exception as e:
+                    logger.warning(f"메타데이터에서 태그 추출 실패: {e}")
+        else:
+            # tags 파라미터로 전달받은 경우
+            logger.info(f"📌 파라미터로 전달받은 태그: {len(tags)}개")
+
         # 발행 시도
         for attempt in range(1, max_retries + 1):
             logger.info(f"발행 시도 {attempt}/{max_retries}")
@@ -562,7 +632,15 @@ class NaverBlogPublisher:
             try:
                 # content가 없으면 빈 문자열로 설정
                 content_text = content if content else ""
-                result = self._attempt_publish(title, content_text, images, category=category, use_base64=use_base64)
+                result = self._attempt_publish(
+                    title,
+                    content_text,
+                    images,
+                    category=category,
+                    use_base64=use_base64,
+                    tags=tags,
+                    publish_data=publish_data
+                )
 
                 if result['success']:
                     logger.info(f"발행 성공! (시도 {attempt}회)")
@@ -712,7 +790,16 @@ class NaverBlogPublisher:
             logger.error(f"이미지 삽입 실패: {e}")
             return False
 
-    def _attempt_publish(self, title: str, content: str, images: List[Dict[str, Any]], category: Optional[str] = None, use_base64: bool = True) -> Dict[str, Any]:
+    def _attempt_publish(
+        self,
+        title: str,
+        content: str,
+        images: List[Dict[str, Any]],
+        category: Optional[str] = None,
+        use_base64: bool = True,
+        tags: Optional[List[str]] = None,
+        publish_data: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         실제 발행 시도 (단일)
 
@@ -722,6 +809,8 @@ class NaverBlogPublisher:
             images: 이미지 정보 리스트
             category: 블로그 카테고리 ("it_tech", "economy", "politics" 또는 None)
             use_base64: base64 인코딩 사용 여부
+            tags: 블로그 태그 리스트 (Optional)
+            publish_data: 발행 데이터 딕셔너리 (Optional)
 
         Returns:
             결과 딕셔너리
@@ -757,10 +846,25 @@ class NaverBlogPublisher:
         
         try:
             # 블로그 글쓰기 페이지로 이동
+            # 뉴스 카테고리를 블로그 카테고리로 변환
+            news_to_blog_mapping = {
+                "it_technology": "it_tech",
+                "economy": "economy",
+                "politics": "politics"
+            }
+
+            # ✅ 카테고리 변환 (None이면 기본값 사용하지 않음)
+            if category:
+                blog_category = news_to_blog_mapping.get(category, category)
+                logger.info(f"카테고리 매핑: {category} → {blog_category}")
+            else:
+                blog_category = None
+                logger.warning("카테고리가 지정되지 않았습니다")
+
             # 카테고리 선택
-            if category and category in NAVER_BLOG_CATEGORIES:
-                blog_write_url = NAVER_BLOG_CATEGORIES[category]["url"]
-                logger.info(f"블로그 글쓰기 페이지 접속 (카테고리: {NAVER_BLOG_CATEGORIES[category]['name']}): {blog_write_url}")
+            if blog_category and blog_category in NAVER_BLOG_CATEGORIES:
+                blog_write_url = NAVER_BLOG_CATEGORIES[blog_category]["url"]
+                logger.info(f"블로그 글쓰기 페이지 접속 (카테고리: {NAVER_BLOG_CATEGORIES[blog_category]['name']}): {blog_write_url}")
             else:
                 # 기본 URL (카테고리 없음)
                 blog_write_url = f"{NAVER_BLOG_URL}/postwrite"
@@ -1043,6 +1147,11 @@ class NaverBlogPublisher:
                         
                         # 이미지 매핑 생성
                         sorted_images = sorted(images, key=lambda x: x.get('index', 0)) if images else []
+                        logger.info(f"🔍 [DEBUG] images 파라미터: {images is not None}, 길이: {len(images) if images else 0}")
+                        logger.info(f"🔍 [DEBUG] sorted_images 길이: {len(sorted_images)}")
+                        if images:
+                            for idx, img in enumerate(images):
+                                logger.info(f"🔍 [DEBUG] Image {idx}: index={img.get('index')}, local_path={img.get('local_path', 'N/A')[:50] if img.get('local_path') else 'None'}")
                         logger.info(f"사용 가능한 이미지: {len(sorted_images)}개")
                         
                         # HTML 태그가 있으면 텍스트만 추출, 없으면 그대로 사용
@@ -1142,10 +1251,22 @@ class NaverBlogPublisher:
                                 # 이미지 마커 후 빈 줄
                                 formatted_lines.append('')
                             else:
-                                # 일반 텍스트 - 문장 단위로 분리 (. ! ? 뒤에서 분리)
-                                # 문장 끝 패턴: . ! ? 뒤에 공백이나 끝
+                                # 일반 텍스트 처리
+                                # 🔧 수정: 짧은 키워드/단어는 이전 줄과 합치기 (키워드 고립 방지)
+                                MIN_LINE_LENGTH = 10  # 최소 줄 길이 (글자 수)
+
+                                # 매우 짧은 줄이고 이전 줄이 있으면 합치기
+                                if len(line) < MIN_LINE_LENGTH and formatted_lines and formatted_lines[-1] != '':
+                                    # 이전 줄이 마커가 아니면 합치기
+                                    prev_line = formatted_lines[-1]
+                                    if not (prev_line.startswith('###') and prev_line.endswith('###')):
+                                        formatted_lines[-1] = prev_line + ' ' + line
+                                        logger.debug(f"짧은 줄 병합: '{line}' -> 이전 줄에 추가")
+                                        continue
+
+                                # 문장 단위로 분리 (. ! ? 뒤에서 분리)
                                 sentences = re.split(r'([.!?])\s+', line)
-                                
+
                                 # split 결과를 문장으로 재조합
                                 current_sentence = ''
                                 for i, part in enumerate(sentences):
@@ -1156,19 +1277,44 @@ class NaverBlogPublisher:
                                         current_sentence = ''
                                     elif part.strip():
                                         current_sentence += part
-                                
+
                                 # 마지막 문장 처리 (끝맺음 없이 끝나는 경우)
                                 if current_sentence.strip():
                                     formatted_lines.append(current_sentence.strip())
-                                
-                                # 이 줄(문단)이 끝났으므로 빈 줄 추가
-                                if formatted_lines and formatted_lines[-1] != '':
-                                    formatted_lines.append('')
                         
+                        # 🔧 수정: 스마트 문단 구분 - 실제 문단 전환에만 빈 줄 추가
+                        # 로직: 연속된 짧은 문장들은 하나의 문단으로 그룹화, 긴 문장 후에만 빈 줄
+                        smart_lines = []
+                        PARAGRAPH_THRESHOLD = 50  # 문단 구분 기준 글자 수
+
+                        for i, line in enumerate(formatted_lines):
+                            if line == '':  # 기존 빈 줄은 무시
+                                continue
+
+                            smart_lines.append(line)
+
+                            # 다음 줄 확인
+                            if i < len(formatted_lines) - 1:
+                                next_line = formatted_lines[i + 1] if i + 1 < len(formatted_lines) else ''
+
+                                # 마커 앞뒤에는 항상 빈 줄 (이미 추가됨)
+                                if next_line and (next_line.startswith('###') and next_line.endswith('###')):
+                                    continue
+                                if line.startswith('###') and line.endswith('###'):
+                                    continue
+
+                                # 현재 줄이 충분히 길고 (완전한 문단), 다음 줄도 일반 텍스트면 빈 줄 추가
+                                if (len(line) > PARAGRAPH_THRESHOLD and
+                                    next_line and
+                                    not (next_line.startswith('###') and next_line.endswith('###'))):
+                                    smart_lines.append('')
+
+                        formatted_lines = smart_lines
+
                         # 마지막 연속된 빈 줄 제거 (하나만 남기기)
                         while len(formatted_lines) > 1 and formatted_lines[-1] == '' and formatted_lines[-2] == '':
                             formatted_lines.pop()
-                        
+
                         # 맨 마지막 빈 줄 제거
                         if formatted_lines and formatted_lines[-1] == '':
                             formatted_lines.pop()
@@ -1912,6 +2058,43 @@ class NaverBlogPublisher:
                     time.sleep(2)
                 except:
                     logger.error("발행 버튼을 찾을 수 없습니다.")
+
+            # 4.5. 태그 입력 (첫 번째 발행 버튼 클릭 후)
+            logger.info("📌 태그 로딩 시작")
+            logger.info(f"매개변수로 전달된 tags: {tags if tags else 'None'} (개수: {len(tags) if tags else 0})")
+
+            # tags가 매개변수로 제공되지 않은 경우 publish_data에서 로드
+            if tags is None:
+                tags = []
+                if publish_data:
+                    if 'tags' in publish_data:
+                        tags = publish_data.get('tags', [])
+                        logger.info(f"✅ 발행 데이터에서 태그 로드: {len(tags)}개")
+                    elif 'html_file' in publish_data:
+                        # 메타데이터에서 태그 읽기 시도
+                        try:
+                            html_file_path = Path(publish_data['html_file'])
+                            meta_file = html_file_path.with_suffix('.meta.json')
+                            if meta_file.exists():
+                                with open(meta_file, 'r', encoding='utf-8') as f:
+                                    metadata = json.load(f)
+                                    tags = metadata.get('tags', [])
+                                    logger.info(f"✅ 메타데이터에서 태그 로드: {len(tags)}개")
+                            else:
+                                logger.warning(f"⚠️ 메타데이터 파일 없음: {meta_file}")
+                        except Exception as e:
+                            logger.warning(f"❌ 메타데이터에서 태그 로드 실패: {e}")
+                    else:
+                        logger.warning("⚠️ publish_data에 tags 및 html_file 정보 없음")
+                else:
+                    logger.warning("⚠️ publish_data가 None입니다")
+
+            logger.info(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            if tags:
+                logger.info(f"🏷️  태그 입력 시작: {len(tags)}개")
+                self.input_tags(tags)
+            else:
+                logger.warning("⚠️ 입력할 태그가 없습니다")
 
             # 5. 확인 발행 버튼 클릭 (두 번째)
             try:

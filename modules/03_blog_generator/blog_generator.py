@@ -1,7 +1,6 @@
 """
 블로그 생성기 - RAG 기반 HTML 블로그 생성
 """
-from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from typing import Optional, Dict, Any, List
@@ -13,12 +12,10 @@ import json
 import sys
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from config.settings import (
-    OPENAI_API_KEY, GOOGLE_API_KEY, DEFAULT_LLM_MODEL,
+    GOOGLE_API_KEY, DEFAULT_LLM_MODEL,
     TEMPERATURE, GENERATED_BLOGS_DIR, IMAGES_PER_BLOG,
     TOPIC_HISTORY_FILE, TOPIC_DUPLICATE_DAYS,
-    LM_STUDIO_ENABLED, LM_STUDIO_BASE_URL, LM_STUDIO_MODEL_NAME,
-    LM_STUDIO_CONTEXT_LENGTH, MAX_CONTEXT_CHARS,
-    MODULE_LLM_MODELS
+    MAX_CONTEXT_CHARS, MODULE_LLM_MODELS
 )
 from config.logger import get_logger
 
@@ -218,30 +215,8 @@ class BlogGenerator:
         logger.info(f"BlogGenerator 초기화 (모델: {model_name}, 온도: {temperature})")
 
     def _init_llm(self):
-        """LLM 초기화 - LM Studio, OpenAI API, Gemini API 지원"""
-        if "lm-studio" in self.model_name.lower() or "local" in self.model_name.lower():
-            # LM Studio (로컬 LLM)
-            if not LM_STUDIO_ENABLED:
-                logger.warning("LM Studio가 비활성화 상태입니다. .env에서 LM_STUDIO_ENABLED=true로 설정하세요.")
-            
-            logger.info(f"LM Studio 연결 시도: {LM_STUDIO_BASE_URL}")
-            return ChatOpenAI(
-                model=LM_STUDIO_MODEL_NAME,
-                temperature=self.temperature,
-                api_key="lm-studio",  # LM Studio는 API key 불필요 (더미값)
-                base_url=LM_STUDIO_BASE_URL,
-                max_retries=2
-            )
-        elif "gpt" in self.model_name.lower():
-            # OpenAI API (GPT 모델)
-            if not OPENAI_API_KEY:
-                raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다.")
-            return ChatOpenAI(
-                model=self.model_name,
-                temperature=self.temperature,
-                api_key=OPENAI_API_KEY
-            )
-        elif "gemini" in self.model_name.lower():
+        """LLM 초기화 - Gemini API 전용"""
+        if "gemini" in self.model_name.lower():
             # Google Gemini API
             if not GOOGLE_API_KEY:
                 raise ValueError("GOOGLE_API_KEY가 설정되지 않았습니다.")
@@ -251,7 +226,87 @@ class BlogGenerator:
                 google_api_key=GOOGLE_API_KEY
             )
         else:
-            raise ValueError(f"지원하지 않는 모델: {self.model_name}. 지원 모델: LM Studio, OpenAI (gpt-*), Gemini (gemini-*)")
+            raise ValueError(f"지원하지 않는 모델: {self.model_name}. Gemini 모델만 지원됩니다 (gemini-*)")
+
+    def generate_tags(
+        self,
+        topic: str,
+        context: str,
+        html_content: str,
+        max_tags: int = 30
+    ) -> List[str]:
+        """
+        블로그 글에서 주요 키워드 태그 생성
+
+        Args:
+            topic: 블로그 주제
+            context: RAG 컨텍스트
+            html_content: 생성된 블로그 HTML
+            max_tags: 최대 태그 개수 (기본값: 30)
+
+        Returns:
+            태그 리스트 (최대 max_tags개)
+        """
+        logger.info(f"태그 생성 시작: 주제='{topic}'")
+
+        # HTML에서 텍스트 추출
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        text_content = soup.get_text()
+
+        tag_prompt = f"""다음 블로그 글에서 검색 최적화(SEO)를 위한 핵심 키워드 태그를 추출해줘.
+
+블로그 주제: {topic}
+
+블로그 본문:
+{text_content[:2000]}
+
+요구사항:
+1. 블로그의 핵심 내용을 대표하는 단어/키워드만 선택
+2. 고유명사 (기업명, 인물명, 제품명, 지명 등) 우선 포함
+3. 주요 이슈 키워드 포함
+4. 단어당 1~3음절 (예: "AI", "삼성전자", "반도체")
+5. 최대 {max_tags}개까지만 선택
+6. 각 태그는 쉼표(,)로 구분
+7. **특수문자 절대 금지** - 오직 한글, 영문, 숫자만 사용
+   ❌ 금지: # @ ! ? . , / \\ & % $ * ( ) - _ = + [ ] {{ }} < > | ~ ` ' " : ; 공백
+   ✅ 허용: 한글, 영문자(a-zA-Z), 숫자(0-9)만
+8. 불필요한 조사나 어미 제거 (예: "기업의" → "기업", "했다" → X)
+
+출력 형식 (예시):
+AI, 삼성전자, 반도체, 투자, 기술, 경쟁, 글로벌, 시장, 전망, 성장
+
+⚠️ 주의: 태그에 공백이나 특수문자가 포함되면 안 됨!
+위 형식으로 태그만 출력해줘:"""
+
+        try:
+            response = self.llm.invoke(tag_prompt)
+            tags_text = response.content.strip()
+
+            # 태그 파싱 (쉼표로 분리, 공백 제거, 빈 문자열 제거)
+            tags = [tag.strip() for tag in tags_text.split(',') if tag.strip()]
+
+            # 🔧 모든 특수문자 제거 (한글, 영문, 숫자만 허용)
+            import re
+            cleaned_tags = []
+            for tag in tags:
+                # 특수문자 제거 - 한글, 영문, 숫자만 남김
+                clean_tag = re.sub(r'[^가-힣a-zA-Z0-9]', '', tag)
+                if clean_tag:  # 빈 문자열이 아니면 추가
+                    cleaned_tags.append(clean_tag)
+            tags = cleaned_tags
+
+            # 최대 개수 제한
+            tags = tags[:max_tags]
+
+            logger.info(f"태그 생성 완료: {len(tags)}개 - {', '.join(tags[:5])}...")
+            return tags
+
+        except Exception as e:
+            logger.error(f"태그 생성 중 오류: {e}")
+            # 기본 태그 반환 (주제에서 추출)
+            fallback_tags = [word for word in re.findall(r'[가-힣a-zA-Z0-9]+', topic) if len(word) >= 2]
+            return fallback_tags[:10]
 
     def generate_blog(
         self,
@@ -340,12 +395,9 @@ HTML 구조 예시:
 
 ###DIVIDER1###
 
-<p>본론 내용 (핵심 설명)...</p>
-<p>본론 내용 계속...</p>
-
 ###IMG1###
 
-<p>본론 내용 계속...</p>
+<p>본론 내용 (핵심 설명)...</p>
 <p>본론 내용 계속...</p>
 
 ###IMG2###
@@ -363,7 +415,7 @@ HTML 구조 예시:
 3. 구분선 마커는 독립된 줄에 배치 (앞뒤 빈 줄)
 4. 이미지 마커는 독립된 줄에 배치 (앞뒤 빈 줄)
 5. 마커 개수: ###DIVIDER1### (서론→본론), ###DIVIDER2### (본론→결론)
-6. 이미지 개수: ###IMG1###, ###IMG2###, ###IMG3### (2~3개)
+6. 이미지 개수: ###IMG1###, ###IMG2###, ###IMG3###, ###IMG4###, ###IMG5### (2~5개 필수)
 
 ━━━━━━━━━━━━━━━━━━
 📌 제목 작성 규칙 (SEO 최적화 필수!)
@@ -424,23 +476,21 @@ HTML 구조 예시:
 ━━━━━━━━━━━━━━━━━━
 📌 이미지 마커 삽입 규칙 (매우 중요!)
 ━━━━━━━━━━━━━━━━━━
-- 중간 부분(###DIVIDER1### ~ ###DIVIDER2### 사이)에 **2~3개**
+- 중간 부분(###DIVIDER1### ~ ###DIVIDER2### 사이)에 **2~5개 필수**
 - 반드시 독립된 줄에 마커만 배치
 - 앞뒤 빈 줄 유지
-- ⚠️ <img> 태그가 아닌 마커 사용: ###IMG1###, ###IMG2###, ###IMG3###
+- ⚠️ <img> 태그가 아닌 마커 사용: ###IMG1###, ###IMG2###, ###IMG3###, ###IMG4###, ###IMG5###
 
-배치 예시:
+배치 예시 (이미지가 먼저, 문단이 뒤에):
+###IMG1###
+
 <p>중간 내용 첫 번째 문단...</p>
 <p>중간 내용 두 번째 문단...</p>
 
-###IMG1###
+###IMG2###
 
 <p>중간 내용 세 번째 문단...</p>
 <p>중간 내용 네 번째 문단...</p>
-
-###IMG2###
-
-<p>중간 내용 다섯 번째 문단...</p>
 
 ⚠️ 주의:
 1. img 태그 사용 금지!
@@ -665,7 +715,8 @@ HTML 구조 예시:
 **필수 조건**:
 - 이미지는 총 2~3개를 **본론 섹션 중간**에 배치
 - 이미지는 반드시 **독립된 줄**에 배치 (앞뒤 빈 줄 필수)
-- 본론의 문단들 사이에 자연스럽게 분산 배치
+- ⚠️ **이미지 마커가 먼저, 관련 문단이 뒤에 오도록 배치**
+- 각 이미지 마커 바로 다음에 오는 문단이 해당 이미지의 내용이 됨
 
 **완전한 구조 예시** (반드시 이 형식을 정확히 따를 것!):
    ```html
@@ -675,21 +726,19 @@ HTML 구조 예시:
     <p>시작 부분 첫 번째 문단 (독자에게 말 걸듯)...</p>
     <p>시작 부분 두 번째 문단 (주제 소개)...</p>
 
-    <p>###DIVIDER1###</p>
+    ###DIVIDER1###
+
+    ###IMG1###
 
     <p>중간 부분 첫 번째 문단 (핵심 설명)...</p>
     <p>중간 부분 두 번째 문단...</p>
 
-    <p>###IMG1###</p>
+    ###IMG2###
 
     <p>중간 부분 세 번째 문단...</p>
     <p>중간 부분 네 번째 문단...</p>
 
-    <p>###IMG2###</p>
-
-    <p>중간 부분 다섯 번째 문단...</p>
-
-    <p>###DIVIDER2###</p>
+    ###DIVIDER2###
 
     <p>마무리 부분 (핵심 요약)...</p>
     <p>마무리 멘트...</p>
@@ -700,15 +749,29 @@ HTML 구조 예시:
 1. "서론", "본론", "결론" 단어 사용 금지! ❌
 2. h2 태그 사용 금지! ❌
 3. <img> 태그 사용 금지! ❌
-4. 구분선 마커: <p>###DIVIDER1###</p> (시작→중간), <p>###DIVIDER2###</p> (중간→마무리)
-5. 이미지 마커: <p>###IMG1###</p>, <p>###IMG2###</p> (2~3개, 중간 부분에만)
-6. **마커는 반드시 <p> 태그로 감싸기!** <p>###DIVIDER1###</p> ✅  ###DIVIDER1### ❌
-7. 마커 안에 다른 텍스트 넣지 말 것! <p>###DIVIDER1###</p> ✅  <p>구분선 ###DIVIDER1###</p> ❌
+4. 구분선 마커: ###DIVIDER1### (시작→중간), ###DIVIDER2### (중간→마무리)
+5. 이미지 마커: ###IMG1###, ###IMG2###, ###IMG3### (2~3개, 중간 부분에만)
+6. **마커는 독립된 줄에 배치하되, <p> 태그로 감싸지 말 것!**
+   - 올바른 형식:
+     ```html
+     <p>일반 텍스트 문단입니다.</p>
+
+     ###DIVIDER1###
+
+     <p>다음 문단입니다.</p>
+     ```
+   - 잘못된 형식: `<p>###DIVIDER1###</p>` ❌
+   - 잘못된 형식: `<p>구분선 ###DIVIDER1###</p>` ❌
+7. **각 문단(<p> 태그)에는 완전한 문장들을 포함**하고, 단일 키워드나 짧은 단어만 있는 <p> 태그는 절대 생성하지 말 것!
+   - 올바른 예: `<p>삼성전자는 최근 반도체 시장에서 좋은 성과를 거두고 있습니다. 특히 AI 칩 분야에서 두각을 나타내고 있습니다.</p>` ✅
+   - 잘못된 예: `<p>삼성전자</p>` ❌ (단일 키워드만 있음)
+   - 잘못된 예: `<p>최근</p>` ❌ (짧은 단어만 있음)
 
 📋 **마커 체크리스트**:
-- [ ] 모든 마커가 <p> 태그로 감싸져 있는가?
-- [ ] 마커만 단독으로 p 태그 안에 있는가?
+- [ ] 모든 마커가 독립된 줄에 있고 <p> 태그로 감싸지지 않았는가?
+- [ ] 마커 주변에 빈 줄이 있는가?
 - [ ] 마커 형식이 정확한가? (###DIVIDER1###, ###IMG1### 등)
+- [ ] 각 <p> 태그에 완전한 문장이 포함되어 있는가? (단일 키워드만 있는 <p> 태그 없음)
 
 지금 바로 위 구조대로 블로그 HTML을 생성해줘:"""
 
@@ -756,13 +819,26 @@ HTML 구조 예시:
 </body>
 </html>"""
 
-        # 이미지 플레이스홀더 검증
-        placeholders = re.findall(r'<img[^>]*src="PLACEHOLDER"[^>]*>', html)
-        logger.info(f"발견된 이미지 플레이스홀더: {len(placeholders)}개")
+        # 빈 <p> 태그 제거 (연속된 빈 <p> 태그 포함)
+        html = re.sub(r'<p>\s*</p>\s*(?:<p>\s*</p>)*', '', html, flags=re.IGNORECASE)
+        # 연속된 불필요한 줄바꿈 제거 (특히 마커 주변)
+        html = re.sub(r'\n\s*\n\s*(?:\n\s*)+', '\n\n', html)
+        
+        # 레거시 이미지 플레이스홀더 검증 로직은 현재 사용하지 않으므로 제거
+        # placeholders = re.findall(r'<img[^>]*src="PLACEHOLDER"[^>]*>', html)
+        # logger.info(f"발견된 이미지 플레이스홀더: {len(placeholders)}개")
 
         return html
 
-    def save_blog(self, html: str, topic: str, context: str = "", version: int = 1, category: str = "") -> Path:
+    def save_blog(
+        self,
+        html: str,
+        topic: str,
+        context: str = "",
+        version: int = 1,
+        category: str = "",
+        tags: Optional[List[str]] = None
+    ) -> Path:
         """
         블로그 HTML 파일로 저장 (메타데이터 포함, 카테고리별 폴더)
 
@@ -772,10 +848,20 @@ HTML 구조 예시:
             context: 사용된 컨텍스트 (품질 평가용)
             version: 버전 번호 (재생성 시 증가)
             category: 카테고리 (폴더 구분용)
+            tags: 블로그 태그 리스트 (None이면 자동 생성)
 
         Returns:
             저장된 파일 경로
         """
+        # 태그 자동 생성 (tags가 None인 경우)
+        if tags is None:
+            logger.info("태그가 제공되지 않았습니다. 자동 생성합니다...")
+            try:
+                tags = self.generate_tags(topic, context, html)
+            except Exception as e:
+                logger.error(f"태그 자동 생성 실패: {e}")
+                tags = []
+
         # 카테고리별 폴더 생성
         if category:
             save_dir = GENERATED_BLOGS_DIR / category
@@ -800,14 +886,15 @@ HTML 구조 예시:
             "created_at": datetime.now().isoformat(),
             "html_file": filename.name,
             "version": version,
-            "category": category  # 카테고리 정보 포함
+            "category": category,  # 카테고리 정보 포함
+            "tags": tags  # 태그 정보 추가
         }
-        
+
         import json
         with open(meta_filename, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=2)
 
-        logger.info(f"블로그 저장 완료: {filename} (카테고리: {category or '없음'}, 메타데이터 포함)")
+        logger.info(f"블로그 저장 완료: {filename} (카테고리: {category or '없음'}, 태그: {len(tags)}개, 메타데이터 포함)")
         return filename
 
     def extract_image_placeholders(self, html: str) -> list:

@@ -1,0 +1,103 @@
+# ============================================
+# Auto Blog Generator - Environment Variables
+# Copy this file to .env and fill in your values
+# ============================================
+
+# ============================================
+# LLM API Keys (at least one required)
+# ============================================
+
+# OpenAI API (GPT-4, GPT-4o, GPT-4o-mini, etc.)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Google Gemini API (Recommended!) - Optimized models auto-selected per module
+# Get your key at: https://aistudio.google.com/app/apikey
+GOOGLE_API_KEY=your_google_api_key_here
+
+# LM Studio (Local LLM - Free, Offline)
+LM_STUDIO_ENABLED=false
+LM_STUDIO_BASE_URL=http://localhost:1234/v1
+LM_STUDIO_MODEL_NAME=local-model
+LM_STUDIO_CONTEXT_LENGTH=4096
+MAX_CONTEXT_CHARS=12000
+
+# ============================================
+# Naver Blog Account (Required for publishing)
+# ============================================
+
+NAVER_ID=your_naver_id
+NAVER_PASSWORD=your_naver_password
+NAVER_BLOG_URL=https://blog.naver.com/your_blog_id
+
+# ============================================
+# Slack Notification (Optional)
+# ============================================
+
+# Get Bot Token at: https://api.slack.com/apps
+# Channel ID: Right-click channel > Copy link > last part of URL
+SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
+SLACK_CHANNEL_ID=C0123456789
+
+# ============================================
+# Email Notification (Optional)
+# ============================================
+
+# Gmail example (requires App Password)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASSWORD=your_app_password
+EMAIL_FROM=your_email@gmail.com
+EMAIL_TO=recipient1@example.com,recipient2@example.com
+
+# ============================================
+# Scraping Settings
+# ============================================
+
+HEADLESS_MODE=true
+SCRAPING_DELAY=2
+
+# ============================================
+# Quality Evaluation Settings
+# ============================================
+
+# Score threshold (0-100), blogs below this will be regenerated
+QUALITY_THRESHOLD=80
+
+# Maximum retry attempts
+MAX_RETRIES=3
+
+# ============================================
+# LLM Model Settings
+# ============================================
+
+# Default LLM model (Gemini 2.5 Flash recommended)
+DEFAULT_LLM_MODEL=gemini-2.5-flash
+
+# LLM Temperature (0.0-1.0, higher = more creative)
+TEMPERATURE=0.7
+
+# ============================================
+# Image Generation Settings
+# ============================================
+
+# Image model (Gemini 2.5 Flash Image - Nano Banana)
+GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
+
+# Image aspect ratio (used instead of fixed dimensions)
+# Options: 1:1, 3:4, 4:3, 9:16, 16:9
+# Default: 16:9 (optimal for Naver Blog horizontal layout)
+# Note: IMAGE_SIZE is not used - the model uses aspect_ratio internally
+
+# Number of images per blog post
+IMAGES_PER_BLOG=3
+
+# ============================================
+# Module-specific LLM Models (Auto-applied)
+# ============================================
+# Module 3 (Blog Generator): gemini-2.5-flash - Long content, creativity
+# Module 4 (Critic QA): gemini-2.5-flash - Accurate evaluation
+# Module 5 (Humanizer): gemini-2.5-flash - Creative style improvement
+# Module 6 (Image Generator): gemini-2.5-flash - Fast keyword extraction
+# Image Generation: gemini-2.5-flash-image (Nano Banana)
+
